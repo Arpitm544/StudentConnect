@@ -49,4 +49,50 @@ func ConnectDatabase() {
 		log.Fatal("Failed to create users table:", err)
 	}
 	fmt.Println("Users table ready")
+
+	// Create tasks table if it doesn't exist
+	tasksTableQuery := `
+	CREATE TABLE IF NOT EXISTS tasks (
+		id SERIAL PRIMARY KEY,
+		title TEXT NOT NULL,
+		description TEXT,
+		status VARCHAR(50) NOT NULL DEFAULT 'pending',
+		accepted BOOLEAN NOT NULL DEFAULT FALSE,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	_, err = DB.Exec(tasksTableQuery)
+	if err != nil {
+		log.Fatal("Failed to create tasks table:", err)
+	}
+
+	// Make sure creator_id and assignee_id are present
+	alterTableQuery := `
+	ALTER TABLE tasks 
+	ADD COLUMN IF NOT EXISTS creator_id INTEGER REFERENCES users(id),
+	ADD COLUMN IF NOT EXISTS assignee_id INTEGER REFERENCES users(id),
+	ADD COLUMN IF NOT EXISTS deadline TIMESTAMP,
+	ADD COLUMN IF NOT EXISTS progress INTEGER NOT NULL DEFAULT 0,
+	ADD COLUMN IF NOT EXISTS subject TEXT;
+	`
+	_, err = DB.Exec(alterTableQuery)
+	if err != nil {
+		log.Println("Note: Failed to alter tasks table (columns might already exist or DB might not support IF NOT EXISTS in this context):", err)
+	}
+	
+	fmt.Println("Tasks table ready")
+	EnsureUserColumns()
+}
+
+func EnsureUserColumns() {
+	alterUserTableQuery := `
+	ALTER TABLE users 
+	ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+	`
+	_, err := DB.Exec(alterUserTableQuery)
+	if err != nil {
+		log.Println("Note: Failed to alter users table (columns might already exist):", err)
+	}
 }

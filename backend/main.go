@@ -2,11 +2,11 @@ package main
 
 import (
 	"log"
-	"net/http"
 
 	"backend/config"
 	"backend/routes"
 
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
@@ -17,17 +17,15 @@ func main() {
 
 	config.ConnectDatabase()
 
-	mux := http.NewServeMux()
-	routes.SetupRoutes(mux)
-
-	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "pong"}`))
+	r := gin.Default()
+	r.GET("/ping", func(c *gin.Context) {
+		c.JSON(200, gin.H{"message": "pong"})
 	})
 
+	routes.SetupRoutes(r)
+
 	log.Println("Server is running on :8080")
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	if err := r.Run(":8080"); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
 }

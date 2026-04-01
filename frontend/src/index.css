@@ -14,19 +14,24 @@
 body {
   margin: 0;
   font-family: 'Inter', sans-serif;
-  background: var(--bg-gradient);
+  background: #f8fafc;
   color: var(--text-color);
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   overflow-x: hidden;
 }
 
 #root {
   width: 100%;
+  display: block;
+}
+
+.auth-wrapper {
+  min-height: 100vh;
+  width: 100%;
   display: flex;
   justify-content: center;
+  align-items: center;
+  background: var(--bg-gradient);
 }
 
 .auth-container {

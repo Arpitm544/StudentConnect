@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
-export default function Auth({ onLoginSuccess }) {
-  const [isLogin, setIsLogin] = useState(true);
+export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
+  const [isLogin, setIsLogin] = useState(initialIsLogin);
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,30 +16,58 @@ export default function Auth({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/signup';
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(isLogin ? {
-          email: formData.email,
-          password: formData.password,
-        } : formData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Something went wrong');
-      }
-
       if (isLogin) {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Something went wrong');
+        }
+
         onLoginSuccess();
       } else {
-        setIsLogin(true);
-        setFormData({ ...formData, password: '' }); 
-        alert('Signup successful! You can now log in.');
+        const response = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Something went wrong');
+        }
+
+        // Auto-login after successful signup so users immediately see the dashboard.
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        });
+
+        const loginData = await loginRes.json().catch(() => ({}));
+        if (!loginRes.ok) {
+          throw new Error(loginData.error || 'Login failed after signup');
+        }
+
+        onLoginSuccess();
       }
     } catch (err) {
       setError(err.message);
@@ -49,8 +77,9 @@ export default function Auth({ onLoginSuccess }) {
   };
 
   return (
-    <div className="auth-container">
-      <h1 className="title">{isLogin ? 'Welcome Back' : 'Create an Account'}</h1>
+    <div className="auth-wrapper">
+      <div className="auth-container">
+        <h1 className="title">{isLogin ? 'Welcome Back' : 'Create an Account'}</h1>
       
       {error && <div className="error-message">{error}</div>}
 
@@ -99,11 +128,12 @@ export default function Auth({ onLoginSuccess }) {
         </button>
       </form>
 
-      <div className="toggle-link">
-        {isLogin ? "Don't have an account?" : "Already have an account?"}
-        <span onClick={() => { setIsLogin(!isLogin); setError(''); }}>
-          {isLogin ? 'Sign up' : 'Log in'}
-        </span>
+        <div className="toggle-link">
+          {isLogin ? "Don't have an account?" : "Already have an account?"}
+          <span onClick={() => { setIsLogin(!isLogin); setError(''); }}>
+            {isLogin ? 'Sign up' : 'Log in'}
+          </span>
+        </div>
       </div>
     </div>
   );
