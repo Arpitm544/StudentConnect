@@ -28,3 +28,7 @@ frontend/.env.production.local
 # App env
 backend/.env
 .env
+
+
+*.json
+backend/*.json
