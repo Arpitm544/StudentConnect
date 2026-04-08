@@ -11,6 +11,7 @@ import {
   Zap,
   RefreshCw,
 } from 'lucide-react';
+import { API_URL } from './apiConfig';
 import './App.css';
 
 const STEPS = [
@@ -31,7 +32,7 @@ export default function TaskDetail() {
 
   const fetchTask = async () => {
     try {
-      const res = await fetch(`/tasks/detail/${id}`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/tasks/detail/${id}`, { credentials: 'include' });
       if (!res.ok) {
         if (res.status === 404) throw new Error('Task not found.');
         throw new Error(`Failed to load task (${res.status})`);
@@ -46,7 +47,7 @@ export default function TaskDetail() {
 
   const loadProfile = async () => {
     try {
-      const res = await fetch('/api/user/profile', { credentials: 'include' });
+      const res = await fetch(`${API_URL}/api/user/profile`, { credentials: 'include' });
       if (res.ok) setUserProfile(await res.json());
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -62,7 +63,7 @@ export default function TaskDetail() {
     setUpdateLoading(true);
     setError('');
     try {
-      const res = await fetch(`/tasks/${id}/status`, {
+      const res = await fetch(`${API_URL}/tasks/${id}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

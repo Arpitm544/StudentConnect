@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from './firebase.js';
+import { API_URL } from './apiConfig';
 
 export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
   const [isLogin, setIsLogin] = useState(initialIsLogin);
@@ -28,7 +29,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
       const idToken = await firebaseUser.getIdToken();
       if (!idToken) throw new Error('Failed to get Firebase ID token');
 
-      const res = await fetch('/api/auth/google', {
+      const res = await fetch(`${API_URL}/api/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -53,7 +54,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
 
     try {
       if (isLogin) {
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch(`${API_URL}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -63,7 +64,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
         if (!response.ok) throw new Error(data.error || 'Something went wrong');
         onLoginSuccess();
       } else {
-        const response = await fetch('/api/auth/signup', {
+        const response = await fetch(`${API_URL}/api/auth/signup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -73,7 +74,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
         if (!response.ok) throw new Error(data.error || 'Something went wrong');
 
         // Auto-login after signup
-        const loginRes = await fetch('/api/auth/login', {
+        const loginRes = await fetch(`${API_URL}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
