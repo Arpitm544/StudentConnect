@@ -12,12 +12,12 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://43.204.25.225:8080',
         changeOrigin: true,
         secure: false,
       },
       '/tasks': {
-        target: 'http://localhost:8080',
+        target: 'http://43.204.25.225:8080',
         changeOrigin: true,
         secure: false,
       },
