@@ -12,30 +12,33 @@ import (
 var DB *sql.DB
 
 func ConnectDatabase() {
-	// PostgreSQL DSN format
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
-	)
+	// ✅ Use CockroachDB connection string
+	dsn := os.Getenv("DATABASE_URL")
 
+	if dsn == "" {
+		log.Fatal("DATABASE_URL not set in environment")
+	}
+
+	// Open DB connection
 	database, err := sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatal("Failed to open database connection:", err)
 	}
 
+	// Test connection
 	if err := database.Ping(); err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
 	DB = database
+	fmt.Println("✅ Connected to CockroachDB")
 
-	// 1. Create tables if they don't exist
+	// =========================
+	// CREATE USERS TABLE
+	// =========================
 	createUsersTable := `
 	CREATE TABLE IF NOT EXISTS users (
-		id BIGSERIAL PRIMARY KEY,
+		id BIGINT PRIMARY KEY DEFAULT unique_rowid(),
 		uid VARCHAR(128) UNIQUE,
 		name VARCHAR(255) NOT NULL,
 		email VARCHAR(255) NOT NULL UNIQUE,
@@ -50,8 +53,9 @@ func ConnectDatabase() {
 		log.Fatal("Failed to create users table:", err)
 	}
 
-	// 2. MIGRATION: Column check (for existing tables missing Google Auth columns)
-	// PostgreSQL 9.6+ supports 'ADD COLUMN IF NOT EXISTS'
+	// =========================
+	// USERS MIGRATIONS
+	// =========================
 	migrations := []string{
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS uid VARCHAR(128) UNIQUE",
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT",
@@ -62,9 +66,12 @@ func ConnectDatabase() {
 		_, _ = DB.Exec(m)
 	}
 
+	// =========================
+	// CREATE TASKS TABLE
+	// =========================
 	tasksTableQuery := `
 	CREATE TABLE IF NOT EXISTS tasks (
-		id BIGSERIAL PRIMARY KEY,
+		id BIGINT PRIMARY KEY DEFAULT unique_rowid(),
 		title TEXT NOT NULL,
 		description TEXT,
 		status VARCHAR(50) NOT NULL DEFAULT 'pending',
@@ -83,9 +90,13 @@ func ConnectDatabase() {
 		log.Fatal("Failed to create tasks table:", err)
 	}
 
+	// =========================
+	// TASKS MIGRATIONS
+	// =========================
 	tasksMigrations := []string{
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS attachment_url TEXT",
 	}
+
 	for _, m := range tasksMigrations {
 		_, _ = DB.Exec(m)
 	}

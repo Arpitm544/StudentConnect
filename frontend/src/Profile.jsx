@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import { Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from './context/ThemeContext.jsx';
-import { API_URL } from './apiConfig';
 import './App.css';
 
 export default function Profile({ onLogout }) {
@@ -53,7 +52,7 @@ export default function Profile({ onLogout }) {
     // For the main dashboard (!currentPath), we use '/tasks/dashboard' per user request.
 
     try {
-      const res = await fetch(`${API_URL}${endpoint}`, { credentials: 'include' });
+      const res = await fetch(endpoint, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load tasks');
       const data = await res.json();
       setTasks(data);
@@ -65,7 +64,7 @@ export default function Profile({ onLogout }) {
   const loadProfile = async () => {
     setProfileLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/user/profile`, { credentials: 'include' });
+      const res = await fetch('/api/user/profile', { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load profile');
       const data = await res.json();
       setUserProfile(data);
@@ -82,7 +81,7 @@ export default function Profile({ onLogout }) {
     setUpdateLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_URL}/api/user/profile`, {
+      const res = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -125,7 +124,7 @@ export default function Profile({ onLogout }) {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${API_URL}/api/auth/logout`, {
+      await fetch('/api/auth/logout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -146,7 +145,7 @@ export default function Profile({ onLogout }) {
       if (newTask.attachment) {
         const formData = new FormData();
         formData.append('attachment', newTask.attachment);
-        const uploadRes = await fetch(`${API_URL}/api/upload`, {
+        const uploadRes = await fetch('/api/upload', {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -166,7 +165,7 @@ export default function Profile({ onLogout }) {
         deadline: newTask.deadline ? newTask.deadline : null,
         attachment_url: attachmentUrl,
       };
-      const res = await fetch(`${API_URL}/tasks`, {
+      const res = await fetch('/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -188,7 +187,7 @@ export default function Profile({ onLogout }) {
 
   const handleAccept = async (id) => {
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}/accept`, { method: 'POST', credentials: 'include' });
+      const res = await fetch(`/tasks/${id}/accept`, { method: 'POST', credentials: 'include' });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Failed to accept task');
@@ -203,7 +202,7 @@ export default function Profile({ onLogout }) {
     try {
       const body = { status };
       if (progress !== null) body.progress = parseInt(progress, 10);
-      const res = await fetch(`${API_URL}/tasks/${id}/status`, {
+      const res = await fetch(`/tasks/${id}/status`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -222,7 +221,7 @@ export default function Profile({ onLogout }) {
   const handleDeleteTask = async (id) => {
     if (!window.confirm('Delete this task?')) return;
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetch(`/tasks/${id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error('Delete failed');
       fetchTasks();
     } catch (err) {

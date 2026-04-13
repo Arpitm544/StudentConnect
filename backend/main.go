@@ -13,37 +13,38 @@ import (
 )
 
 func main() {
+	// Load env
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
 
-	// Connect to PostgreSQL
+	// Connect DB
 	config.ConnectDatabase()
-	// Initialize Firebase Admin SDK
+
 	config.InitFirebase()
 
 	r := gin.Default()
 
-	// CORS Setup: Crucial for allowing Vite frontend (5173) to send credentials
+	// CORS
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "https://main.d63s59pcpq7j4.amplifyapp.com", "http://127.0.0.1:5173"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
+		AllowOrigins: []string{
+			"http://localhost:5173",
+			"https://main.d63s59pcpq7j4.amplifyapp.com",
+			"http://127.0.0.1:5173",
+		},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
 
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "pong"})
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{"message": "Welcome to StudentConnect Backend"})
 	})
 
-	// Setup all routes
+	// Routes
 	routes.SetupRoutes(r)
 
-	// Logging server startup
-	log.Println("Server is running on :8080")
-	if err := r.Run(":8080"); err != nil {
-		log.Fatal("Failed to start server:", err)
-	}
+	log.Println("🚀 Server running on :8080")
+	r.Run(":8080")
 }

@@ -17,19 +17,22 @@ func InitFirebase() {
 
 	credsPath := os.Getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
 	if credsPath == "" {
-		log.Fatal("FIREBASE_SERVICE_ACCOUNT_JSON is required")
+		log.Println("⚠️ Firebase disabled (no credentials)")
+		return
 	}
 
 	app, err := firebase.NewApp(ctx, nil, option.WithCredentialsFile(credsPath))
 	if err != nil {
-		log.Fatal("Failed to init Firebase app:", err)
+		log.Println("❌ Firebase init error:", err)
+		return
 	}
 
 	client, err := app.Auth(ctx)
 	if err != nil {
-		log.Fatal("Failed to init Firebase auth client:", err)
+		log.Println("❌ Firebase auth error:", err)
+		return
 	}
 
 	FirebaseAuth = client
+	log.Println("✅ Firebase initialized")
 }
-
