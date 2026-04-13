@@ -28,7 +28,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
       const idToken = await firebaseUser.getIdToken();
       if (!idToken) throw new Error('Failed to get Firebase ID token');
 
-      const res = await fetch('/api/auth/google', {
+      const res = await fetch('http://43.204.25.225:8080/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -53,7 +53,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
 
     try {
       if (isLogin) {
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch('http://43.204.25.225:8080/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -63,7 +63,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
         if (!response.ok) throw new Error(data.error || 'Something went wrong');
         onLoginSuccess();
       } else {
-        const response = await fetch('/api/auth/signup', {
+        const response = await fetch('http://43.204.25.225:8080/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -73,7 +73,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
         if (!response.ok) throw new Error(data.error || 'Something went wrong');
 
         // Auto-login after signup
-        const loginRes = await fetch('/api/auth/login', {
+        const loginRes = await fetch('http://43.204.25.225:8080/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
