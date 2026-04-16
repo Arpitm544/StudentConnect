@@ -47,7 +47,7 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": id})
+	c.JSON(http.StatusCreated, gin.H{"id": strconv.FormatInt(id, 10)})
 
 	// async email
 	go func() {
@@ -84,11 +84,14 @@ func fetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 	
 	for rows.Next() {
 		var t models.Task
-		var assigneeName, description, subject, attachmentURL sql.NullString
-		if err := rows.Scan(&t.ID, &t.Title, &description, &t.Status, &t.Accepted, &t.CreatorID, &t.AssigneeID, &t.Deadline, &t.Progress, &subject, &attachmentURL, &t.CreatedAt, &t.UpdatedAt, &assigneeName); err != nil {
+		var assigneeName, assigneePhoto, creatorName, creatorPhoto, description, subject, attachmentURL sql.NullString
+		if err := rows.Scan(&t.ID, &t.Title, &description, &t.Status, &t.Accepted, &t.CreatorID, &t.AssigneeID, &t.Deadline, &t.Progress, &subject, &attachmentURL, &t.CreatedAt, &t.UpdatedAt, &assigneeName, &assigneePhoto, &creatorName, &creatorPhoto); err != nil {
 			return nil, err
 		}
 		t.AssigneeName = assigneeName.String
+		t.AssigneePhotoURL = assigneePhoto.String
+		t.CreatorName = creatorName.String
+		t.CreatorPhotoURL = creatorPhoto.String
 		t.Description = description.String
 		t.Subject = subject.String
 		if attachmentURL.Valid {
@@ -101,9 +104,12 @@ func fetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 
 // ListTasks - PUBLIC task list (only Open/Pending tasks)
 func ListTasks(c *gin.Context) {
-	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at, u.name as assignee_name
+	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
+	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url,
+	          u_c.name as creator_name, u_c.photo_url as creator_photo_url
 	          FROM tasks t 
-	          LEFT JOIN users u ON t.assignee_id = u.id 
+	          LEFT JOIN users u_a ON t.assignee_id = u_a.id 
+	          LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE t.status = 'pending' AND t.assignee_id IS NULL AND t.accepted = FALSE 
 	          ORDER BY t.id DESC`
 	tasks, err := fetchTasksByQuery(query)
@@ -119,9 +125,12 @@ func ListDashboardTasks(c *gin.Context) {
 	userIDValue, _ := c.Get("user_id")
 	userID := userIDValue.(int)
 
-	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at, u.name as assignee_name
+	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
+	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url,
+	          u_c.name as creator_name, u_c.photo_url as creator_photo_url
 	          FROM tasks t 
-	          LEFT JOIN users u ON t.assignee_id = u.id 
+	          LEFT JOIN users u_a ON t.assignee_id = u_a.id 
+	          LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE t.creator_id = $1 OR t.assignee_id = $2
 	          ORDER BY t.id DESC`
 	tasks, err := fetchTasksByQuery(query, userID, userID)
@@ -134,8 +143,12 @@ func ListDashboardTasks(c *gin.Context) {
 
 func ListMyTasks(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at, u.name as assignee_name 
-	          FROM tasks t LEFT JOIN users u ON t.assignee_id = u.id WHERE t.assignee_id = $1 ORDER BY t.id DESC`
+	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
+	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url,
+	          u_c.name as creator_name, u_c.photo_url as creator_photo_url
+	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id
+	          LEFT JOIN users u_c ON t.creator_id = u_c.id
+	          WHERE t.assignee_id = $1 ORDER BY t.id DESC`
 	tasks, err := fetchTasksByQuery(query, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch my tasks: " + err.Error()})
@@ -146,8 +159,12 @@ func ListMyTasks(c *gin.Context) {
 
 func ListPostedTasks(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at, u.name as assignee_name 
-	          FROM tasks t LEFT JOIN users u ON t.assignee_id = u.id WHERE t.creator_id = $1 ORDER BY t.id DESC`
+	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
+	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url,
+	          u_c.name as creator_name, u_c.photo_url as creator_photo_url
+	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id
+	          LEFT JOIN users u_c ON t.creator_id = u_c.id
+	          WHERE t.creator_id = $1 ORDER BY t.id DESC`
 	tasks, err := fetchTasksByQuery(query, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch posted tasks: " + err.Error()})
@@ -158,8 +175,11 @@ func ListPostedTasks(c *gin.Context) {
 
 func ListActiveTasks(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at, u.name as assignee_name 
-	          FROM tasks t LEFT JOIN users u ON t.assignee_id = u.id 
+	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
+	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url,
+	          u_c.name as creator_name, u_c.photo_url as creator_photo_url
+	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id 
+	          LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE (t.creator_id = $1 OR t.assignee_id = $2) 
 	          AND t.status IN ('accepted', 'in_progress', 'submitted') 
 	          ORDER BY t.id DESC`
@@ -264,8 +284,8 @@ func GetTask(c *gin.Context) {
 		SELECT 
 			t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, 
 			t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-			u_creator.name as creator_name, u_creator.email as creator_email,
-			u_assignee.name as assignee_name, u_assignee.email as assignee_email
+			u_creator.name as creator_name, u_creator.email as creator_email, u_creator.photo_url as creator_photo_url,
+			u_assignee.name as assignee_name, u_assignee.email as assignee_email, u_assignee.photo_url as assignee_photo_url
 		FROM tasks t
 		LEFT JOIN users u_creator ON t.creator_id = u_creator.id
 		LEFT JOIN users u_assignee ON t.assignee_id = u_assignee.id
@@ -273,13 +293,14 @@ func GetTask(c *gin.Context) {
 	`
 
 	var t models.Task
-	var creatorName, creatorEmail, assigneeName, assigneeEmail, description, subject, attachmentURL sql.NullString
+	var creatorName, creatorEmail, creatorPhoto, assigneeName, assigneeEmail, assigneePhoto, description, subject, attachmentURL sql.NullString
 	var creatorIDNull, assigneeIDNull sql.NullInt64
 
 	if err := config.DB.QueryRow(query, id).Scan(
 		&t.ID, &t.Title, &description, &t.Status, &t.Accepted, &creatorIDNull, &assigneeIDNull,
 		&t.Deadline, &t.Progress, &subject, &attachmentURL, &t.CreatedAt, &t.UpdatedAt,
-		&creatorName, &creatorEmail, &assigneeName, &assigneeEmail,
+		&creatorName, &creatorEmail, &creatorPhoto,
+		&assigneeName, &assigneeEmail, &assigneePhoto,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
@@ -311,8 +332,10 @@ func GetTask(c *gin.Context) {
 	}
 	t.CreatorName = creatorName.String
 	t.CreatorEmail = creatorEmail.String
+	t.CreatorPhotoURL = creatorPhoto.String
 	t.AssigneeName = assigneeName.String
 	t.AssigneeEmail = assigneeEmail.String
+	t.AssigneePhotoURL = assigneePhoto.String
 
 	c.JSON(http.StatusOK, t)
 }

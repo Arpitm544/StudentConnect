@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import {
   Users,
   LayoutDashboard,
@@ -7,23 +7,19 @@ import {
   GitMerge,
   User,
   PlusCircle,
-  Activity,
-  Clock,
-  CheckCircle2,
-  XCircle,
   Eye,
-  HelpCircle,
   Trash2,
   Zap,
   LogOut,
-  TrendingUp,
   AlertCircle,
-  Moon,
-  Sun,
+  FileText as FileTextIcon,
+  Menu,
+  X
 } from 'lucide-react';
 import { Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useTheme } from './context/ThemeContext.jsx';
-import './App.css';
+import { useAuth } from './context/AuthContext.jsx';
+import Avatar from './components/Avatar.jsx';
+import TaskRow from './components/TaskRow.jsx';
 
 export default function Profile({ onLogout }) {
   const [tasks, setTasks] = useState([]);
@@ -31,16 +27,22 @@ export default function Profile({ onLogout }) {
   const [newTask, setNewTask] = useState({ title: '', description: '', subject: '', deadline: '', attachment: null });
   const [postLoading, setPostLoading] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  const currentPath = location.pathname.split('/').pop();
+  const currentPath = location.pathname.split('/').pop() || 'dashboard';
 
   const [userProfile, setUserProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editField, setEditField] = useState('');
+  const [editCollegeName, setEditCollegeName] = useState('');
+  const [editYear, setEditYear] = useState('');
+  const [editPhotoFile, setEditPhotoFile] = useState(null);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState(null);
+  
   const [updateLoading, setUpdateLoading] = useState(false);
 
   const fetchTasks = async () => {
@@ -49,10 +51,9 @@ export default function Profile({ onLogout }) {
     if (currentPath === 'posted-requests') endpoint = '/tasks/posted';
     if (currentPath === 'active-workflows') endpoint = '/tasks/active';
     if (currentPath === 'market') endpoint = '/tasks';
-    // For the main dashboard (!currentPath), we use '/tasks/dashboard' per user request.
 
     try {
-      const res = await fetch(`http://43.204.25.225:8080${endpoint}`, { credentials: 'include' });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}${endpoint}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load tasks');
       const data = await res.json();
       setTasks(data);
@@ -64,11 +65,10 @@ export default function Profile({ onLogout }) {
   const loadProfile = async () => {
     setProfileLoading(true);
     try {
-      const res = await fetch('http://43.204.25.225:8080/api/user/profile', { credentials: 'include' });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/user/profile`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load profile');
       const data = await res.json();
       setUserProfile(data);
-      setEditName(data.name || '');
     } catch (err) {
       console.error(err);
     } finally {
@@ -76,22 +76,31 @@ export default function Profile({ onLogout }) {
     }
   };
 
-  const handleUpdateName = async () => {
+  const handleUpdateProfile = async () => {
     if (!editName.trim()) { setError('Name cannot be empty'); return; }
     setUpdateLoading(true);
     setError('');
+    
+    const formData = new FormData();
+    formData.append('name', editName);
+    formData.append('field', editField);
+    formData.append('college_name', editCollegeName);
+    formData.append('year', editYear);
+    if (editPhotoFile) {
+       formData.append('photo', editPhotoFile);
+    }
+    
     try {
-      const res = await fetch('http://43.204.25.225:8080/api/user/profile', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/user/profile`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ name: editName }),
+        body: formData,
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Failed to update profile');
       }
-      setUserProfile({ ...userProfile, name: editName });
+      loadProfile();
       setIsEditing(false);
     } catch (err) {
       setError(err.message);
@@ -108,23 +117,18 @@ export default function Profile({ onLogout }) {
     if (currentPath !== 'profile') fetchTasks();
   }, [currentPath]);
 
-  const computeStats = () => {
+  // ✅ useMemo — only recomputes when tasks array changes
+  const { total, completed, inProgress, pending } = useMemo(() => {
     const total = tasks.length;
     const completed = tasks.filter((t) => t.status === 'completed').length;
     const inProgress = tasks.filter((t) => t.status === 'in_progress').length;
-    const failed = tasks.filter((t) => t.status === 'cancelled' || t.status === 'failed').length;
-    const activeTasks = tasks.filter(t => ['in_progress', 'completed', 'pending'].includes(t.status));
-    const avgProgress = activeTasks.length > 0
-      ? Math.round(activeTasks.reduce((acc, t) => acc + (t.progress || 0), 0) / activeTasks.length)
-      : 0;
-    return { total, completed, inProgress, failed, avgProgress };
-  };
-
-  const { total, completed, inProgress, failed, avgProgress } = computeStats();
+    const pending = tasks.filter((t) => !t.status || t.status === 'pending').length;
+    return { total, completed, inProgress, pending };
+  }, [tasks]);
 
   const handleLogout = async () => {
     try {
-      await fetch('http://43.204.25.225:8080/api/auth/logout', {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -145,7 +149,7 @@ export default function Profile({ onLogout }) {
       if (newTask.attachment) {
         const formData = new FormData();
         formData.append('attachment', newTask.attachment);
-        const uploadRes = await fetch('http://43.204.25.225:8080/api/upload', {
+        const uploadRes = await fetch(`${import.meta.env.VITE_API_URL}/api/upload`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -165,7 +169,7 @@ export default function Profile({ onLogout }) {
         deadline: newTask.deadline ? newTask.deadline : null,
         attachment_url: attachmentUrl,
       };
-      const res = await fetch('http://43.204.25.225:8080/tasks', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -185,9 +189,9 @@ export default function Profile({ onLogout }) {
     }
   };
 
-  const handleAccept = async (id) => {
+  const handleAccept = useCallback(async (id) => {
     try {
-      const res = await fetch(`http://43.204.25.225:8080/tasks/${id}/accept`, { method: 'POST', credentials: 'include' });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${id}/accept`, { method: 'POST', credentials: 'include' });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Failed to accept task');
@@ -196,13 +200,13 @@ export default function Profile({ onLogout }) {
     } catch (err) {
       setError(err.message);
     }
-  };
+  }, [navigate]); // useCallback
 
-  const handleStatusChange = async (id, status, progress = null) => {
+  const handleStatusChange = useCallback(async (id, status, progress = null) => {
     try {
       const body = { status };
       if (progress !== null) body.progress = parseInt(progress, 10);
-      const res = await fetch(`http://43.204.25.225:8080/tasks/${id}/status`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${id}/status`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -216,25 +220,25 @@ export default function Profile({ onLogout }) {
     } catch (err) {
       setError(err.message);
     }
-  };
+  }, [fetchTasks]); // useCallback
 
-  const handleDeleteTask = async (id) => {
+  const handleDeleteTask = useCallback(async (id) => {
     if (!window.confirm('Delete this task?')) return;
     try {
-      const res = await fetch(`http://43.204.25.225:8080/tasks/${id}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error('Delete failed');
       fetchTasks();
     } catch (err) {
       setError(err.message);
     }
-  };
+  }, [fetchTasks]); // useCallback
 
-  const formatDate = (dateStr) => {
+  const formatDate = useCallback((dateStr) => {
     if (!dateStr) return '';
-    return new Date(dateStr).toISOString().split('T')[0];
-  };
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }, []);
 
-  const getPageTitle = () => {
+  const getPageTitle = useMemo(() => {
     const map = {
       'my-tasks': 'My Tasks',
       'posted-requests': 'Posted Requests',
@@ -242,494 +246,371 @@ export default function Profile({ onLogout }) {
       'market': 'Task Market',
       'profile': 'Profile',
     };
-    return map[currentPath] || 'Dashboard';
-  };
+    return map[currentPath] || (userProfile ? `Welcome back, ${userProfile.name.split(' ')[0]}` : 'Welcome back');
+  }, [currentPath, userProfile]);
 
-  const getPageSubtitle = () => {
+  const getPageSubtitle = useMemo(() => {
     const map = {
-      'my-tasks': 'Tasks assigned to you',
+      'my-tasks': 'Assignments assigned to your queue',
       'posted-requests': "Assignments you've posted for others",
-      'active-workflows': 'Currently running workflows',
-      'market': 'Browse public assignments from everyone',
-      'profile': 'Manage your account details',
+      'active-workflows': 'Currently running workflows tracking',
+      'market': 'Browse public assignments from all students',
+      'profile': 'Manage your personal details and account',
     };
-    return map[currentPath] || 'Overview of your activity';
-  };
+    return map[currentPath] || 'Dashboard';
+  }, [currentPath]);
 
   const navItems = [
-    { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={17} />, end: true },
-    { to: '/dashboard/market', label: 'Task Market', icon: <Users size={17} /> },
-    { to: '/dashboard/my-tasks', label: 'My Tasks', icon: <CheckSquare size={17} /> },
-    { to: '/dashboard/posted-requests', label: 'Posted Requests', icon: <FileText size={17} /> },
-    { to: '/dashboard/active-workflows', label: 'Active Workflows', icon: <GitMerge size={17} /> },
-    { to: '/dashboard/profile', label: 'Profile', icon: <User size={17} /> },
+    { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, end: true },
+    { to: '/dashboard/market', label: 'Task Market', icon: <Users size={18} /> },
+    { to: '/dashboard/my-tasks', label: 'My Tasks', icon: <CheckSquare size={18} /> },
+    { to: '/dashboard/posted-requests', label: 'Posted Requests', icon: <FileText size={18} /> },
+    { to: '/dashboard/active-workflows', label: 'Active Workflows', icon: <GitMerge size={18} /> },
   ];
 
   return (
-    <div className="dashboard-container">
-      {/* ── Sidebar ── */}
-      <aside className="dashboard-sidebar">
-        <div className="sidebar-logo">
-          <div className="logo-box"><Zap size={18} /></div>
-          <h2>StudentConnect</h2>
+    <div className="flex flex-col md:flex-row bg-[#f8fafc] min-h-screen relative overflow-x-hidden">
+      
+      {/* Mobile Top Header */}
+      <div className="md:hidden flex items-center justify-between bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 h-16 sticky top-0 z-30 w-full shrink-0 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Zap size={20} className="text-slate-900" fill="currentColor" />
+          <h2 className="text-[15px] font-bold text-slate-900 tracking-tight m-0">StudentConnect</h2>
+        </div>
+        <button onClick={() => setMobileMenuOpen(true)} className="p-2 -mr-2 text-gray-500 hover:text-slate-900 hover:bg-gray-50 rounded-lg transition">
+          <Menu size={22} />
+        </button>
+      </div>
+
+      {/* Mobile Menu Backdrop */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 md:hidden" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
+      {/* ── PHASE 6: Sidebar Final Polish ── */}
+      <aside className={`w-64 bg-white/95 md:bg-white/80 backdrop-blur-md border-r border-gray-100 flex flex-col shrink-0 h-screen z-50 transition-transform duration-300 md:translate-x-0 ${mobileMenuOpen ? 'translate-x-0 fixed top-0 left-0 shadow-2xl' : '-translate-x-full fixed top-0 left-0 md:sticky'}`}>
+        
+        {/* Logo */}
+        <div className="flex items-center justify-between gap-2 px-6 h-16 md:h-20 shrink-0 border-b md:border-0 border-slate-100">
+          <div className="flex items-center gap-2">
+             <Zap size={20} className="text-slate-900" fill="currentColor" />
+             <h2 className="text-[15px] font-bold text-slate-900 tracking-tight m-0">StudentConnect</h2>
+          </div>
+          <button className="md:hidden p-2 -mr-2 text-gray-400 hover:text-slate-900 bg-gray-50 hover:bg-gray-100 rounded-lg transition" onClick={() => setMobileMenuOpen(false)}>
+            <X size={18} />
+          </button>
         </div>
 
-        <nav>
-          <ul>
+        {/* Navigation */}
+        <nav className="flex-1 px-4 overflow-y-auto">
+          <ul className="space-y-1">
             {navItems.map(({ to, label, icon, end }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-              >
-                {icon} {label}
-              </NavLink>
+              <li key={to}>
+                <NavLink
+                  to={to}
+                  end={end}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition ${
+                      isActive
+                        ? 'bg-indigo-50 text-indigo-600 font-medium'
+                        : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                    }`
+                  }
+                >
+                  {icon} {label}
+                </NavLink>
+              </li>
             ))}
-          </ul>
-
-          <div className="nav-divider" />
-
-          <ul>
-            <li className="nav-item" style={{ opacity: 0.5, cursor: 'default' }}>
-              <Activity size={17} /> Analytics
-            </li>
-            <li className="nav-item" style={{ opacity: 0.5, cursor: 'default' }}>
-              <TrendingUp size={17} /> Reports
-            </li>
-          </ul>
-
-          <div className="nav-divider" />
-
-          <ul>
-            <li className="nav-item" onClick={toggleTheme}>
-              {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
-              {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
-            </li>
           </ul>
         </nav>
 
-        {/* Sidebar footer */}
-        <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
+        {/* User Profile Footer */}
+        <div className="p-4 border-t border-gray-100">
           {userProfile && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.5rem' }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: '10px',
-                background: 'var(--primary-soft)',
-                color: 'var(--primary)', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontWeight: 800, fontSize: '1rem',
-                border: '1.5px solid var(--primary-soft)', flexShrink: 0,
-              }}>
-                {userProfile.name?.charAt(0).toUpperCase()}
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: '0.825rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {userProfile.name}
-                </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {userProfile.email}
+            <div 
+              className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50 transition cursor-pointer group"
+              onClick={() => navigate('/dashboard/profile')}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <Avatar name={userProfile.name} photoUrl={userProfile.photo_url} size="md" />
+                <div className="min-w-0 pr-2">
+                  <p className="text-sm font-medium text-gray-900 truncate">{userProfile.name}</p>
                 </div>
               </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleLogout(); }}
+                className="text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-600 transition p-1"
+                title="Sign out"
+              >
+                <LogOut size={16} />
+              </button>
             </div>
           )}
         </div>
       </aside>
 
-      {/* ── Main Content ── */}
-      <main className="dashboard-main">
-        {/* Header */}
-        <header className="dashboard-header">
-          <div>
-            <h1>{getPageTitle()}</h1>
-            <p>{getPageSubtitle()}</p>
-          </div>
-          <div className="header-right">
-            <button className="signout-btn" onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <LogOut size={14} /> Sign Out
-            </button>
-          </div>
-        </header>
-
+      {/* ── PHASE 1: Main Content Wrapper ── */}
+      <main className="flex-1 px-4 sm:px-8 py-6 sm:py-8 max-w-6xl mx-auto w-full min-w-0 flex flex-col">
         <Routes>
-          {/* ── Profile Route ── */}
           <Route path="profile" element={
-            <section className="profile-wrapper">
+            <div className="max-w-2xl animate-fade-up">
+              {/* PHASE 2: Header */}
+              <div className="flex justify-between items-center mb-10">
+                <div>
+                  <p className="text-sm text-gray-500">{getPageSubtitle}</p>
+                  <h1 className="text-3xl font-semibold text-slate-900">{getPageTitle}</h1>
+                </div>
+              </div>
+              
               {profileLoading ? (
-                <div className="loader" />
+                <div className="loader !border-slate-200 !border-l-indigo-600 my-8" />
               ) : userProfile ? (
-                <div className="profile-card">
-                  <div className="profile-avatar"><User size={40} /></div>
-                  <div className="profile-details">
-                    {isEditing ? (
-                      <div style={{ marginBottom: '1rem' }}>
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="edit-name-input"
-                          placeholder="Enter your name"
-                          autoFocus
-                        />
-                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', justifyContent: 'center' }}>
-                          <button className="btn-primary" onClick={handleUpdateName} disabled={updateLoading}>
-                            {updateLoading ? 'Saving…' : 'Save Changes'}
-                          </button>
-                          <button className="btn-secondary" onClick={() => { setIsEditing(false); setEditName(userProfile.name); }}>
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
-                        <h2>{userProfile.name}</h2>
-                        <button className="edit-btn" onClick={() => setIsEditing(true)}>Edit</button>
-                      </div>
-                    )}
-                    <p className="profile-email">{userProfile.email}</p>
-
-                    <div className="profile-stats">
-                      <div className="p-stat">
-                        <span>Member Since</span>
-                        <strong>{formatDate(userProfile.created_at)}</strong>
-                      </div>
-                      <div className="p-stat">
-                        <span>Account Status</span>
-                        <strong className="status-badge status-completed">● Active</strong>
-                      </div>
+                <div className="bg-white rounded-2xl shadow-sm p-6 max-w-lg border border-gray-50 hover:shadow-md transition">
+                  <div className="flex flex-col sm:flex-row items-start gap-6 border-b border-gray-100 pb-6 mb-6">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-600 rounded-full flex items-center justify-center text-xl sm:text-2xl font-medium border border-indigo-100 shrink-0 overflow-hidden relative group">
+                      {isEditing ? (
+                         <>
+                            {previewPhotoUrl ? (
+                               <img src={previewPhotoUrl} alt="Preview" className="w-full h-full object-cover" />
+                            ) : (
+                               userProfile.photo_url ? (
+                                  <img src={userProfile.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                               ) : (
+                                  <span>{editName?.charAt(0).toUpperCase()}</span>
+                               )
+                            )}
+                            <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-white text-xs font-semibold cursor-pointer z-10 transition">
+                               Upload
+                            </div>
+                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-20" accept="image/*" onChange={(e) => {
+                               if(e.target.files && e.target.files[0]) {
+                                  setEditPhotoFile(e.target.files[0]);
+                                  setPreviewPhotoUrl(URL.createObjectURL(e.target.files[0]));
+                               }
+                            }} />
+                         </>
+                      ) : (
+                         userProfile.photo_url ? (
+                            <img src={userProfile.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                         ) : (
+                            <span>{userProfile.name?.charAt(0).toUpperCase()}</span>
+                         )
+                      )}
                     </div>
-
-                    {error && <div className="error-message" style={{ marginTop: '1rem' }}>⚠ {error}</div>}
+                    <div className="flex-1 w-full min-w-0">
+                      {isEditing ? (
+                        <div className="space-y-4">
+                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                             <div className="space-y-1">
+                               <label className="text-[12px] font-medium text-slate-500 uppercase tracking-wide">Full Name</label>
+                               <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full py-2.5 px-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-[14px]" placeholder="Full name" autoFocus />
+                             </div>
+                             <div className="space-y-1">
+                               <label className="text-[12px] font-medium text-slate-500 uppercase tracking-wide">Field</label>
+                               <input type="text" value={editField} onChange={(e) => setEditField(e.target.value)} className="w-full py-2.5 px-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-[14px]" placeholder="E.g. Computer Science" />
+                             </div>
+                             <div className="space-y-1">
+                               <label className="text-[12px] font-medium text-slate-500 uppercase tracking-wide">College Name</label>
+                               <input type="text" value={editCollegeName} onChange={(e) => setEditCollegeName(e.target.value)} className="w-full py-2.5 px-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-[14px]" placeholder="E.g. MIT" />
+                             </div>
+                             <div className="space-y-1">
+                               <label className="text-[12px] font-medium text-slate-500 uppercase tracking-wide">Year</label>
+                               <input type="text" value={editYear} onChange={(e) => setEditYear(e.target.value)} className="w-full py-2.5 px-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-[14px]" placeholder="E.g. Sophomore" />
+                             </div>
+                           </div>
+                           <div className="flex gap-2 pt-2">
+                             <button onClick={handleUpdateProfile} disabled={updateLoading} className="inline-flex items-center justify-center px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition text-sm font-medium w-full sm:w-auto shadow-sm">
+                               {updateLoading ? 'Saving...' : 'Save Changes'}
+                             </button>
+                             <button onClick={() => { setIsEditing(false); }} className="inline-flex items-center justify-center px-4 py-2.5 bg-gray-50 text-gray-700 rounded-xl hover:bg-gray-100 transition text-sm font-medium border border-gray-100 w-full sm:w-auto">
+                               Cancel
+                             </button>
+                           </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center flex-wrap gap-x-3 gap-y-2 mb-2">
+                            <h2 className="text-[22px] font-bold text-gray-900 tracking-tight">{userProfile.name}</h2>
+                            <button onClick={() => {
+                               setIsEditing(true);
+                               setEditName(userProfile.name);
+                               setEditField(userProfile.field || '');
+                               setEditCollegeName(userProfile.college_name || '');
+                               setEditYear(userProfile.year || '');
+                               setEditPhotoFile(null);
+                               setPreviewPhotoUrl(null);
+                            }} className="px-3.5 py-1.5 bg-indigo-50/70 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 rounded-full text-[13px] font-medium transition cursor-pointer border border-indigo-100">
+                               Edit Profile
+                            </button>
+                          </div>
+                          <div className="flex flex-col gap-1.5 mt-3">
+                             <p className="text-gray-600 text-[14px] flex items-center gap-2">
+                                <span className="font-medium text-gray-400 w-16">Email</span> {userProfile.email}
+                             </p>
+                             {userProfile.field && (
+                                <p className="text-gray-600 text-[14px] flex items-center gap-2">
+                                  <span className="font-medium text-gray-400 w-16">Field</span> {userProfile.field}
+                                </p>
+                             )}
+                             {(userProfile.college_name || userProfile.year) && (
+                                <p className="text-gray-600 text-[14px] flex items-center gap-2">
+                                  <span className="font-medium text-gray-400 w-16">College</span> 
+                                  {userProfile.college_name} 
+                                  {userProfile.college_name && userProfile.year && <span className="text-gray-400">•</span>} 
+                                  {userProfile.year && <span className="text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded-full text-[12px]">{userProfile.year}</span>}
+                                </p>
+                             )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500 mb-1">Member Since</p>
+                      <p className="font-medium text-gray-900">{formatDate(userProfile.created_at)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 mb-1">Status</p>
+                      <p className="font-medium text-gray-900 flex items-center gap-2">
+                         <span className="w-2 h-2 rounded-full bg-green-500"></span> Active
+                      </p>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <p style={{ color: 'var(--text-muted)' }}>Failed to load profile.</p>
+                <p className="text-gray-500 text-sm">Failed to load profile.</p>
               )}
-            </section>
+            </div>
           } />
 
-          {/* ── All Other Routes ── */}
           <Route path="*" element={
-            <>
-              {/* Stats — only on Dashboard index */}
-              {(!currentPath || currentPath === 'dashboard') && (
-                <section className="workflow-stats">
-                  <div className="stat-card">
-                    <div className="stat-icon-wrap icon-blue"><FileText size={20} /></div>
-                    <div className="stat-value">{total}</div>
-                    <div className="stat-label">Total Requests</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-icon-wrap icon-yellow"><Clock size={20} /></div>
-                    <div className="stat-value">{inProgress}</div>
-                    <div className="stat-label">In Progress</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-icon-wrap icon-green"><CheckCircle2 size={20} /></div>
-                    <div className="stat-value">{completed}</div>
-                    <div className="stat-label">Completed</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-icon-wrap icon-red"><XCircle size={20} /></div>
-                    <div className="stat-value">{failed}</div>
-                    <div className="stat-label">Failed / Cancelled</div>
-                  </div>
-                </section>
+            <div className="animate-fade-up">
+              
+              {/* ── PHASE 2: Header ── */}
+              <div className="flex justify-between items-center mb-10">
+                <div>
+                  <p className="text-sm text-gray-500">{getPageSubtitle}</p>
+                  <h1 className="text-3xl font-semibold text-slate-900">{getPageTitle}</h1>
+                </div>
+
+                {currentPath === 'posted-requests' && (
+                  <button
+                    className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition font-medium"
+                    onClick={() => setShowPostForm(v => !v)}
+                  >
+                    {showPostForm ? 'Cancel' : '+ Create Task'}
+                  </button>
+                )}
+              </div>
+
+              {/* Create Task Form */}
+              {currentPath === 'posted-requests' && showPostForm && (
+                 <div className="mb-10 bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition">
+                   <form onSubmit={handlePostAssignment} className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                         <label className="block text-sm text-gray-500 mb-1.5">Title</label>
+                         <input type="text" placeholder="Task title..." value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                           className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition" required />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-500 mb-1.5">Subject</label>
+                        <input type="text" placeholder="Subject..." value={newTask.subject} onChange={(e) => setNewTask({ ...newTask, subject: e.target.value })}
+                           className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition" required />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-500 mb-1.5">Deadline</label>
+                        <input type="date" value={newTask.deadline} onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                           className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm text-gray-500 mb-1.5">Description</label>
+                        <textarea placeholder="Write out the requirements..." value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} rows={3}
+                           className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition resize-y" />
+                      </div>
+                      <div className="col-span-2 border border-dashed border-gray-200 p-4 rounded-xl mt-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Attachment (Optional)</label>
+                        <input type="file" accept="image/*,application/pdf" onChange={(e) => setNewTask({ ...newTask, attachment: e.target.files[0] || null })}
+                           className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 transition cursor-pointer" />
+                      </div>
+                      <div className="col-span-2 mt-2">
+                         <button type="submit" disabled={postLoading} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition font-medium disabled:opacity-60">
+                           {postLoading ? 'Creating...' : 'Create Task'}
+                         </button>
+                      </div>
+                   </form>
+                 </div>
               )}
 
-              {/* Task Table Section */}
-              <section className="task-section">
-                {/* Active Workflows – Progress Banner */}
-                {currentPath === 'active-workflows' && (
-                  <div className="overall-progress-banner">
-                    <div className="overall-progress-header">
-                      <span>Overall Progress</span>
-                      <span style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--primary)', letterSpacing: '-0.03em' }}>
-                        {avgProgress}%
-                      </span>
-                    </div>
-                    <div className="overall-progress-bar-large">
-                      <div className="overall-progress-fill" style={{ width: `${avgProgress}%` }} />
-                    </div>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Average progress across active and completed tasks.
-                    </p>
-                  </div>
-                )}
+              {error && (
+                <div className="mb-10 flex items-center gap-2 p-4 bg-red-50 text-red-600 rounded-2xl text-sm">
+                  <AlertCircle size={18} /> {error}
+                </div>
+              )}
 
-                {/* Section Header */}
-                <div className="task-section-header">
-                  <h3>
-                    {currentPath === 'posted-requests' ? 'Posted Requests' :
-                     currentPath === 'my-tasks' ? 'Tasks I\'m Working On' :
-                     currentPath === 'market' ? 'Available Assignments' :
-                     currentPath === 'active-workflows' ? 'Active Workflows' : 'Recent Activity'}
-                  </h3>
-                  {currentPath === 'posted-requests' && (
-                    <button
-                      className="btn-primary"
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                      onClick={() => setShowPostForm(v => !v)}
-                    >
-                      <PlusCircle size={15} />
-                      {showPostForm ? 'Cancel' : 'Post Assignment'}
-                    </button>
+              {/* ── PHASE 3: Metrics ── */}
+              {(!currentPath || currentPath === 'dashboard') && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-10 w-full">
+                  {[
+                    { title: 'Total Tasks', value: total, text: `${total > 0 ? '+ Active' : '0 so far'}`, color: 'text-gray-500' },
+                    { title: 'In Progress', value: inProgress, text: 'Currently running', color: 'text-indigo-600' },
+                    { title: 'Completed', value: completed, text: 'Tasks finished', color: 'text-green-600' },
+                    { title: 'Pending', value: pending, text: 'Awaiting action', color: 'text-amber-600' },
+                  ].map((card) => (
+                    <div key={card.title} className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition">
+                      <p className="text-sm text-gray-500">{card.title}</p>
+                      <h2 className="text-3xl font-semibold mt-2 text-slate-900">{card.value}</h2>
+                      <p className={`text-xs mt-1 font-medium ${card.color}`}>{card.text}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── PHASE 4: Feed List View Structure ── */}
+              <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-sm p-4 sm:p-6 border border-white/60">
+                
+                {/* Rows & PHASE 5: Premium Empty State */}
+                <div className="space-y-1.5">
+                  {tasks.length === 0 ? (
+                    <div className="text-center py-20">
+                      <div className="w-12 h-12 mx-auto bg-gray-100 rounded-xl flex items-center justify-center">
+                        <FileTextIcon size={20} className="text-gray-500" />
+                      </div>
+                      <h3 className="mt-4 text-lg font-medium text-slate-900">No tasks yet</h3>
+                      <p className="text-gray-500 mt-2 text-sm">
+                        {currentPath === 'posted-requests' ? 'Create your first task to get started' : 'Check back later for new tasks.'}
+                      </p>
+                      {currentPath === 'posted-requests' && (
+                        <button onClick={() => setShowPostForm(true)} className="mt-6 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition font-medium shadow-sm">
+                          Create Task
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    // ✅ Memoized TaskRow — each row only re-renders when its own data changes
+                    tasks.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        currentPath={currentPath}
+                        userProfile={userProfile}
+                        onAccept={handleAccept}
+                        onStatusChange={handleStatusChange}
+                        onDelete={handleDeleteTask}
+                        onView={(id) => navigate(`/dashboard/task/${id}`)}
+                        formatDate={formatDate}
+                      />
+                    ))
                   )}
                 </div>
 
-                {/* Post Form */}
-                {currentPath === 'posted-requests' && showPostForm && (
-                  <form onSubmit={handlePostAssignment} style={{
-                    padding: '1.5rem',
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '1rem',
-                    borderBottom: '1px solid var(--border-subtle)',
-                    background: 'var(--bg-subtle)',
-                  }}>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <label style={labelStyle}>Title <span style={{ color: 'var(--danger)' }}>*</span></label>
-                      <input type="text" placeholder="Assignment title…" value={newTask.title}
-                        onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                        style={inputStyle} required />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Subject <span style={{ color: 'var(--danger)' }}>*</span></label>
-                      <input type="text" placeholder="e.g. Mathematics, CS…" value={newTask.subject}
-                        onChange={(e) => setNewTask({ ...newTask, subject: e.target.value })}
-                        style={inputStyle} required />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Deadline</label>
-                      <input type="date" value={newTask.deadline}
-                        onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
-                        style={inputStyle} />
-                    </div>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <label style={labelStyle}>Description</label>
-                      <textarea placeholder="Describe the assignment…" value={newTask.description}
-                        onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                        rows={3} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }} />
-                    </div>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <label style={labelStyle}>Attachment (Image/PDF)</label>
-                      <input type="file" accept="image/*,application/pdf"
-                        onChange={(e) => setNewTask({ ...newTask, attachment: e.target.files[0] || null })}
-                        style={{ ...inputStyle, padding: '0.45rem', fontSize: '0.8rem' }} />
-                    </div>
-                    <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.75rem' }}>
-                      <button type="submit" className="btn-primary" disabled={postLoading}>
-                        {postLoading ? 'Posting…' : '✓ Post Assignment'}
-                      </button>
-                      <button type="button" className="btn-secondary" onClick={() => setShowPostForm(false)}>
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                )}
+              </div>
 
-                {error && (
-                  <div className="error-message" style={{ margin: '0 1.5rem 0.5rem' }}>
-                    <AlertCircle size={14} style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} />
-                    {error}
-                  </div>
-                )}
-
-                {/* Table */}
-                <div className="task-table-wrapper">
-                  <table>
-                    <thead>
-                      {currentPath === 'posted-requests' || currentPath === 'market' ? (
-                        <tr>
-                          <th>ID</th>
-                          <th>Title</th>
-                          <th>Subject</th>
-                          <th>Posted</th>
-                          <th>Deadline</th>
-                          <th>Status</th>
-                          <th>{currentPath === 'market' ? 'Creator' : 'Accepted By'}</th>
-                          <th>Actions</th>
-                        </tr>
-                      ) : (
-                        <tr>
-                          <th>Task ID</th>
-                          <th>Title</th>
-                          <th>Subject</th>
-                          <th>Status</th>
-                          <th>Progress</th>
-                          <th>Deadline</th>
-                          <th>Date</th>
-                          <th>Actions</th>
-                        </tr>
-                      )}
-                    </thead>
-                    <tbody>
-                      {tasks.length === 0 ? (
-                        <tr>
-                          <td colSpan="8">
-                            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📭</div>
-                              <div style={{ fontWeight: 600, marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
-                                {currentPath === 'my-tasks' ? 'No tasks yet' :
-                                 currentPath === 'posted-requests' ? 'No posted assignments' :
-                                 currentPath === 'market' ? 'No assignments available' :
-                                 currentPath === 'active-workflows' ? 'No active workflows' :
-                                 'No recent activity'}
-                              </div>
-                              <div style={{ fontSize: '0.82rem' }}>
-                                {currentPath === 'my-tasks' ? 'Accept a task from the market to see it here.' :
-                                 currentPath === 'posted-requests' ? 'Post your first assignment above.' :
-                                 currentPath === 'market' ? 'Check back later for new requests.' :
-                                 'Tasks in progress will appear here.'}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : tasks.map((task) => {
-                        const statusClass = task.status ? `status-${task.status.replace('_', '')}` : 'status-pending';
-                        const isPastDeadline = task.deadline && new Date(task.deadline) < new Date();
-
-                        return (
-                          <tr key={task.id}>
-                            {currentPath === 'posted-requests' || currentPath === 'market' ? (
-                              <>
-                                <td className="task-id">#{task.id}</td>
-                                <td className="task-title" style={{ maxWidth: 160 }}>{task.title}</td>
-                                <td className="task-subtitle">
-                                  {task.subject
-                                    ? <span style={{ background: 'var(--primary-soft)', color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>{task.subject}</span>
-                                    : <span style={{ color: '#d1d5db' }}>—</span>}
-                                </td>
-                                <td className="task-subtitle">{formatDate(task.created_at)}</td>
-                                <td className="task-subtitle">
-                                  {task.deadline
-                                    ? <span style={{ color: isPastDeadline ? '#dc2626' : '#059669', fontWeight: 600, fontSize: '0.8rem' }}>{formatDate(task.deadline)}</span>
-                                    : <span style={{ color: '#d1d5db' }}>—</span>}
-                                </td>
-                                <td><span className={`status-badge ${statusClass}`}>{task.status || 'pending'}</span></td>
-                                <td className="task-subtitle" style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                  {currentPath === 'market' ? (task.creator_name || 'Anonymous') : (task.assignee_name || 'No one yet')}
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td className="task-id">ASG-{String(task.id).padStart(3, '0')}</td>
-                                <td className="task-title" style={{ maxWidth: 160 }}>{task.title}</td>
-                                <td className="task-subtitle">
-                                  {task.subject
-                                    ? <span style={{ background: 'var(--primary-soft)', color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>{task.subject}</span>
-                                    : <span style={{ color: '#d1d5db' }}>—</span>}
-                                </td>
-                                <td>
-                                  {task.accepted ? (
-                                    <select
-                                      className={`status-badge ${statusClass}`}
-                                      value={task.status || 'pending'}
-                                      onChange={(e) => handleStatusChange(task.id, e.target.value, task.progress)}
-                                      disabled={task.status === 'completed'}
-                                      style={{ cursor: task.status === 'completed' ? 'not-allowed' : 'pointer', border: 'none', outline: 'none', appearance: 'none', paddingRight: '0.5rem' }}
-                                    >
-                                      <option value="pending">Pending</option>
-                                      <option value="accepted">Accepted</option>
-                                      <option value="in_progress">In Progress</option>
-                                      <option value="submitted">Submitted</option>
-                                      {task.creator_id === userProfile?.id && <option value="completed">Completed</option>}
-                                      <option value="cancelled">Cancelled</option>
-                                    </select>
-                                  ) : (
-                                    <span className={`status-badge ${statusClass}`} style={{ opacity: 0.8 }}>
-                                      {task.status || 'pending'}
-                                    </span>
-                                  )}
-                                </td>
-                                <td style={{ minWidth: 130 }}>
-                                  <div className="progress-container">
-                                    <div className="progress-fill" style={{ width: `${task.progress || 0}%` }} />
-                                  </div>
-                                  {task.status === 'in_progress' ? (
-                                    <div className="progress-input-wrapper">
-                                      <input
-                                        type="number" className="progress-input"
-                                        min="0" max="100" defaultValue={task.progress || 0}
-                                        onBlur={(e) => handleStatusChange(task.id, task.status, e.target.value)}
-                                      />
-                                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>%</span>
-                                    </div>
-                                  ) : (
-                                    <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block', marginTop: '4px' }}>
-                                      {task.progress || 0}%
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="task-subtitle">
-                                  {task.deadline
-                                    ? <span style={{ color: isPastDeadline ? '#dc2626' : '#059669', fontWeight: 600, fontSize: '0.8rem' }}>{formatDate(task.deadline)}</span>
-                                    : <span style={{ color: '#d1d5db' }}>—</span>}
-                                </td>
-                                <td className="task-subtitle">{formatDate(task.created_at)}</td>
-                              </>
-                            )}
-                            <td>
-                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                {currentPath === 'market' && !task.accepted && task.creator_id !== userProfile?.id && (
-                                  <button className="btn-primary" style={{ padding: '0.3rem 0.7rem', fontSize: '0.75rem' }} onClick={() => handleAccept(task.id)}>
-                                    Accept
-                                  </button>
-                                )}
-                                <button className="action-view" onClick={() => navigate(`/dashboard/task/${task.id}`)}>
-                                  <Eye size={13} /> View
-                                </button>
-                                <button
-                                  className="action-view"
-                                  style={{ color: '#ef4444', background: 'rgba(239,68,68,0.07)' }}
-                                  onClick={() => handleDeleteTask(task.id)}
-                                  title="Delete task"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            </>
+            </div>
           } />
         </Routes>
       </main>
 
-      {/* Help FAB */}
-      <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 50 }}>
-        <button className="help-btn" title="Help">
-          <HelpCircle size={17} />
-        </button>
-      </div>
     </div>
   );
 }
-
-/* ── Shared inline style helpers ── */
-const labelStyle = {
-  fontSize: '0.75rem',
-  fontWeight: 700,
-  color: 'var(--text-secondary)',
-  display: 'block',
-  marginBottom: '0.4rem',
-  letterSpacing: '0.01em',
-};
-
-const inputStyle = {
-  width: '100%',
-  padding: '0.65rem 0.875rem',
-  borderRadius: 'var(--radius-md)',
-  border: '1.5px solid var(--border)',
-  fontSize: '0.875rem',
-  fontFamily: 'Inter, sans-serif',
-  color: 'var(--text-primary)',
-  background: 'var(--bg-card)',
-  outline: 'none',
-  boxSizing: 'border-box',
-  transition: 'border-color 0.2s',
-};

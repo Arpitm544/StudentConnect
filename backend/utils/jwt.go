@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -18,7 +19,7 @@ func getSecretKey() []byte {
 
 func GenerateToken(userID int) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": userID,
+		"user_id": strconv.Itoa(userID),
 		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 		"iat":     time.Now().Unix(),
 	}
@@ -40,11 +41,15 @@ func ValidateToken(tokenString string) (int, error) {
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		userID, ok := claims["user_id"].(float64)
+		userIDStr, ok := claims["user_id"].(string)
 		if !ok {
 			return 0, errors.New("invalid user_id in token")
 		}
-		return int(userID), nil
+		userID, err := strconv.Atoi(userIDStr)
+		if err != nil {
+			return 0, errors.New("malformed user_id in token")
+		}
+		return userID, nil
 	}
 
 	return 0, errors.New("invalid token")

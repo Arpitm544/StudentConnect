@@ -10,7 +10,7 @@ export function AuthProvider({ children }) {
   const refreshAuth = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://43.204.25.225:8080/api/auth/check', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/check`, {
         method: 'GET',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

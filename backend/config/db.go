@@ -60,6 +60,9 @@ func ConnectDatabase() {
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS uid VARCHAR(128) UNIQUE",
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT",
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR(32) DEFAULT 'password'",
+		"ALTER TABLE users ADD COLUMN IF NOT EXISTS field VARCHAR(255)",
+		"ALTER TABLE users ADD COLUMN IF NOT EXISTS college_name VARCHAR(255)",
+		"ALTER TABLE users ADD COLUMN IF NOT EXISTS year VARCHAR(50)",
 	}
 
 	for _, m := range migrations {

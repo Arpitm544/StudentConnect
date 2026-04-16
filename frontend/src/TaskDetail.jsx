@@ -1,37 +1,159 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
+import { useParams, useNavigate, Link, NavLink } from 'react-router-dom';
+import Avatar from './components/Avatar.jsx';
 import {
-  ArrowLeft,
-  Clock,
-  Calendar,
-  CheckCircle2,
-  AlertCircle,
-  Briefcase,
-  User,
-  Zap,
-  RefreshCw,
+  ArrowLeft, Clock, CheckCircle2, AlertCircle,
+  Briefcase, User, Zap, RefreshCw, FileText,
+  UserPlus, Edit3, Check, ChevronRight,
+  LayoutDashboard, Users, CheckSquare, GitMerge,
+  LogOut, Menu, X
 } from 'lucide-react';
-import './App.css';
+
+// ─── Module-level constants (never re-created per render) ─────────────────────
 
 const STEPS = [
-  { id: 'accepted',    label: 'Accepted',    emoji: '✅' },
-  { id: 'in_progress', label: 'In Progress', emoji: '⚡' },
-  { id: 'submitted',   label: 'Submitted',   emoji: '📤' },
-  { id: 'completed',   label: 'Completed',   emoji: '🎉' },
+  { id: 'accepted',    label: 'Accepted' },
+  { id: 'in_progress', label: 'In Progress' },
+  { id: 'submitted',   label: 'Submitted' },
+  { id: 'completed',   label: 'Completed' },
 ];
+
+const navItems = [
+  { to: '/dashboard',                    label: 'Dashboard',        icon: <LayoutDashboard size={18} />, end: true },
+  { to: '/dashboard/market',             label: 'Task Market',      icon: <Users size={18} /> },
+  { to: '/dashboard/my-tasks',           label: 'My Tasks',         icon: <CheckSquare size={18} /> },
+  { to: '/dashboard/posted-requests',    label: 'Posted Requests',  icon: <FileText size={18} /> },
+  { to: '/dashboard/active-workflows',   label: 'Active Workflows', icon: <GitMerge size={18} /> },
+];
+
+const DATE_FMT = { month: 'short', day: 'numeric', year: 'numeric' };
+
+// ─── Memoised sub-components ─────────────────────────────────────────────────
+
+/** Step circle in the timeline — only re-renders when its own state changes */
+const TimelineStep = memo(function TimelineStep({ step, isCompleted, isActive }) {
+  return (
+    <div className="relative flex flex-col items-center flex-1 z-10 w-full group cursor-default">
+      <div
+        className={`w-6 h-6 rounded-full flex items-center justify-center mb-4 transition-transform duration-200
+          ${isCompleted
+            ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)] group-hover:scale-110'
+            : isActive
+              ? 'bg-white border-[4px] border-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.3)] group-hover:scale-110'
+              : 'bg-[#f8fafc] text-transparent border-2 border-slate-300/60 group-hover:bg-slate-100'
+          }`}
+      >
+        {isCompleted && <Check size={12} strokeWidth={3.5} />}
+        {isActive    && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+      </div>
+      <span
+        className={`text-[11px] sm:text-[13px] tracking-wide text-center whitespace-normal sm:whitespace-nowrap
+          ${isCompleted || isActive ? 'font-semibold text-slate-800' : 'font-medium text-slate-400'}`}
+      >
+        {step.label}
+      </span>
+    </div>
+  );
+});
+
+/** CTA action strip — memoised so it doesn't flicker on unrelated state updates */
+const CTAStrip = memo(function CTAStrip({ status, isCreator, updateLoading, onAccept, onStatusUpdate }) {
+  if (status === 'pending') {
+    return (
+      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 flex flex-col gap-4 shadow-sm w-full">
+        <div className="text-[14px] text-indigo-900 font-medium">This task is waiting to be accepted.</div>
+        {!isCreator && (
+          <button
+            onClick={onAccept}
+            disabled={updateLoading}
+            className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-md hover:scale-[1.02]"
+          >
+            {updateLoading ? <RefreshCw size={16} className="animate-spin" /> : <ChevronRight size={16} />}
+            Accept Task
+          </button>
+        )}
+      </div>
+    );
+  }
+  if (status === 'accepted') {
+    return (
+      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 flex flex-col gap-4 shadow-sm w-full">
+        <div className="text-[14px] text-indigo-900 font-medium">Ready to begin working?</div>
+        <button
+          onClick={() => onStatusUpdate('in_progress')}
+          disabled={updateLoading}
+          className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-md hover:scale-[1.02]"
+        >
+          {updateLoading ? <RefreshCw size={16} className="animate-spin" /> : <ChevronRight size={16} />}
+          Start Progress
+        </button>
+      </div>
+    );
+  }
+  if (status === 'in_progress') {
+    return (
+      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 flex flex-col gap-4 shadow-sm w-full">
+        <div className="text-[14px] text-indigo-900 font-medium">Finished your work? Submit it.</div>
+        <button
+          onClick={() => onStatusUpdate('submitted')}
+          disabled={updateLoading}
+          className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-md hover:scale-[1.02]"
+        >
+          {updateLoading ? <RefreshCw size={16} className="animate-spin" /> : <ChevronRight size={16} />}
+          Submit Work
+        </button>
+      </div>
+    );
+  }
+  if (status === 'submitted' && isCreator) {
+    return (
+      <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-5 flex flex-col gap-4 shadow-sm w-full">
+        <div className="text-[14px] text-emerald-900 font-medium">Review the submission.</div>
+        <button
+          onClick={() => onStatusUpdate('completed')}
+          disabled={updateLoading}
+          className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-md hover:scale-[1.02]"
+        >
+          {updateLoading ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} />}
+          Mark as Completed
+        </button>
+      </div>
+    );
+  }
+  if (status === 'completed') {
+    return (
+      <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col gap-4 shadow-sm h-full w-full justify-center items-center">
+        <div className="text-[14px] text-slate-500 font-medium text-center">Task completely finished.</div>
+        <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+          <CheckCircle2 size={24} />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col justify-center h-full w-full">
+      <div className="text-[14px] text-slate-500 font-medium text-center opacity-80">Waiting for next steps...</div>
+    </div>
+  );
+});
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function TaskDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [task, setTask] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [task,          setTask]          = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState('');
   const [updateLoading, setUpdateLoading] = useState(false);
-  const [userProfile, setUserProfile] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userProfile,   setUserProfile]   = useState(null);
 
-  const fetchTask = async () => {
+  // ── Data fetching (useCallback so stable reference across renders) ──────────
+
+  const fetchTask = useCallback(async () => {
     try {
-      const res = await fetch(`http://43.204.25.225:8080/tasks/detail/${id}`, { credentials: 'include' });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/detail/${id}`, { credentials: 'include' });
       if (!res.ok) {
         if (res.status === 404) throw new Error('Task not found.');
         throw new Error(`Failed to load task (${res.status})`);
@@ -42,27 +164,40 @@ export default function TaskDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
-      const res = await fetch('http://43.204.25.225:8080/api/user/profile', { credentials: 'include' });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/user/profile`, { credentials: 'include' });
       if (res.ok) setUserProfile(await res.json());
     } catch (err) {
       console.error('Failed to load profile:', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchTask();
     loadProfile();
-  }, [id]);
+  }, [fetchTask, loadProfile]);
 
-  const handleStatusUpdate = async (newStatus) => {
+  // ── Action handlers ─────────────────────────────────────────────────────────
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      navigate('/', { replace: true });
+    } catch (_) {}
+  }, [navigate]);
+
+  const handleStatusUpdate = useCallback(async (newStatus) => {
     setUpdateLoading(true);
     setError('');
     try {
-      const res = await fetch(`http://43.204.25.225:8080/tasks/${id}/status`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${id}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -78,273 +213,326 @@ export default function TaskDetail() {
     } finally {
       setUpdateLoading(false);
     }
-  };
+  }, [id, fetchTask]);
 
-  /* ── Loading ── */
+  const handleAcceptTask = useCallback(async () => {
+    setUpdateLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${id}/accept`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to accept task');
+      }
+      fetchTask();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdateLoading(false);
+    }
+  }, [id, fetchTask]);
+
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
+  const openMobileMenu  = useCallback(() => setMobileMenuOpen(true),  []);
+
+  // ── Pure derivations (useMemo — no side effects) ────────────────────────────
+
+  const formatDate = useCallback((dateStr) => {
+    if (!dateStr) return 'Not set';
+    return new Date(dateStr).toLocaleDateString('en-US', DATE_FMT);
+  }, []);
+
+  const isPastDeadline = useMemo(
+    () => task?.deadline && new Date(task.deadline) < new Date(),
+    [task?.deadline]
+  );
+
+  const isCreator = useMemo(
+    () => !!(userProfile && task && task.creator_id === userProfile.id),
+    [userProfile, task?.creator_id]
+  );
+
+  const currentStepIndex = useMemo(
+    () => STEPS.findIndex(s => s.id === (task?.status === 'pending' ? 'accepted' : task?.status)),
+    [task?.status]
+  );
+
+  const percentage = useMemo(() => {
+    if (!task) return 0;
+    if (task.progress) return task.progress;
+    const map = { completed: 100, submitted: 75, in_progress: 50, accepted: 25 };
+    return map[task.status] ?? 0;
+  }, [task?.progress, task?.status]);
+
+  // ── Progress bar width (memoised string to avoid recalc on every render) ───
+
+  const progressBarStyle = useMemo(
+    () => ({ width: `calc(${percentage}% - 16px)` }),
+    [percentage]
+  );
+
+  // ── Early returns ───────────────────────────────────────────────────────────
+
   if (loading) return (
-    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', gap: '1rem' }}>
-      <div style={{
-        width: 52, height: 52,
-        background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-        borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 8px 24px var(--primary-glow)', animation: 'pulse 1.5s ease-in-out infinite',
-      }}>
-        <Zap size={24} color="white" />
-      </div>
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading task details…</p>
+    <div className="flex flex-col justify-center items-center min-h-screen bg-[#f8fafc] gap-4">
+      <p className="text-slate-500 text-sm font-medium animate-pulse">Loading workspace…</p>
     </div>
   );
 
-  /* ── Error ── */
   if (error && !task) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center', gap: '1rem' }}>
-      <div style={{
-        width: 64, height: 64, borderRadius: '50%', background: 'var(--danger-soft)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <AlertCircle size={28} color="var(--danger)" />
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#f8fafc] text-center gap-4">
+      <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+        <AlertCircle size={32} className="text-red-500" />
       </div>
       <div>
-        <h2 style={{ margin: '0 0 0.5rem', color: 'var(--text-primary)', fontWeight: 800 }}>Task Not Found</h2>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>{error}</p>
+        <h2 className="text-xl font-semibold text-slate-900 mb-2">Task Not Found</h2>
+        <p className="text-slate-500 text-sm max-w-sm mb-6">{error}</p>
       </div>
-      <Link to="/dashboard" className="btn-primary" style={{ textDecoration: 'none' }}>
+      <Link to="/dashboard" className="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors shadow-sm">
         ← Back to Dashboard
       </Link>
     </div>
   );
 
-  const currentStepIndex = STEPS.findIndex(s =>
-    s.id === (task.status === 'pending' ? 'accepted' : task.status)
-  );
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return 'Not set';
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  const isPastDeadline = task.deadline && new Date(task.deadline) < new Date();
-  const isCreator = userProfile && task.creator_id === userProfile.id;
-  const isLocked = task.status === 'completed' || task.status === 'cancelled';
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="task-detail-layout">
-      {/* Back Button */}
-      <div className="task-detail-header">
-        <button onClick={() => navigate(-1)} className="back-btn">
-          <ArrowLeft size={16} /> Back to Dashboard
+    <div className="flex flex-row bg-gradient-to-b from-slate-50 to-white h-screen overflow-hidden font-sans selection:bg-indigo-100 relative">
+      
+      {/* Ambient background glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-indigo-50 rounded-full blur-3xl pointer-events-none -z-10 opacity-70" />
+
+      {/* ── Mobile top bar ─────────────────────────────────────────────────── */}
+      <div className="md:hidden flex items-center justify-between bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 h-16 sticky top-0 z-30 w-full shrink-0 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Zap size={20} className="text-slate-900" fill="currentColor" />
+          <h2 className="text-[15px] font-bold text-slate-900 tracking-tight m-0">StudentConnect</h2>
+        </div>
+        <button onClick={openMobileMenu} className="p-2 -mr-2 text-gray-500 hover:text-slate-900 hover:bg-gray-50 rounded-lg transition-colors">
+          <Menu size={22} />
         </button>
       </div>
 
-      <div className="task-detail-grid">
-        {/* ── Main Column ── */}
-        <div className="task-main-column">
+      {/* Mobile backdrop */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 md:hidden" onClick={closeMobileMenu} />
+      )}
 
-          {/* Title Card */}
-          <div className="task-card main-info-card">
-            <div className="task-header-row">
-              <h1>{task.title}</h1>
-              <span className={`status-badge status-${task.status.replace('_', '')}`} style={{ flexShrink: 0 }}>
-                {task.status.replace('_', ' ')}
+      {/* ── Sidebar ────────────────────────────────────────────────────────── */}
+      <aside className={`w-[260px] bg-white border-r border-slate-100 flex flex-col shrink-0 z-50 py-6 h-full overflow-hidden transition-transform duration-300 ease-out ${mobileMenuOpen ? 'translate-x-0 fixed inset-y-0 left-0 shadow-2xl' : '-translate-x-full fixed inset-y-0 left-0 md:relative md:translate-x-0 md:left-auto'}`}>
+        <div className="flex items-center justify-between gap-2 px-6 mb-10 shrink-0">
+          <div className="flex items-center gap-2">
+            <Zap size={22} className="text-slate-900" fill="currentColor" />
+            <h2 className="text-[15px] font-bold text-slate-900 tracking-tight m-0">StudentConnect</h2>
+          </div>
+          <button className="md:hidden p-2 -mr-2 text-gray-400 hover:text-slate-900 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors" onClick={closeMobileMenu}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <nav className="flex-1 px-4 overflow-y-auto">
+          <ul className="space-y-1.5">
+            {navItems.map(({ to, label, icon, end }) => (
+              <li key={to}>
+                <NavLink
+                  to={to}
+                  end={end}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-medium transition-colors duration-150 ${
+                      isActive ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                    }`
+                  }
+                >
+                  {icon} {label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="px-4 mt-auto pt-4 border-t border-slate-100">
+          {userProfile && (
+            <div className="flex items-center justify-between gap-2 px-2 py-2 rounded-xl hover:bg-slate-50 transition-colors group">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Avatar name={userProfile.name} photoUrl={userProfile.photo_url} size="md" />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-slate-900 truncate">{userProfile.name}</p>
+                  <p className="text-[11px] text-slate-400 truncate">{userProfile.email}</p>
+                </div>
+              </div>
+              <button onClick={handleLogout} className="p-1.5 text-slate-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Sign out">
+                <LogOut size={15} />
+              </button>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* ── Main content ───────────────────────────────────────────────────── */}
+      <main className="flex-1 overflow-y-auto px-6 py-8 md:px-12 lg:px-20 w-full z-10 box-border">
+
+        {/* Breadcrumb */}
+        <div className="mb-8 pl-1">
+          <Link to="/dashboard" className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400 hover:text-slate-900 transition-colors duration-150">
+            <ArrowLeft size={14} strokeWidth={2.5} /> Back to Tasks
+          </Link>
+        </div>
+
+        {/* Floating Header */}
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-8 mb-10">
+          <div>
+            <h1 className="text-[32px] sm:text-4xl font-semibold text-slate-900 tracking-tight leading-snug m-0 mb-4">
+              {task.title}
+            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="bg-slate-100 text-slate-600 rounded-full px-3.5 py-1 text-[13px] font-medium capitalize">
+                {task.status?.replace('_', ' ') || 'Pending'}
+              </span>
+              <span className="bg-slate-100 text-slate-600 rounded-full px-3.5 py-1 text-[13px] font-medium">
+                Assigned to: {task.assignee_name || 'Unassigned'}
+              </span>
+              <span className="bg-slate-100 text-slate-600 rounded-full px-3.5 py-1 text-[13px] font-medium">
+                Created {formatDate(task.created_at)}
               </span>
             </div>
+          </div>
 
-            <div className="task-meta-info">
-              <div className="meta-item">
-                <Calendar size={15} />
-                <span style={{ color: isPastDeadline ? '#dc2626' : undefined, fontWeight: isPastDeadline ? 600 : 400 }}>
-                  {isPastDeadline ? '⚠ Overdue · ' : 'Due: '}
-                  {formatDate(task.deadline)}
-                </span>
+          <div className="flex flex-wrap items-center gap-2 shrink-0 md:mt-0 mt-2">
+            {task.status === 'pending' && !isCreator && (
+              <button
+                onClick={handleAcceptTask}
+                disabled={updateLoading}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-[13px] font-semibold hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg hover:scale-[1.02] w-full sm:w-auto justify-center"
+              >
+                {updateLoading ? <RefreshCw size={14} className="animate-spin" /> : <ChevronRight size={14} />}
+                Accept Task
+              </button>
+            )}
+            <button className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white sm:bg-transparent border sm:border-0 border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg text-[13px] font-medium transition-colors flex-1 sm:flex-none">
+              <UserPlus size={16} /> Assign
+            </button>
+            {isCreator && (
+              <button className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white sm:bg-transparent border sm:border-0 border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg text-[13px] font-medium transition-colors flex-1 sm:flex-none">
+                <Edit3 size={16} /> Edit
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Glass Panel */}
+        <div className="bg-white/80 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.06)] rounded-2xl p-8 mb-16 border border-white/60">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-8">
+
+            {/* Properties grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-8 gap-x-8">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Zap size={14} /> Status</p>
+                <p className="text-[15px] font-medium text-slate-900 capitalize">{task.status?.replace('_', ' ') || 'Pending'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5"><User size={14} /> Assigned To</p>
+                {task.assignee_name ? (
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={task.assignee_name} photoUrl={task.assignee_photo_url} size="md" tooltip />
+                    <span className="text-[15px] font-medium text-slate-900">{task.assignee_name}</span>
+                  </div>
+                ) : (
+                  <p className="text-[15px] font-medium text-slate-400 italic">Unassigned</p>
+                )}
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5"><Briefcase size={14} /> Posted By</p>
+                <div className="flex items-center gap-2.5">
+                  <Avatar name={task.creator_name} photoUrl={task.creator_photo_url} size="md" tooltip />
+                  <span className="text-[15px] font-medium text-slate-900">{task.creator_name || 'Unknown'}</span>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Clock size={14} /> Deadline</p>
+                <p className={`text-[15px] font-medium ${isPastDeadline ? 'text-red-500' : 'text-slate-900'}`}>{formatDate(task.deadline)}</p>
               </div>
               {task.subject && (
-                <div className="meta-item">
-                  <span className="subject-tag">
-                    <Briefcase size={13} style={{ marginRight: 5 }} />
-                    {task.subject}
-                  </span>
+                <div className="col-span-1 border-t border-slate-100 pt-6">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Subject</p>
+                  <p className="text-[15px] font-medium text-slate-900">{task.subject}</p>
                 </div>
               )}
-              <div className="meta-item">
-                <Clock size={15} />
-                <span>Created {formatDate(task.created_at)}</span>
-              </div>
             </div>
 
-            <div className="task-description-section">
-              <h3>Description</h3>
-              <p>{task.description || 'No description provided for this task.'}</p>
-            </div>
-
-            {task.attachment_url && (
-              <div className="task-description-section" style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '1.5rem' }}>
-                <h3>Attachment</h3>
-                <a href={task.attachment_url} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
-                  📄 View / Download Attachment
-                </a>
-              </div>
-            )}
-
-            {/* Progress bar inside main card */}
-            <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-subtle)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Progress</span>
-                <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.02em' }}>{task.progress || 0}%</span>
-              </div>
-              <div style={{ height: 8, background: 'var(--bg-subtle)', borderRadius: 999, overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%',
-                  width: `${task.progress || 0}%`,
-                  borderRadius: 999,
-                  background: task.status === 'completed'
-                    ? 'linear-gradient(90deg, var(--success), #34d399)'
-                    : 'linear-gradient(90deg, var(--primary), var(--accent))',
-                  transition: 'width 0.5s ease',
-                  boxShadow: '0 1px 6px var(--primary-glow)',
-                }} />
-              </div>
+            {/* CTA Strip — passes stable callbacks to memoised child */}
+            <div className="flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-100 pt-8 md:pt-0 md:pl-8">
+              <CTAStrip
+                status={task.status}
+                isCreator={isCreator}
+                updateLoading={updateLoading}
+                onAccept={handleAcceptTask}
+                onStatusUpdate={handleStatusUpdate}
+              />
             </div>
           </div>
 
-          {/* Workflow Steps Card */}
-          <div className="task-card workflow-card">
-            <h3 style={{ margin: '0 0 2rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Workflow Progress
-            </h3>
-            <div className="workflow-steps">
-              {STEPS.map((step, index) => {
-                const isCompleted = index < currentStepIndex || task.status === 'completed';
-                const isActive = index === currentStepIndex && task.status !== 'completed';
+          {/* Error alert */}
+          {error && (
+            <div className="mt-8 p-4 bg-red-50 text-red-600 text-[14px] font-medium rounded-xl flex items-center gap-2 shadow-sm border border-red-100">
+              <AlertCircle size={18} /> {error}
+            </div>
+          )}
+        </div>
 
-                return (
-                  <div key={step.id} className={`step-item ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}`}>
-                    <div className="step-circle">
-                      {isCompleted ? <CheckCircle2 size={16} /> : <span>{index + 1}</span>}
-                    </div>
-                    <span className="step-label">{step.label}</span>
-                    <div className="step-line" />
-                  </div>
-                );
-              })}
+        {/* Timeline */}
+        <div className="mb-20">
+          <div className="flex justify-between items-end mb-8">
+            <h3 className="text-xl font-semibold text-slate-900 tracking-tight">Timeline</h3>
+            <span className="text-[13px] font-bold text-indigo-600 tracking-wider uppercase bg-indigo-50 px-3 py-1 rounded-md">{percentage}% Completed</span>
+          </div>
+
+          <div className="relative pt-4 pb-8 w-full px-2">
+            {/* Track */}
+            <div className="absolute top-[26.5px] left-2 right-2 h-[3px] bg-slate-200/60 rounded-full -z-10" />
+            {/* Fill */}
+            <div
+              className="absolute top-[26.5px] left-2 h-[3px] rounded-full transition-[width] duration-1000 ease-in-out bg-gradient-to-r from-indigo-500 to-violet-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] -z-10"
+              style={progressBarStyle}
+            />
+            {/* Steps */}
+            <div className="flex justify-between relative w-full">
+              {STEPS.map((step, index) => (
+                <TimelineStep
+                  key={step.id}
+                  step={step}
+                  isCompleted={index < currentStepIndex || task.status === 'completed'}
+                  isActive={index === currentStepIndex && task.status !== 'completed'}
+                />
+              ))}
             </div>
           </div>
         </div>
 
-        {/* ── Sidebar ── */}
-        <div className="task-sidebar-column">
-
-          {/* Status Update Card */}
-          <div className="task-card status-update-card">
-            <h4>Update Status</h4>
-            {!task.accepted ? (
-              <div style={{
-                padding: '1rem', borderRadius: 'var(--radius-md)',
-                background: 'var(--primary-soft)', color: 'var(--primary)',
-                fontSize: '0.82rem', fontWeight: 600, textAlign: 'center',
-                lineHeight: 1.5, border: '1px dashed var(--primary-soft)'
-              }}>
-                <Clock size={16} style={{ marginBottom: '0.5rem', display: 'block', margin: '0 auto 0.5rem' }} />
-                Waiting for someone to accept this assignment...
-              </div>
-            ) : isLocked ? (
-              <div style={{
-                padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)',
-                background: task.status === 'completed' ? 'var(--success-soft)' : 'var(--danger-soft)',
-                color: task.status === 'completed' ? '#10b981' : '#ef4444',
-                fontSize: '0.82rem', fontWeight: 600, textAlign: 'center',
-              }}>
-                {task.status === 'completed' ? '🎉 Task completed & locked' : '🚫 Task cancelled'}
-              </div>
-            ) : (
-              <>
-                <select
-                  value={task.status === 'pending' ? 'accepted' : task.status}
-                  onChange={(e) => handleStatusUpdate(e.target.value)}
-                  disabled={updateLoading}
-                  className="status-dropdown"
-                >
-                  <option value="pending" disabled>Pending</option>
-                  {STEPS
-                    .filter(s => s.id !== 'completed' || isCreator)
-                    .map(s => (
-                      <option key={s.id} value={s.id}>{s.emoji} {s.label}</option>
-                    ))}
-                  <option value="cancelled">❌ Cancelled</option>
-                </select>
-                {updateLoading && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.6rem', fontSize: '0.78rem', color: 'var(--primary)' }}>
-                    <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
-                    Updating…
-                  </div>
-                )}
-                {error && (
-                  <div className="error-message" style={{ marginTop: '0.75rem', marginBottom: 0 }}>
-                    ⚠ {error}
-                  </div>
-                )}
-                {!isCreator && (
-                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.75rem', lineHeight: 1.5 }}>
-                    Only the task creator can mark it as <strong>Completed</strong>.
-                  </p>
-                )}
-              </>
-            )}
+        {/* Description */}
+        <div className="max-w-3xl mb-24">
+          <h3 className="text-[13px] font-bold text-slate-400 mb-6 tracking-widest uppercase">Task Description</h3>
+          <div className="text-slate-700 leading-relaxed text-[16px] whitespace-pre-wrap">
+            {task.description || <span className="text-slate-400 italic">No description provided.</span>}
           </div>
 
-          {/* Assignee Card */}
-          <div className="task-card user-card">
-            <h4>Assigned To</h4>
-            <div className="user-info">
-              <div className="user-avatar">
-                {task.assignee_name ? task.assignee_name.charAt(0).toUpperCase() : <User size={18} />}
-              </div>
-              <div className="user-text">
-                <p className="user-name">{task.assignee_name || 'Not yet assigned'}</p>
-                <p className="user-email">{task.assignee_email || '—'}</p>
-              </div>
+          {task.attachment_url && (
+            <div className="mt-10 pt-8 border-t border-slate-200/50">
+              <a
+                href={task.attachment_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-3 bg-white border border-slate-200/80 rounded-xl text-[14px] font-medium text-slate-700 hover:bg-slate-50 hover:shadow-md hover:scale-[1.02] transition-all duration-150 shadow-sm w-fit"
+              >
+                <FileText size={18} className="text-indigo-500" /> View Attached Document
+              </a>
             </div>
-          </div>
-
-          {/* Creator Card */}
-          <div className="task-card user-card">
-            <h4>Posted By</h4>
-            <div className="user-info">
-              <div className="user-avatar creator">
-                {task.creator_name ? task.creator_name.charAt(0).toUpperCase() : <User size={18} />}
-              </div>
-              <div className="user-text">
-                <p className="user-name">
-                  {task.creator_name}
-                  {isCreator && (
-                    <span style={{ marginLeft: '0.4rem', fontSize: '0.68rem', background: 'var(--primary-soft)', color: 'var(--primary)', padding: '0.1rem 0.5rem', borderRadius: 999, fontWeight: 700 }}>
-                      You
-                    </span>
-                  )}
-                </p>
-                <p className="user-email">{task.creator_email}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Task Meta Card */}
-          <div className="task-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-            <h4 style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>
-              Details
-            </h4>
-            {[
-              { label: 'Task ID', value: `#${task.id}` },
-              { label: 'Deadline', value: formatDate(task.deadline), highlight: isPastDeadline },
-              { label: 'Progress', value: `${task.progress || 0}%` },
-            ].map(({ label, value, highlight }) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>{label}</span>
-                <span style={{ fontSize: '0.825rem', fontWeight: 700, color: highlight ? '#dc2626' : 'var(--text-primary)' }}>{value}</span>
-              </div>
-            ))}
-          </div>
-
+          )}
         </div>
-      </div>
+
+      </main>
     </div>
   );
 }

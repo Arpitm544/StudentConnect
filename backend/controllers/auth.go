@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"backend/config"
 	"backend/models"
 	"backend/services"
 	"backend/utils"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -126,7 +128,7 @@ func GoogleAuth(c *gin.Context) {
 	// First, check if a user with this UID already exists.
 	var userID int64
 	err = config.DB.QueryRow("SELECT id FROM users WHERE uid = $1", uid).Scan(&userID)
-	
+
 	if err == nil {
 		// 1. UID matches. User already exists.
 		// Best-effort update of profile info.
@@ -147,7 +149,7 @@ func GoogleAuth(c *gin.Context) {
 				"INSERT INTO users (uid, name, email, photo_url, provider) VALUES ($1, $2, $3, $4, 'google') RETURNING id",
 				uid, name, email, nullableString(picture),
 			).Scan(&userID)
-			
+
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user: " + err.Error()})
 				return
@@ -173,7 +175,7 @@ func GoogleAuth(c *gin.Context) {
 	c.SetCookie("token", tokenString, 86400, "/", "", false, true)
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":        userID,
+		"id":        strconv.FormatInt(userID, 10),
 		"uid":       uid,
 		"name":      name,
 		"email":     email,
@@ -196,7 +198,7 @@ func CheckAuth(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"authenticated": true,
-		"user_id":       userID,
+		"user_id":       strconv.Itoa(userID),
 	})
 }
 
@@ -208,10 +210,9 @@ func GetProfile(c *gin.Context) {
 	}
 
 	var user models.User
-	query := "SELECT id, uid, name, email, photo_url, provider, created_at FROM users WHERE id = $1"
-	var uid sql.NullString
-	var photo sql.NullString
-	err := config.DB.QueryRow(query, userID).Scan(&user.ID, &uid, &user.Name, &user.Email, &photo, &user.Provider, &user.CreatedAt)
+	query := "SELECT id, uid, name, email, photo_url, provider, field, college_name, year, created_at FROM users WHERE id = $1"
+	var uid, photo, field, college_name, year sql.NullString
+	err := config.DB.QueryRow(query, userID).Scan(&user.ID, &uid, &user.Name, &user.Email, &photo, &user.Provider, &field, &college_name, &year, &user.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -222,13 +223,16 @@ func GetProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":         user.ID,
-		"uid":        nullToEmpty(uid),
-		"name":       user.Name,
-		"email":      user.Email,
-		"photo_url":  nullToEmpty(photo),
-		"provider":   user.Provider,
-		"created_at": user.CreatedAt,
+		"id":           strconv.FormatUint(uint64(user.ID), 10),
+		"uid":          nullToEmpty(uid),
+		"name":         user.Name,
+		"email":        user.Email,
+		"photo_url":    nullToEmpty(photo),
+		"provider":     user.Provider,
+		"field":        nullToEmpty(field),
+		"college_name": nullToEmpty(college_name),
+		"year":         nullToEmpty(year),
+		"created_at":   user.CreatedAt,
 	})
 }
 
@@ -239,22 +243,49 @@ func UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	var input struct {
-		Name string `json:"name"`
-	}
-
-	if err := c.BindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse multipart form: " + err.Error()})
 		return
 	}
 
-	if input.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Name cannot be empty"})
+	name := c.Request.FormValue("name")
+	field := c.Request.FormValue("field")
+	collegeName := c.Request.FormValue("college_name")
+	year := c.Request.FormValue("year")
+
+	if name == "" {
+		// Log parsed form to help diagnose
+		fields := []string{}
+		if c.Request.MultipartForm != nil {
+			for k := range c.Request.MultipartForm.Value {
+				fields = append(fields, k)
+			}
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Name cannot be empty. Parsed keys: " + strings.Join(fields, ", ")})
 		return
 	}
 
-	query := "UPDATE users SET name = $1 WHERE id = $2"
-	_, err := config.DB.Exec(query, input.Name, userID)
+	updateQuery := "UPDATE users SET name = $1, field = $2, college_name = $3, year = $4"
+	args := []interface{}{name, nullableString(field), nullableString(collegeName), nullableString(year)}
+	argID := 5
+
+	file, header, err := c.Request.FormFile("photo")
+	if err == nil && file != nil {
+		defer file.Close()
+		photoURL, uploadErr := services.UploadFile(file, header.Filename)
+		if uploadErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})
+			return
+		}
+		updateQuery += fmt.Sprintf(", photo_url = $%d", argID)
+		args = append(args, photoURL)
+		argID++
+	}
+
+	updateQuery += fmt.Sprintf(" WHERE id = $%d", argID)
+	args = append(args, userID)
+
+	_, err = config.DB.Exec(updateQuery, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
 		return
