@@ -48,8 +48,13 @@ func SetupRoutes(r *gin.Engine) {
 		tasks.GET("/active", controllers.ListActiveTasks)
 		tasks.GET("/detail/:id", controllers.GetTask)
 		tasks.POST("/:id/accept", controllers.AcceptTask)
+		tasks.POST("/:id/leave", controllers.LeaveTask)
 		tasks.POST("/:id/status", controllers.UpdateTaskStatus)
 		tasks.DELETE("/:id", controllers.DeleteTask)
+
+		tasks.POST("/:id/milestones", controllers.AddMilestone)
+		tasks.POST("/:id/milestones/:mid/status", controllers.UpdateMilestoneStatus)
+		tasks.POST("/:id/milestones/:mid/submit", controllers.SubmitMilestoneForReview)
 	}
 
 	user := r.Group("/api/user")

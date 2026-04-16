@@ -6,16 +6,16 @@ import {
   Briefcase, User, Zap, RefreshCw, FileText,
   UserPlus, Edit3, Check, ChevronRight,
   LayoutDashboard, Users, CheckSquare, GitMerge,
-  LogOut, Menu, X
+  LogOut, Menu, X, Code, ExternalLink, Link2, Lock
 } from 'lucide-react';
 
 // ─── Module-level constants (never re-created per render) ─────────────────────
 
 const STEPS = [
   { id: 'accepted',    label: 'Accepted' },
-  { id: 'in_progress', label: 'In Progress' },
-  { id: 'submitted',   label: 'Submitted' },
-  { id: 'completed',   label: 'Completed' },
+  { id: 'in_progress', label: 'Developing' },
+  { id: 'submitted',   label: 'In Review' },
+  { id: 'completed',   label: 'Done' },
 ];
 
 const navItems = [
@@ -57,7 +57,7 @@ const TimelineStep = memo(function TimelineStep({ step, isCompleted, isActive })
 });
 
 /** CTA action strip — memoised so it doesn't flicker on unrelated state updates */
-const CTAStrip = memo(function CTAStrip({ status, isCreator, updateLoading, onAccept, onStatusUpdate }) {
+const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateLoading, onAccept, onAction, onLeave, hasMilestones }) {
   if (status === 'pending') {
     return (
       <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 flex flex-col gap-4 shadow-sm w-full">
@@ -75,52 +75,36 @@ const CTAStrip = memo(function CTAStrip({ status, isCreator, updateLoading, onAc
       </div>
     );
   }
-  if (status === 'accepted') {
+  
+  if (isAssignee && (status === 'accepted' || status === 'in_progress' || status === 'submitted')) {
     return (
-      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 flex flex-col gap-4 shadow-sm w-full">
-        <div className="text-[14px] text-indigo-900 font-medium">Ready to begin working?</div>
+      <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col gap-4 shadow-sm w-full">
+        <div className="text-[14px] text-slate-900 font-medium">Changed your mind?</div>
+        {status === 'in_progress' && !hasMilestones && (
+          <button
+            onClick={() => onAction('submit')}
+            disabled={updateLoading}
+            className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-amber-600 text-white rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors shadow-md hover:scale-[1.02]"
+          >
+            {updateLoading ? <RefreshCw size={16} className="animate-spin" /> : <GitMerge size={16} />}
+            Submit for Review
+          </button>
+        )}
         <button
-          onClick={() => onStatusUpdate('in_progress')}
+          onClick={onLeave}
           disabled={updateLoading}
-          className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-md hover:scale-[1.02]"
+          className="inline-flex items-center justify-center gap-2 w-full py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[13px] font-semibold hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all"
         >
-          {updateLoading ? <RefreshCw size={16} className="animate-spin" /> : <ChevronRight size={16} />}
-          Start Progress
+          {updateLoading ? <RefreshCw size={14} className="animate-spin" /> : <LogOut size={14} />}
+          Leave Task
         </button>
       </div>
     );
   }
-  if (status === 'in_progress') {
-    return (
-      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 flex flex-col gap-4 shadow-sm w-full">
-        <div className="text-[14px] text-indigo-900 font-medium">Finished your work? Submit it.</div>
-        <button
-          onClick={() => onStatusUpdate('submitted')}
-          disabled={updateLoading}
-          className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-md hover:scale-[1.02]"
-        >
-          {updateLoading ? <RefreshCw size={16} className="animate-spin" /> : <ChevronRight size={16} />}
-          Submit Work
-        </button>
-      </div>
-    );
-  }
-  if (status === 'submitted' && isCreator) {
-    return (
-      <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-5 flex flex-col gap-4 shadow-sm w-full">
-        <div className="text-[14px] text-emerald-900 font-medium">Review the submission.</div>
-        <button
-          onClick={() => onStatusUpdate('completed')}
-          disabled={updateLoading}
-          className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-md hover:scale-[1.02]"
-        >
-          {updateLoading ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} />}
-          Mark as Completed
-        </button>
-      </div>
-    );
-  }
+
+
   if (status === 'completed') {
+    if (hasMilestones) return null; // No need for "Finished" banner if we have milestones
     return (
       <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col gap-4 shadow-sm h-full w-full justify-center items-center">
         <div className="text-[14px] text-slate-500 font-medium text-center">Task completely finished.</div>
@@ -130,9 +114,12 @@ const CTAStrip = memo(function CTAStrip({ status, isCreator, updateLoading, onAc
       </div>
     );
   }
+
   return (
     <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col justify-center h-full w-full">
-      <div className="text-[14px] text-slate-500 font-medium text-center opacity-80">Waiting for next steps...</div>
+      <div className="text-[14px] text-slate-500 font-medium text-center opacity-80">
+        Status: <span className="capitalize">{status?.replace('_', ' ')}</span>
+      </div>
     </div>
   );
 });
@@ -148,6 +135,18 @@ export default function TaskDetail() {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userProfile,   setUserProfile]   = useState(null);
+
+  // Proof of Work Submission State
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [subGithub, setSubGithub] = useState('');
+  const [subDocs, setSubDocs] = useState('');
+  const [subDrive, setSubDrive] = useState('');
+  const [subNotes, setSubNotes] = useState('');
+
+  // Milestone Submission State
+  const [submittingMilestone, setSubmittingMilestone] = useState(null);
+  const [mileLink, setMileLink] = useState('');
+  const [mileNote, setMileNote] = useState('');
 
   // ── Data fetching (useCallback so stable reference across renders) ──────────
 
@@ -235,6 +234,138 @@ export default function TaskDetail() {
     }
   }, [id, fetchTask]);
 
+  const handleAction = useCallback(async (action) => {
+    if (action === 'submit') {
+      setShowSubmitModal(true);
+      return;
+    }
+    setUpdateLoading(true);
+    setError('');
+    let url = `${import.meta.env.VITE_API_URL}/tasks/${id}`;
+    if (action === 'approve') url += '/approve';
+    else if (action === 'request-changes') url += '/request-changes';
+
+    try {
+      const res = await fetch(url, { method: 'POST', credentials: 'include' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Operation failed');
+      }
+      fetchTask();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdateLoading(false);
+    }
+  }, [id, fetchTask]);
+
+  const handleFinalSubmit = useCallback(async () => {
+    setUpdateLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${id}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          github: subGithub,
+          docs: subDocs,
+          drive: subDrive,
+          notes: subNotes
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to submit review');
+      }
+      setShowSubmitModal(false);
+      fetchTask();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdateLoading(false);
+    }
+  }, [id, fetchTask, subGithub, subDocs, subDrive, subNotes]);
+
+  const handleAddMilestone = useCallback(async (title) => {
+    if (!title.trim()) return;
+    setUpdateLoading(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${id}/milestones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ title }),
+      });
+      if (res.ok) fetchTask();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUpdateLoading(false);
+    }
+  }, [id, fetchTask]);
+
+  const handleMilestoneStatus = useCallback(async (mid, status) => {
+    setUpdateLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${id}/milestones/${mid}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) fetchTask();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUpdateLoading(false);
+    }
+  }, [id, fetchTask]);
+  const handleMilestoneSubmit = useCallback(async () => {
+    setUpdateLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${id}/milestones/${submittingMilestone.id}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ link: mileLink, note: mileNote }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to submit milestone');
+      }
+      setSubmittingMilestone(null);
+      fetchTask();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdateLoading(false);
+    }
+  }, [id, fetchTask, submittingMilestone, mileLink, mileNote]);
+
+  const handleLeaveTask = useCallback(async () => {
+    if (!window.confirm('Are you sure you want to leave this task? All your progress will be reset.')) return;
+    
+    setUpdateLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/tasks/${id}/leave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to leave task');
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdateLoading(false);
+    }
+  }, [id, navigate]);
+
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
   const openMobileMenu  = useCallback(() => setMobileMenuOpen(true),  []);
 
@@ -255,6 +386,11 @@ export default function TaskDetail() {
     [userProfile, task?.creator_id]
   );
 
+  const isAssignee = useMemo(
+    () => !!(userProfile && task && task.assignee_id === userProfile.id),
+    [userProfile, task?.assignee_id]
+  );
+
   const currentStepIndex = useMemo(
     () => STEPS.findIndex(s => s.id === (task?.status === 'pending' ? 'accepted' : task?.status)),
     [task?.status]
@@ -262,10 +398,14 @@ export default function TaskDetail() {
 
   const percentage = useMemo(() => {
     if (!task) return 0;
+    if (task.milestones?.length > 0) {
+      const completed = task.milestones.filter(m => m.status === 'done').length;
+      return Math.round((completed / task.milestones.length) * 100);
+    }
     if (task.progress) return task.progress;
     const map = { completed: 100, submitted: 75, in_progress: 50, accepted: 25 };
     return map[task.status] ?? 0;
-  }, [task?.progress, task?.status]);
+  }, [task?.progress, task?.status, task?.milestones]);
 
   // ── Progress bar width (memoised string to avoid recalc on every render) ───
 
@@ -462,14 +602,17 @@ export default function TaskDetail() {
               )}
             </div>
 
-            {/* CTA Strip — passes stable callbacks to memoised child */}
+             {/* CTA Strip — passes stable callbacks to memoised child */}
             <div className="flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-100 pt-8 md:pt-0 md:pl-8">
               <CTAStrip
                 status={task.status}
                 isCreator={isCreator}
+                isAssignee={isAssignee}
                 updateLoading={updateLoading}
                 onAccept={handleAcceptTask}
-                onStatusUpdate={handleStatusUpdate}
+                onAction={handleAction}
+                onLeave={handleLeaveTask}
+                hasMilestones={task.milestones?.length > 0}
               />
             </div>
           </div>
@@ -511,6 +654,171 @@ export default function TaskDetail() {
           </div>
         </div>
 
+        {/* Milestones Section */}
+        <div className="mb-16 bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+               <GitMerge size={20} className="text-indigo-500" /> Milestones
+            </h3>
+            {isCreator && (
+               <button 
+                 onClick={() => {
+                   const title = prompt('Enter milestone title:');
+                   if (title) handleAddMilestone(title);
+                 }}
+                 className="text-[12px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                 + Add Milestone
+               </button>
+            )}
+          </div>
+          
+          <div className="space-y-4">
+            {task.milestones?.length > 0 ? (
+              task.milestones.map((m, index) => {
+                const isLocked = index > 0 && task.milestones[index - 1].status !== 'done';
+                
+                return (
+                  <div key={m.id} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50/50 rounded-xl border border-slate-100/80 group transition-opacity ${isLocked ? 'opacity-50 grayscale-[0.5]' : ''}`}>
+                    <div className="flex items-center gap-4 mb-3 sm:mb-0">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${m.status === 'done' ? 'bg-emerald-100 text-emerald-600' : isLocked ? 'bg-slate-100 text-slate-300' : 'bg-slate-200 text-slate-400'}`}>
+                        {isLocked ? <Lock size={14} /> : <Check size={16} strokeWidth={3} />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className={`text-[14px] font-semibold ${m.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-800'}`}>{m.title}</h4>
+                          {isLocked && <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded flex items-center gap-1 uppercase tracking-tighter"><Lock size={8} /> Locked</span>}
+                        </div>
+                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">{m.status}</p>
+                      </div>
+                    </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {isAssignee && m.status === 'pending' && (
+                      <button 
+                        onClick={() => handleMilestoneStatus(m.id, 'in_progress')} 
+                        disabled={isLocked}
+                        className="px-3 py-1.5 bg-slate-900 text-white text-[12px] font-bold rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Start
+                      </button>
+                    )}
+                    {isAssignee && m.status === 'in_progress' && (
+                      <button 
+                        onClick={() => {
+                          if (isLocked) return;
+                          setSubmittingMilestone(m);
+                          setMileLink('');
+                          setMileNote('');
+                        }} 
+                        disabled={isLocked}
+                        className="px-3 py-1.5 bg-amber-500 text-white text-[12px] font-bold rounded-lg hover:bg-amber-600 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Submit for Review
+                      </button>
+                    )}
+                    {(m.status === 'submitted' || m.status === 'done') && m.submission_link && (
+                      <a 
+                        href={m.submission_link} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 text-indigo-600 text-[12px] font-bold rounded-lg hover:bg-indigo-100 transition-colors"
+                      >
+                        <ExternalLink size={12} /> View Submission
+                      </a>
+                    )}
+                    {isCreator && m.status === 'submitted' && (
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => handleMilestoneStatus(m.id, 'done')} className="px-3 py-1.5 bg-emerald-500 text-white text-[12px] font-bold rounded-lg hover:bg-emerald-600 shadow-sm">Approve</button>
+                        <button onClick={() => handleMilestoneStatus(m.id, 'in_progress')} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-[12px] font-bold rounded-lg hover:bg-slate-50">Reject</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                );
+              })
+            ) : (
+              <p className="text-center py-6 text-slate-400 text-sm italic border-2 border-dashed border-slate-100 rounded-xl">No milestones added yet.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Proof of Work Section (Only shown if submitted/completed) */}
+        {(task.status === 'submitted' || task.status === 'completed') && (
+          <div className="mb-16 animate-fade-up">
+            <h3 className="text-[13px] font-bold text-slate-400 mb-6 tracking-widest uppercase">Proof of Work</h3>
+            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  {/* Task-level links */}
+                  {task.submission_github && (
+                    <a href={task.submission_github} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition shadow-sm group">
+                      <div className="w-10 h-10 bg-slate-900 text-white rounded-lg flex items-center justify-center shrink-0">
+                        <Code size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-slate-800">GitHub Repository</p>
+                        <p className="text-[11px] text-slate-500 truncate">{task.submission_github}</p>
+                      </div>
+                      <ExternalLink size={14} className="ml-auto text-slate-300 group-hover:text-slate-500" />
+                    </a>
+                  )}
+                  {task.submission_docs && (
+                    <a href={task.submission_docs} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-blue-50/50 border border-blue-100/50 rounded-xl hover:bg-blue-50 transition shadow-sm group">
+                      <div className="w-10 h-10 bg-blue-500 text-white rounded-lg flex items-center justify-center shrink-0">
+                        <FileText size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-slate-800">Google Docs / PDF</p>
+                        <p className="text-[11px] text-slate-500 truncate">{task.submission_docs}</p>
+                      </div>
+                      <ExternalLink size={14} className="ml-auto text-slate-300 group-hover:text-slate-500" />
+                    </a>
+                  )}
+
+                  {/* Milestone-level links */}
+                  {task.milestones?.filter(m => m.submission_link).map(m => (
+                    <a key={m.id} href={m.submission_link} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-amber-50/50 border border-amber-100/50 rounded-xl hover:bg-amber-50 transition shadow-sm group">
+                      <div className="w-10 h-10 bg-amber-500 text-white rounded-lg flex items-center justify-center shrink-0">
+                        <ExternalLink size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-slate-800">{m.title}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{m.submission_link}</p>
+                      </div>
+                      <ExternalLink size={14} className="ml-auto text-slate-300 group-hover:text-slate-500" />
+                    </a>
+                  ))}
+
+                  {(!task.submission_github && !task.submission_docs && !task.milestones?.some(m => m.submission_link)) && (
+                    <p className="text-sm text-slate-400 italic py-4 text-center">No submission links provided.</p>
+                  )}
+                </div>
+                
+                <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Submission Notes</p>
+                  <div className="space-y-4">
+                    {task.milestones?.some(m => m.submission_note) ? (
+                      task.milestones.filter(m => m.submission_note).map(m => (
+                        <div key={m.id} className="border-l-2 border-slate-200 pl-4 py-1">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-1">{m.title}</p>
+                          <p className="text-[14px] text-slate-700 leading-relaxed italic">
+                            {m.submission_note}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-[14px] text-slate-700 leading-relaxed italic">
+                        {task.submission_notes || "No additional notes provided."}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Description */}
         <div className="max-w-3xl mb-24">
           <h3 className="text-[13px] font-bold text-slate-400 mb-6 tracking-widest uppercase">Task Description</h3>
@@ -532,6 +840,106 @@ export default function TaskDetail() {
           )}
         </div>
 
+        {/* Task Submission Modal */}
+        {showSubmitModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Zap size={20} className="text-indigo-600" fill="currentColor" /> Submit Proof of Work
+                </h3>
+                <button onClick={() => setShowSubmitModal(false)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl transition">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-5">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">GitHub Repository</label>
+                    <div className="relative">
+                      <div className="absolute left-3 top-3 text-slate-400"><Code size={18} /></div>
+                      <input type="text" placeholder="https://github.com/..." value={subGithub} onChange={(e) => setSubGithub(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition" />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Google Docs / PDF Link</label>
+                    <div className="relative">
+                      <div className="absolute left-3 top-3 text-slate-400"><FileText size={18} /></div>
+                      <input type="text" placeholder="https://docs.google.com/..." value={subDocs} onChange={(e) => setSubDocs(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Drive / Assets Link</label>
+                    <div className="relative">
+                      <div className="absolute left-3 top-3 text-slate-400"><Link2 size={18} /></div>
+                      <input type="text" placeholder="https://drive.google.com/..." value={subDrive} onChange={(e) => setSubDrive(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Submission Notes</label>
+                    <textarea rows={3} placeholder="Any specific notes for the reviewer?" value={subNotes} onChange={(e) => setSubNotes(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition resize-none"></textarea>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  <button onClick={handleFinalSubmit} disabled={updateLoading} className="flex-1 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50">
+                    {updateLoading ? <RefreshCw size={18} className="animate-spin mx-auto" /> : "Confirm Submission"}
+                  </button>
+                  <button onClick={() => setShowSubmitModal(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 transition">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Milestone Submission Modal */}
+        {submittingMilestone && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Link2 size={20} className="text-amber-500" /> Submit Milestone
+                </h3>
+                <button onClick={() => setSubmittingMilestone(null)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl transition">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-5">
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-500">Submitting proof for: <span className="font-bold text-slate-700">{submittingMilestone.title}</span></p>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Submission Link (Optional)</label>
+                    <div className="relative">
+                      <div className="absolute left-3 top-3 text-slate-400"><Link2 size={18} /></div>
+                      <input type="text" placeholder="https://..." value={mileLink} onChange={(e) => setMileLink(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition" />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Additional Notes (Optional)</label>
+                    <textarea rows={3} placeholder="Any notes for this specific milestone?" value={mileNote} onChange={(e) => setMileNote(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition resize-none"></textarea>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  <button onClick={handleMilestoneSubmit} disabled={updateLoading} className="flex-1 py-3 bg-amber-500 text-white rounded-2xl font-bold text-sm hover:bg-amber-600 shadow-lg shadow-amber-200 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50">
+                    {updateLoading ? <RefreshCw size={18} className="animate-spin mx-auto" /> : "Confirm Milestone Submission"}
+                  </button>
+                  <button onClick={() => setSubmittingMilestone(null)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 transition">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

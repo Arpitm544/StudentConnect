@@ -118,12 +118,13 @@ export default function Profile({ onLogout }) {
   }, [currentPath]);
 
   // ✅ useMemo — only recomputes when tasks array changes
-  const { total, completed, inProgress, pending } = useMemo(() => {
+  const { total, completed, inProgress, inReview, pending } = useMemo(() => {
     const total = tasks.length;
     const completed = tasks.filter((t) => t.status === 'completed').length;
     const inProgress = tasks.filter((t) => t.status === 'in_progress').length;
+    const inReview   = tasks.filter((t) => t.status === 'submitted').length;
     const pending = tasks.filter((t) => !t.status || t.status === 'pending').length;
-    return { total, completed, inProgress, pending };
+    return { total, completed, inProgress, inReview, pending };
   }, [tasks]);
 
   const handleLogout = async () => {
@@ -550,17 +551,18 @@ export default function Profile({ onLogout }) {
 
               {/* ── PHASE 3: Metrics ── */}
               {(!currentPath || currentPath === 'dashboard') && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-10 w-full">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10 w-full">
                   {[
-                    { title: 'Total Tasks', value: total, text: `${total > 0 ? '+ Active' : '0 so far'}`, color: 'text-gray-500' },
-                    { title: 'In Progress', value: inProgress, text: 'Currently running', color: 'text-indigo-600' },
-                    { title: 'Completed', value: completed, text: 'Tasks finished', color: 'text-green-600' },
-                    { title: 'Pending', value: pending, text: 'Awaiting action', color: 'text-amber-600' },
+                    { title: 'Total Tasks', value: total, text: 'Total scope', color: 'text-gray-500' },
+                    { title: 'In Progress', value: inProgress, text: 'Developing', color: 'text-indigo-600' },
+                    { title: 'In Review',   value: inReview,   text: 'Peer review', color: 'text-amber-600' },
+                    { title: 'Completed',   value: completed,  text: 'Finished', color: 'text-emerald-600' },
+                    { title: 'Open',        value: pending,    text: 'Awaiting pick', color: 'text-slate-400' },
                   ].map((card) => (
-                    <div key={card.title} className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition">
-                      <p className="text-sm text-gray-500">{card.title}</p>
-                      <h2 className="text-3xl font-semibold mt-2 text-slate-900">{card.value}</h2>
-                      <p className={`text-xs mt-1 font-medium ${card.color}`}>{card.text}</p>
+                    <div key={card.title} className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition border border-gray-50">
+                      <p className="text-[12px] font-medium text-gray-400 uppercase tracking-tight">{card.title}</p>
+                      <h2 className="text-2xl font-bold mt-1 text-slate-900">{card.value}</h2>
+                      <p className={`text-[11px] mt-1 font-semibold ${card.color}`}>{card.text}</p>
                     </div>
                   ))}
                 </div>

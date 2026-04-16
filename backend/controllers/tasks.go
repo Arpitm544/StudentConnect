@@ -97,6 +97,20 @@ func fetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 		if attachmentURL.Valid {
 			t.AttachmentURL = &attachmentURL.String
 		}
+
+		// Fetch Milestones for this task
+		mRows, err := config.DB.Query(`SELECT id, task_id, title, status, submission_link, submission_note, created_at, updated_at FROM milestones WHERE task_id = $1 ORDER BY id ASC`, t.ID)
+		if err == nil {
+			t.Milestones = make([]models.Milestone, 0)
+			for mRows.Next() {
+				var m models.Milestone
+				if err := mRows.Scan(&m.ID, &m.TaskID, &m.Title, &m.Status, &m.SubmissionLink, &m.SubmissionNote, &m.CreatedAt, &m.UpdatedAt); err == nil {
+					t.Milestones = append(t.Milestones, m)
+				}
+			}
+			mRows.Close()
+		}
+
 		tasks = append(tasks, t)
 	}
 	return tasks, nil
@@ -193,11 +207,12 @@ func ListActiveTasks(c *gin.Context) {
 
 func AcceptTask(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil || id <= 0 {
+	id64, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil || id64 <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task id"})
 		return
 	}
+	id := uint(id64)
 
 	userIDValue, _ := c.Get("user_id")
 	userID := userIDValue.(int)
@@ -269,13 +284,61 @@ func AcceptTask(c *gin.Context) {
 	}()
 }
 
-func GetTask(c *gin.Context) {
+func LeaveTask(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil || id <= 0 {
+	id64, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil || id64 <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task id"})
 		return
 	}
+	id := uint(id64)
+
+	userIDValue, _ := c.Get("user_id")
+	userID := userIDValue.(int)
+
+	// Verify the user is the assignee and check current status
+	var assigneeID sql.NullInt64
+	var status string
+	err = config.DB.QueryRow(`SELECT assignee_id, status FROM tasks WHERE id = $1`, id).Scan(&assigneeID, &status)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+		return
+	}
+
+	if !assigneeID.Valid || int(assigneeID.Int64) != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only the assignee can leave this task"})
+		return
+	}
+
+	if status == "completed" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot leave a completed task"})
+		return
+	}
+
+	// Reset task
+	_, err = config.DB.Exec(`
+		UPDATE tasks 
+		SET assignee_id = NULL, accepted = FALSE, status = 'pending', progress = 0, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = $1`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to leave task"})
+		return
+	}
+
+	// Reset milestones if any
+	config.DB.Exec(`UPDATE milestones SET status = 'pending', submission_link = NULL, submission_note = NULL WHERE task_id = $1`, id)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Left task successfully"})
+}
+
+func GetTask(c *gin.Context) {
+	idStr := c.Param("id")
+	id64, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil || id64 <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task id"})
+		return
+	}
+	id := uint(id64)
 
 	userIDValue, _ := c.Get("user_id")
 	userID := userIDValue.(int)
@@ -283,7 +346,9 @@ func GetTask(c *gin.Context) {
 	query := `
 		SELECT 
 			t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, 
-			t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
+			t.deadline, t.progress, t.subject, t.attachment_url, 
+			t.submission_github, t.submission_docs, t.submission_drive, t.submission_notes,
+			t.created_at, t.updated_at,
 			u_creator.name as creator_name, u_creator.email as creator_email, u_creator.photo_url as creator_photo_url,
 			u_assignee.name as assignee_name, u_assignee.email as assignee_email, u_assignee.photo_url as assignee_photo_url
 		FROM tasks t
@@ -294,11 +359,14 @@ func GetTask(c *gin.Context) {
 
 	var t models.Task
 	var creatorName, creatorEmail, creatorPhoto, assigneeName, assigneeEmail, assigneePhoto, description, subject, attachmentURL sql.NullString
+	var subGithub, subDocs, subDrive, subNotes sql.NullString
 	var creatorIDNull, assigneeIDNull sql.NullInt64
 
 	if err := config.DB.QueryRow(query, id).Scan(
 		&t.ID, &t.Title, &description, &t.Status, &t.Accepted, &creatorIDNull, &assigneeIDNull,
-		&t.Deadline, &t.Progress, &subject, &attachmentURL, &t.CreatedAt, &t.UpdatedAt,
+		&t.Deadline, &t.Progress, &subject, &attachmentURL, 
+		&subGithub, &subDocs, &subDrive, &subNotes,
+		&t.CreatedAt, &t.UpdatedAt,
 		&creatorName, &creatorEmail, &creatorPhoto,
 		&assigneeName, &assigneeEmail, &assigneePhoto,
 	); err != nil {
@@ -337,16 +405,38 @@ func GetTask(c *gin.Context) {
 	t.AssigneeEmail = assigneeEmail.String
 	t.AssigneePhotoURL = assigneePhoto.String
 
+	if subGithub.Valid { t.SubmissionGithub = &subGithub.String }
+	if subDocs.Valid   { t.SubmissionDocs   = &subDocs.String   }
+	if subDrive.Valid  { t.SubmissionDrive  = &subDrive.String  }
+	if subNotes.Valid  { t.SubmissionNotes  = &subNotes.String  }
+
+	// FETCH MILESTONES
+	mRows, err := config.DB.Query(`SELECT id, title, status, submission_link, submission_note, created_at, updated_at FROM milestones WHERE task_id = $1 ORDER BY id ASC`, id)
+	if err == nil {
+		defer mRows.Close()
+		for mRows.Next() {
+			var m models.Milestone
+			var subLink, subNote sql.NullString
+			m.TaskID = uint(id)
+			if err := mRows.Scan(&m.ID, &m.Title, &m.Status, &subLink, &subNote, &m.CreatedAt, &m.UpdatedAt); err == nil {
+				if subLink.Valid { m.SubmissionLink = &subLink.String }
+				if subNote.Valid { m.SubmissionNote = &subNote.String }
+				t.Milestones = append(t.Milestones, m)
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, t)
 }
 
 func UpdateTaskStatus(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil || id <= 0 {
+	id64, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil || id64 <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task id"})
 		return
 	}
+	id := uint(id64)
 	userIDValue, _ := c.Get("user_id")
 	userID := uint(userIDValue.(int))
 
@@ -355,6 +445,14 @@ func UpdateTaskStatus(c *gin.Context) {
 	err = config.DB.QueryRow(`SELECT creator_id, assignee_id, status FROM tasks WHERE id = $1`, id).Scan(&creatorIDNull, &assigneeIDNull, &currentStatus)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+		return
+	}
+
+	// NEW: Check if task has milestones. If it does, manual status update is disabled.
+	var count int
+	config.DB.QueryRow("SELECT COUNT(*) FROM milestones WHERE task_id = $1", id).Scan(&count)
+	if count > 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "This task status is managed by milestones. Update milestone statuses instead."})
 		return
 	}
 
@@ -397,11 +495,12 @@ func UpdateTaskStatus(c *gin.Context) {
 
 func DeleteTask(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil || id <= 0 {
+	id64, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil || id64 <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task id"})
 		return
 	}
+	id := uint(id64)
 
 	userIDValue, _ := c.Get("user_id")
 	userID := userIDValue.(int)
@@ -424,4 +523,166 @@ func DeleteTask(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Task deleted"})
+}
+
+// syncTaskStatusWithMilestones - calculates task status based on milestones
+func syncTaskStatusWithMilestones(taskID uint) error {
+	rows, err := config.DB.Query(`SELECT status FROM milestones WHERE task_id = $1`, taskID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var statuses []string
+	for rows.Next() {
+		var s string
+		rows.Scan(&s)
+		statuses = append(statuses, strings.ToLower(s))
+	}
+
+	if len(statuses) == 0 {
+		return nil // No milestones, don't auto-update
+	}
+
+	allDone := true
+	anyInReview := false
+	anyInProgress := false
+
+	for _, s := range statuses {
+		if s != "done" {
+			allDone = false
+		}
+		if s == "in_review" || s == "submitted" {
+			anyInReview = true
+		}
+		if s == "in_progress" {
+			anyInProgress = true
+		}
+	}
+
+	newStatus := "accepted"
+	progress := 0
+
+	// Calculate Progress %
+	doneCount := 0
+	for _, s := range statuses {
+		if s == "done" {
+			doneCount++
+		}
+	}
+	progress = (doneCount * 100) / len(statuses)
+
+	if (allDone) {
+		newStatus = "completed"
+		progress = 100
+	} else if (anyInReview) {
+		newStatus = "submitted"
+	} else if (anyInProgress) {
+		newStatus = "in_progress"
+	}
+
+	_, err = config.DB.Exec(`UPDATE tasks SET status = $1, progress = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, newStatus, progress, taskID)
+	return err
+}
+
+func AddMilestone(c *gin.Context) {
+	idStr := c.Param("id")
+	id64, _ := strconv.ParseUint(idStr, 10, 64)
+	taskID := uint(id64)
+
+	var input struct {
+		Title string `json:"title"`
+	}
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	_, err := config.DB.Exec(`INSERT INTO milestones (task_id, title, status) VALUES ($1, $2, 'pending')`, taskID, input.Title)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add milestone"})
+		return
+	}
+
+	syncTaskStatusWithMilestones(taskID)
+	c.JSON(http.StatusCreated, gin.H{"message": "Milestone added"})
+}
+
+func UpdateMilestoneStatus(c *gin.Context) {
+	idStr := c.Param("id")
+	id64, _ := strconv.ParseUint(idStr, 10, 64)
+	taskID := uint(id64)
+	
+	midStr := c.Param("mid")
+	mid, _ := strconv.Atoi(midStr)
+
+	var input struct {
+		Status string `json:"status"`
+	}
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	// SEQUENTIAL CHECK: Check if previous milestones are done
+	var incompletePrevCount int
+	err := config.DB.QueryRow(`SELECT count(*) FROM milestones WHERE task_id = $1 AND id < $2 AND status != 'done'`, taskID, mid).Scan(&incompletePrevCount)
+	if err == nil && incompletePrevCount > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Previous milestones must be completed first"})
+		return
+	}
+
+	_, err = config.DB.Exec(`UPDATE milestones SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND task_id = $3`, strings.ToLower(input.Status), mid, taskID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update milestone"})
+		return
+	}
+
+	syncTaskStatusWithMilestones(taskID)
+	c.JSON(http.StatusOK, gin.H{"message": "Milestone updated"})
+}
+
+
+func SubmitMilestoneForReview(c *gin.Context) {
+	idStr := c.Param("id")
+	id64, _ := strconv.ParseUint(idStr, 10, 64)
+	taskID := uint(id64)
+
+	midStr := c.Param("mid")
+	mid, _ := strconv.Atoi(midStr)
+
+	var input struct {
+		Link string `json:"link"`
+		Note string `json:"note"`
+	}
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+
+	// SEQUENTIAL CHECK: Check if previous milestones are done
+	var incompletePrevCount int
+	err := config.DB.QueryRow(`SELECT count(*) FROM milestones WHERE task_id = $1 AND id < $2 AND status != 'done'`, taskID, mid).Scan(&incompletePrevCount)
+	if err == nil && incompletePrevCount > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Previous milestones must be completed first"})
+		return
+	}
+
+	_, err = config.DB.Exec(`
+		UPDATE milestones 
+		SET status = 'submitted', 
+		    submission_link = $1, 
+		    submission_note = $2, 
+		    updated_at = CURRENT_TIMESTAMP 
+		WHERE id = $3 AND task_id = $4`, 
+		input.Link, input.Note, mid, taskID)
+	
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit milestone: " + err.Error()})
+		return
+	}
+
+	syncTaskStatusWithMilestones(taskID)
+	c.JSON(http.StatusOK, gin.H{"message": "Milestone submitted for review"})
 }

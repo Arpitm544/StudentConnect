@@ -16,16 +16,33 @@ const TaskRow = memo(function TaskRow({
   onView,
   formatDate,
 }) {
-  const isCreator = task.creator_id === userProfile?.id;
+  const getComputedStatus = () => {
+    const milestones = task.milestones || [];
+    if (milestones.length === 0) return task.status || 'pending';
+
+    const total = milestones.length;
+    const completed = milestones.filter(m => m.status === "done").length;
+    const inReview = milestones.some(m => m.status === "submitted" || m.status === "in_review");
+
+    if (completed === total) return "completed";
+    if (inReview) return "submitted"; 
+    if (completed > 0) return "in_progress";
+    return task.accepted ? "accepted" : "pending";
+  };
+
+  const computedStatus = getComputedStatus();
 
   const statusColor = {
-    pending:     'text-amber-600 bg-amber-50',
-    accepted:    'text-blue-600 bg-blue-50',
-    in_progress: 'text-indigo-600 bg-indigo-50',
-    submitted:   'text-purple-600 bg-purple-50',
-    completed:   'text-green-600 bg-green-50',
+    pending:     'text-slate-500 bg-slate-100',
+    accepted:    'text-blue-500 bg-blue-50',
+    in_progress: 'text-indigo-600 bg-indigo-50 border border-indigo-100',
+    submitted:   'text-amber-600 bg-amber-50 border border-amber-100',
+    completed:   'text-emerald-600 bg-emerald-50 border border-emerald-100',
     cancelled:   'text-gray-500 bg-gray-100',
-  }[task.status] || 'text-gray-500 bg-gray-100';
+  }[computedStatus] || 'text-gray-500 bg-gray-100';
+
+  const isCreator = task.creator_id === userProfile?.id;
+  const hasMilestones = task.milestones?.length > 0;
 
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between px-4 py-3.5 rounded-xl bg-transparent hover:bg-gray-50/80 transition-colors duration-150 group cursor-default gap-4 md:gap-0">
@@ -68,12 +85,12 @@ const TaskRow = memo(function TaskRow({
       <div className="flex items-center gap-4 shrink-0">
 
         {/* Status Badge / Select */}
-        {currentPath === 'my-tasks' && task.accepted ? (
+        {currentPath === 'my-tasks' && task.accepted && !hasMilestones ? (
           <select
-            value={task.status || 'pending'}
+            value={computedStatus || 'pending'}
             onChange={(e) => onStatusChange(task.id, e.target.value, task.progress)}
-            disabled={task.status === 'completed'}
-            className={`bg-white border border-gray-200 text-gray-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg outline-none cursor-pointer capitalize transition-colors hover:bg-gray-50 shadow-sm ${task.status === 'completed' ? 'pointer-events-none opacity-60' : ''}`}
+            disabled={computedStatus === 'completed'}
+            className={`bg-white border border-gray-200 text-gray-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg outline-none cursor-pointer capitalize transition-colors hover:bg-gray-50 shadow-sm ${computedStatus === 'completed' ? 'pointer-events-none opacity-60' : ''}`}
           >
             <option value="pending">Pending</option>
             <option value="accepted">Accepted</option>
@@ -84,7 +101,7 @@ const TaskRow = memo(function TaskRow({
           </select>
         ) : (
           <span className={`text-[11px] uppercase tracking-wider px-2.5 py-1 rounded-md font-bold ${statusColor}`}>
-            {task.status?.replace('_', ' ') || 'Pending'}
+            {computedStatus === 'submitted' ? 'In Review' : computedStatus?.replace('_', ' ') || 'Pending'}
           </span>
         )}
 

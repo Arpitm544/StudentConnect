@@ -98,9 +98,42 @@ func ConnectDatabase() {
 	// =========================
 	tasksMigrations := []string{
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS attachment_url TEXT",
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_github TEXT",
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_docs TEXT",
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_drive TEXT",
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_notes TEXT",
 	}
 
 	for _, m := range tasksMigrations {
+		_, _ = DB.Exec(m)
+	}
+
+	// =========================
+	// CREATE MILESTONES TABLE
+	// =========================
+	milestonesTableQuery := `
+	CREATE TABLE IF NOT EXISTS milestones (
+		id BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+		task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+		title TEXT NOT NULL,
+		status VARCHAR(50) NOT NULL DEFAULT 'pending',
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	if _, err := DB.Exec(milestonesTableQuery); err != nil {
+		log.Fatal("Failed to create milestones table:", err)
+	}
+
+	// =========================
+	// MILESTONES MIGRATIONS
+	// =========================
+	milestonesMigrations := []string{
+		"ALTER TABLE milestones ADD COLUMN IF NOT EXISTS submission_link TEXT",
+		"ALTER TABLE milestones ADD COLUMN IF NOT EXISTS submission_note TEXT",
+	}
+
+	for _, m := range milestonesMigrations {
 		_, _ = DB.Exec(m)
 	}
 }
