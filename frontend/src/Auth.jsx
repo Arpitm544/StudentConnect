@@ -15,21 +15,19 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+
   const handleGoogleSignIn = async () => {
     setError('');
     setGoogleLoading(true);
-
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-
       const cred = await signInWithPopup(auth, provider);
       const firebaseUser = cred.user;
       if (!firebaseUser) throw new Error('Google sign-in failed');
 
       const idToken = await firebaseUser.getIdToken();
-      if (!idToken) throw new Error('Failed to get Firebase ID token');
-
+      
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -151,12 +149,14 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
               <label className="block mb-1.5 font-medium text-xs text-zinc-500">Full Name</label>
               <input
                 type="text"
+                id="name"
                 name="name"
                 placeholder="John Doe"
                 value={formData.name}
                 onChange={handleChange}
                 required={!isLogin}
                 className="w-full py-2.5 px-3 border border-zinc-200 rounded-xl bg-white text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-4 focus:ring-zinc-100 shadow-sm"
+                autoComplete="name"
               />
             </div>
           )}
@@ -165,12 +165,14 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
             <label className="block mb-1.5 font-medium text-xs text-zinc-500">Email Address</label>
             <input
               type="email"
+              id="email"
               name="email"
               placeholder="you@example.com"
               value={formData.email}
               onChange={handleChange}
               required
               className="w-full py-2.5 px-3 border border-zinc-200 rounded-xl bg-white text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-4 focus:ring-zinc-100 shadow-sm"
+              autoComplete="email"
             />
           </div>
 
@@ -178,6 +180,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
             <label className="block mb-1.5 font-medium text-xs text-zinc-500">Password</label>
             <input
               type="password"
+              id="password"
               name="password"
               placeholder="••••••••"
               value={formData.password}
@@ -185,6 +188,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
               required
               minLength={6}
               className="w-full py-2.5 px-3 border border-zinc-200 rounded-xl bg-white text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-4 focus:ring-zinc-100 shadow-sm"
+              autoComplete={isLogin ? "current-password" : "new-password"}
             />
           </div>
 

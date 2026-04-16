@@ -31,6 +31,7 @@ func main() {
 			"http://localhost:5173",
 			"https://main.d63s59pcpq7j4.amplifyapp.com",
 			"http://127.0.0.1:5173",
+			"http://13.201.37.135:5173",
 		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
