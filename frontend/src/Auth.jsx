@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { useEffect, useState } from 'react';
+import { GoogleAuthProvider, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { auth } from './firebase.js';
 import { Zap, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -15,6 +15,35 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const cred = await getRedirectResult(auth);
+        if (cred) {
+          setGoogleLoading(true);
+          const firebaseUser = cred.user;
+          const idToken = await firebaseUser.getIdToken();
+
+          const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ token: idToken }),
+          });
+
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || 'Google login failed');
+
+          onLoginSuccess();
+        }
+      } catch (err) {
+        setError(err?.message || 'Google login failed');
+      } finally {
+        setGoogleLoading(false);
+      }
+    };
+    handleRedirectResult();
+  }, [onLoginSuccess]);
 
   const handleGoogleSignIn = async () => {
     setError('');
@@ -22,26 +51,9 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      const cred = await signInWithPopup(auth, provider);
-      const firebaseUser = cred.user;
-      if (!firebaseUser) throw new Error('Google sign-in failed');
-
-      const idToken = await firebaseUser.getIdToken();
-      
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ token: idToken }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Google login failed');
-
-      onLoginSuccess();
+      await signInWithRedirect(auth, provider);
     } catch (err) {
       setError(err?.message || 'Google login failed');
-    } finally {
       setGoogleLoading(false);
     }
   };

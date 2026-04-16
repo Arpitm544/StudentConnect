@@ -36,11 +36,13 @@ func main() {
 	// ✅ Production-Ready CORS
 	allowedOrigins := []string{
 		"http://localhost:5173",
+		"http://localhost:5173/",
 		"https://main.d63s59pcpq7j4.amplifyapp.com",
+		"https://main.d63s59pcpq7j4.amplifyapp.com/",
 		"https://main.d3dt3rmwfypl05.amplifyapp.com",
+		"https://main.d3dt3rmwfypl05.amplifyapp.com/",
 		"https://tasknest.tech",
-		"https://student-connect-zeta.vercel.app",
-		"http://127.0.0.1:5173",
+		"https://tasknest.tech/",
 	}
 
 	// Add production domains from environment variable
