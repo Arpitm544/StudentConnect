@@ -4,11 +4,15 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+
   return {
+    base: "/",   // ✅ IMPORTANT
+
     plugins: [
       react(),
       tailwindcss(),
     ],
+
     server: {
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
