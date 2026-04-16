@@ -59,6 +59,13 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	// ✅ Support Firebase Popup Authentication
+	r.Use(func(c *gin.Context) {
+		c.Header("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
+		c.Header("Cross-Origin-Embedder-Policy", "unsafe-none")
+		c.Next()
+	})
+
 	// Routes
 	routes.SetupRoutes(r)
 
