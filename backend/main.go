@@ -2,6 +2,10 @@ package main
 
 import (
 	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"backend/config"
@@ -15,37 +19,74 @@ import (
 func main() {
 	// Load env
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
+		log.Println("Note: No .env file found, using system environment variables")
 	}
 
 	// Connect DB
 	config.ConnectDatabase()
-
 	config.InitFirebase()
+
+	// Use release mode if in production
+	if os.Getenv("GIN_MODE") == "release" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	r := gin.Default()
 
-	// CORS
+	// ✅ Production-Ready CORS
+	allowedOrigins := []string{
+		"http://localhost:5173",
+		"https://main.d63s59pcpq7j4.amplifyapp.com",	
+		"http://127.0.0.1:5173",
+	}
+
+	// Add production domains from environment variable
+	if prodDomain := os.Getenv("PRODUCTION_DOMAIN"); prodDomain != "" {
+		if !strings.HasPrefix(prodDomain, "http") {
+			prodDomain = "https://" + prodDomain
+		}
+		allowedOrigins = append(allowedOrigins, prodDomain)
+	}
+
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:5173",
-			"https://main.d63s59pcpq7j4.amplifyapp.com",
-			"http://127.0.0.1:5173",
-			"http://13.201.37.135:5173",
-		},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowOrigins:     allowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept", "X-Requested-With"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
 
+	// Routes
+	routes.SetupRoutes(r)
+
+	// API welcome message
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "Welcome to StudentConnect Backend"})
 	})
 
-	// Routes
-	routes.SetupRoutes(r)
+	// ✅ Serve Static Frontend (Production Only)
+	// This allows the Go backend to serve the compiled frontend if the 'dist' folder exists.
+	workDir, _ := os.Getwd()
+	frontendPath := filepath.Join(workDir, "dist")
+	
+	// Check if dist folder exists
+	if info, err := os.Stat(frontendPath); err == nil && info.IsDir() {
+		log.Println("📦 Serving frontend from:", frontendPath)
+		r.StaticFS("/assets", http.Dir(filepath.Join(frontendPath, "assets")))
+		
+		// Catch-all for React Router
+		r.NoRoute(func(c *gin.Context) {
+			if !strings.HasPrefix(c.Request.URL.Path, "/api") && !strings.HasPrefix(c.Request.URL.Path, "/tasks") {
+				c.File(filepath.Join(frontendPath, "index.html"))
+			}
+		})
+	}
 
-	log.Println("🚀 Server running on :8080")
-	r.Run(":8080")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("🚀 Server running on :%s\n", port)
+	r.Run(":" + port)
 }

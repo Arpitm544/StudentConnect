@@ -12,9 +12,12 @@ import (
 	"backend/services"
 	"backend/utils"
 	"fmt"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
+
+var isSecure = os.Getenv("GIN_MODE") == "release"
 
 func Signup(c *gin.Context) {
 	var input struct {
@@ -86,12 +89,12 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("token", tokenString, 86400, "/", "", false, true)
+	c.SetCookie("token", tokenString, 86400, "/", "", isSecure, true)
 	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
 }
 
 func Logout(c *gin.Context) {
-	c.SetCookie("token", "", -1, "/", "", false, true)
+	c.SetCookie("token", "", -1, "/", "", isSecure, true)
 	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
 }
 
@@ -172,7 +175,7 @@ func GoogleAuth(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate session"})
 		return
 	}
-	c.SetCookie("token", tokenString, 86400, "/", "", false, true)
+	c.SetCookie("token", tokenString, 86400, "/", "", isSecure, true)
 
 	c.JSON(http.StatusOK, gin.H{
 		"id":        strconv.FormatInt(userID, 10),
