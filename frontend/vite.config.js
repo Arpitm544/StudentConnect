@@ -16,12 +16,12 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/api': {
-          target: env.BACKEND_URL || 'http://localhost:8080',
+          target: env.BACKEND_URL,
           changeOrigin: true,
           secure: false,
         },
         '/tasks': {
-          target: env.BACKEND_URL || 'http://localhost:8080',
+          target: env.BACKEND_URL,
           changeOrigin: true,
           secure: false,
         },
