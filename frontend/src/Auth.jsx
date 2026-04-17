@@ -18,8 +18,11 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
   useEffect(() => {
     const handleRedirectResult = async () => {
       try {
+        console.log('🔄 Checking Google Redirect Result...');
         const cred = await getRedirectResult(auth);
+        
         if (cred) {
+          console.log('✅ Google Auth Success:', cred.user.email);
           setGoogleLoading(true);
           const firebaseUser = cred.user;
           const idToken = await firebaseUser.getIdToken();
@@ -34,10 +37,18 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data.error || 'Google login failed');
 
+          console.log('🎉 Backend Auth Success');
           onLoginSuccess();
+        } else {
+          console.log('ℹ️ No redirect result found (Normal on fresh load)');
         }
       } catch (err) {
-        setError(err?.message || 'Google login failed');
+        console.error('❌ Google Redirect Error:', err.code, err.message);
+        if (err.code === 'auth/unauthorized-domain') {
+          setError('This domain is not authorized in Firebase Console. Please add your Amplify URL to Authorized Domains.');
+        } else {
+          setError(err?.message || 'Google login failed');
+        }
       } finally {
         setGoogleLoading(false);
       }
