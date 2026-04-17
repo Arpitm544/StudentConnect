@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GoogleAuthProvider, signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, getRedirectResult } from 'firebase/auth';
 import { auth } from './firebase.js';
 import { Zap, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -60,11 +60,37 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
     setError('');
     setGoogleLoading(true);
     try {
+      console.log('🚀 Starting Google Popup Auth...');
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithRedirect(auth, provider);
+      const cred = await signInWithPopup(auth, provider);
+      
+      if (cred) {
+        console.log('✅ Google Auth Success:', cred.user.email);
+        const firebaseUser = cred.user;
+        const idToken = await firebaseUser.getIdToken();
+
+        const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ token: idToken }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Google login failed');
+
+        console.log('🎉 Backend Auth Success');
+        onLoginSuccess();
+      }
     } catch (err) {
-      setError(err?.message || 'Google login failed');
+      console.error('❌ Google Popup Error:', err.code, err.message);
+      if (err.code === 'auth/unauthorized-domain') {
+        setError('This domain is not authorized in Firebase Console.');
+      } else {
+        setError(err?.message || 'Google login failed');
+      }
+    } finally {
       setGoogleLoading(false);
     }
   };
