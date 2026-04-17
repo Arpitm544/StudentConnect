@@ -61,6 +61,11 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	// ✅ Manual OPTIONS catch-all
+	r.OPTIONS("/*path", func(c *gin.Context) {
+		c.Status(204)
+	})
+
 	// ✅ Support Firebase Popup Authentication
 	r.Use(func(c *gin.Context) {
 		c.Header("Cross-Origin-Opener-Policy", "same-origin-allow-popups")

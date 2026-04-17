@@ -44,7 +44,11 @@ func Signup(c *gin.Context) {
 
 	query := "INSERT INTO users (name, email, password, provider) VALUES ($1, $2, $3, 'password')"
 	if _, err := config.DB.Exec(query, input.Name, input.Email, hashedPassword); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		if strings.Contains(err.Error(), "unique constraint") || strings.Contains(err.Error(), "duplicate key") {
+			c.JSON(http.StatusConflict, gin.H{"error": "A user with this email already exists"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user: " + err.Error()})
 		return
 	}
 
@@ -89,11 +93,14 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("token", tokenString, 86400, "/", "", isSecure, true)
+	c.SetSameSite(http.SameSiteNoneMode)
+	// Force Secure=true for SameSite=None (it's mandatory in modern browsers)
+	c.SetCookie("token", tokenString, 86400, "/", "", true, true)
 	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
 }
 
 func Logout(c *gin.Context) {
+	c.SetSameSite(http.SameSiteNoneMode)
 	c.SetCookie("token", "", -1, "/", "", isSecure, true)
 	c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
 }
@@ -175,7 +182,8 @@ func GoogleAuth(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate session"})
 		return
 	}
-	c.SetCookie("token", tokenString, 86400, "/", "", isSecure, true)
+	c.SetSameSite(http.SameSiteNoneMode)
+	c.SetCookie("token", tokenString, 86400, "/", "", true, true)
 
 	c.JSON(http.StatusOK, gin.H{
 		"id":        strconv.FormatInt(userID, 10),
