@@ -9,6 +9,8 @@ import {
   LogOut, Menu, X, Code, ExternalLink, Link2, Lock
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_URL_SECONDARY || '';
+
 // ─── Module-level constants (never re-created per render) ─────────────────────
 
 const STEPS = [
@@ -152,7 +154,7 @@ export default function TaskDetail() {
 
   const fetchTask = useCallback(async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks/detail/${id}`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/tasks/detail/${id}`, { credentials: 'include' });
       if (!res.ok) {
         if (res.status === 404) throw new Error('Task not found.');
         throw new Error(`Failed to load task (${res.status})`);
@@ -167,7 +169,7 @@ export default function TaskDetail() {
 
   const loadProfile = useCallback(async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/user/profile`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/user/profile`, { credentials: 'include' });
       if (res.ok) setUserProfile(await res.json());
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -183,7 +185,7 @@ export default function TaskDetail() {
 
   const handleLogout = useCallback(async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/logout`, {
+      await fetch(`${API_BASE}/api/auth/logout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -196,7 +198,7 @@ export default function TaskDetail() {
     setUpdateLoading(true);
     setError('');
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks/${id}/status`, {
+      const res = await fetch(`${API_BASE}/tasks/${id}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -218,7 +220,7 @@ export default function TaskDetail() {
     setUpdateLoading(true);
     setError('');
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks/${id}/accept`, {
+      const res = await fetch(`${API_BASE}/tasks/${id}/accept`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -241,7 +243,7 @@ export default function TaskDetail() {
     }
     setUpdateLoading(true);
     setError('');
-    let url = `${import.meta.env.VITE_API_URL || ''}/tasks/${id}`;
+    let url = `${API_BASE}/tasks/${id}`;
     if (action === 'approve') url += '/approve';
     else if (action === 'request-changes') url += '/request-changes';
 
@@ -263,7 +265,7 @@ export default function TaskDetail() {
     setUpdateLoading(true);
     setError('');
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks/${id}/submit`, {
+      const res = await fetch(`${API_BASE}/tasks/${id}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -291,7 +293,7 @@ export default function TaskDetail() {
     if (!title.trim()) return;
     setUpdateLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks/${id}/milestones`, {
+      const res = await fetch(`${API_BASE}/tasks/${id}/milestones`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -309,7 +311,7 @@ export default function TaskDetail() {
     setUpdateLoading(true);
     setError('');
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks/${id}/milestones/${mid}/status`, {
+      const res = await fetch(`${API_BASE}/tasks/${id}/milestones/${mid}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -326,7 +328,7 @@ export default function TaskDetail() {
     setUpdateLoading(true);
     setError('');
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks/${id}/milestones/${submittingMilestone.id}/submit`, {
+      const res = await fetch(`${API_BASE}/tasks/${id}/milestones/${submittingMilestone.id}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -351,7 +353,7 @@ export default function TaskDetail() {
     setUpdateLoading(true);
     setError('');
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks/${id}/leave`, {
+      const res = await fetch(`${API_BASE}/tasks/${id}/leave`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

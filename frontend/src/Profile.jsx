@@ -21,6 +21,8 @@ import { useAuth } from './context/AuthContext.jsx';
 import Avatar from './components/Avatar.jsx';
 import TaskRow from './components/TaskRow.jsx';
 
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_URL_SECONDARY || '';
+
 export default function Profile({ onLogout }) {
   const [tasks, setTasks] = useState([]);
   const [error, setError] = useState('');
@@ -53,7 +55,7 @@ export default function Profile({ onLogout }) {
     if (currentPath === 'market') endpoint = '/tasks';
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}${endpoint}`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}${endpoint}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load tasks');
       const data = await res.json();
       setTasks(data);
@@ -65,7 +67,7 @@ export default function Profile({ onLogout }) {
   const loadProfile = async () => {
     setProfileLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/user/profile`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/user/profile`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load profile');
       const data = await res.json();
       setUserProfile(data);
@@ -91,7 +93,7 @@ export default function Profile({ onLogout }) {
     }
     
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/user/profile`, {
+      const res = await fetch(`${API_BASE}/api/user/profile`, {
         method: 'PUT',
         credentials: 'include',
         body: formData,
@@ -129,7 +131,7 @@ export default function Profile({ onLogout }) {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/logout`, {
+      await fetch(`${API_BASE}/api/auth/logout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -150,7 +152,7 @@ export default function Profile({ onLogout }) {
       if (newTask.attachment) {
         const formData = new FormData();
         formData.append('attachment', newTask.attachment);
-        const uploadRes = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/upload`, {
+        const uploadRes = await fetch(`${API_BASE}/api/upload`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -170,7 +172,7 @@ export default function Profile({ onLogout }) {
         deadline: newTask.deadline ? newTask.deadline : null,
         attachment_url: attachmentUrl,
       };
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks`, {
+      const res = await fetch(`${API_BASE}/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -192,7 +194,7 @@ export default function Profile({ onLogout }) {
 
   const handleAccept = useCallback(async (id) => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks/${id}/accept`, { method: 'POST', credentials: 'include' });
+      const res = await fetch(`${API_BASE}/tasks/${id}/accept`, { method: 'POST', credentials: 'include' });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Failed to accept task');
@@ -207,7 +209,7 @@ export default function Profile({ onLogout }) {
     try {
       const body = { status };
       if (progress !== null) body.progress = parseInt(progress, 10);
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks/${id}/status`, {
+      const res = await fetch(`${API_BASE}/tasks/${id}/status`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -226,7 +228,7 @@ export default function Profile({ onLogout }) {
   const handleDeleteTask = useCallback(async (id) => {
     if (!window.confirm('Delete this task?')) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/tasks/${id}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetch(`${API_BASE}/tasks/${id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error('Delete failed');
       fetchTasks();
     } catch (err) {

@@ -2,12 +2,16 @@ import { useEffect, useState } from 'react';
 import { GoogleAuthProvider, signInWithPopup, getRedirectResult } from 'firebase/auth';
 import { auth } from './firebase.js';
 import { Zap, ArrowRight, ArrowLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_URL_SECONDARY || '';
 
 export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(initialIsLogin);
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -27,7 +31,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
           const firebaseUser = cred.user;
           const idToken = await firebaseUser.getIdToken();
 
-          const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/google`, {
+          const res = await fetch(`${API_BASE}/api/auth/google`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -70,7 +74,7 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
         const firebaseUser = cred.user;
         const idToken = await firebaseUser.getIdToken();
 
-        const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/google`, {
+        const res = await fetch(`${API_BASE}/api/auth/google`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -98,39 +102,44 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setInfo('');
     setLoading(true);
 
     try {
       if (isLogin) {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/login`, {
+        const response = await fetch(`${API_BASE}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ email: formData.email, password: formData.password }),
         });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Something went wrong');
+        if (!response.ok) {
+          if (response.status === 403 && data?.error_code === 'EMAIL_NOT_VERIFIED') {
+            navigate(`/verify?email=${encodeURIComponent(formData.email)}`);
+            return;
+          }
+          throw new Error(data.error || 'Something went wrong');
+        }
         onLoginSuccess();
       } else {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/signup`, {
+        const response = await fetch(`${API_BASE}/api/auth/signup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify(formData),
         });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Something went wrong');
+        if (!response.ok) {
+          if (response.status === 403 && data?.error_code === 'EMAIL_NOT_VERIFIED') {
+            navigate(`/verify?email=${encodeURIComponent(formData.email)}`);
+            return;
+          }
+          throw new Error(data.error || 'Something went wrong');
+        }
 
-        // Auto-login after signup
-        const loginRes = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ email: formData.email, password: formData.password }),
-        });
-        const loginData = await loginRes.json().catch(() => ({}));
-        if (!loginRes.ok) throw new Error(loginData.error || 'Login failed after signup');
-        onLoginSuccess();
+        setInfo(data.message || 'Account created. Please verify your email.');
+        navigate(`/verify?email=${encodeURIComponent(formData.email)}`);
       }
     } catch (err) {
       setError(err.message);
@@ -164,6 +173,12 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
           <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl mb-6 text-sm border border-red-100 flex items-start gap-2">
             <span className="mt-0.5">⚠</span>
             <span className="flex-1">{error}</span>
+          </div>
+        )}
+
+        {info && (
+          <div className="bg-emerald-50 text-emerald-700 px-4 py-3 rounded-xl mb-6 text-sm border border-emerald-100">
+            {info}
           </div>
         )}
 

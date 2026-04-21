@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -18,8 +19,14 @@ import (
 
 func main() {
 	// Load env
-	if err := godotenv.Load(); err != nil {
-		log.Println("Note: No .env file found, using system environment variables")
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		log.Fatal("Failed to resolve backend source directory")
+	}
+
+	envPath := filepath.Join(filepath.Dir(currentFile), ".env")
+	if err := godotenv.Overload(envPath); err != nil {
+		log.Println("Note: No backend .env file found, using system environment variables")
 	}
 
 	// Connect DB
@@ -91,12 +98,12 @@ func main() {
 	// This allows the Go backend to serve the compiled frontend if the 'dist' folder exists.
 	workDir, _ := os.Getwd()
 	frontendPath := filepath.Join(workDir, "dist")
-	
+
 	// Check if dist folder exists
 	if info, err := os.Stat(frontendPath); err == nil && info.IsDir() {
 		log.Println("📦 Serving frontend from:", frontendPath)
 		r.StaticFS("/assets", http.Dir(filepath.Join(frontendPath, "assets")))
-		
+
 		// Catch-all for React Router
 		r.NoRoute(func(c *gin.Context) {
 			if !strings.HasPrefix(c.Request.URL.Path, "/api") && !strings.HasPrefix(c.Request.URL.Path, "/tasks") {
@@ -111,5 +118,28 @@ func main() {
 	}
 
 	log.Printf("🚀 Server running on :%s\n", port)
+	
+	// Background cleanup for unverified users
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		for range ticker.C {
+			log.Println("🧹 Running background cleanup for unverified users...")
+			result, err := config.DB.Exec(`
+				DELETE FROM users 
+				WHERE is_verified = FALSE 
+				  AND provider = 'password' 
+				  AND created_at < NOW() - INTERVAL '10 minutes'
+			`)
+			if err != nil {
+				log.Println("❌ Cleanup error:", err)
+			} else {
+				rows, _ := result.RowsAffected()
+				if rows > 0 {
+					log.Printf("✅ Deleted %d unverified users\n", rows)
+				}
+			}
+		}
+	}()
+
 	r.Run(":" + port)
 }

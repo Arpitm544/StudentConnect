@@ -1,6 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_URL_SECONDARY || '';
+
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -10,7 +12,7 @@ export function AuthProvider({ children }) {
   const refreshAuth = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/check`, {
+      const res = await fetch(`${API_BASE}/api/auth/check`, {
         method: 'GET',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -19,7 +21,7 @@ export function AuthProvider({ children }) {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.authenticated) {
-        setUser({ userId: data.user_id });
+        setUser({ userId: data.user_id, emailVerified: !!data.email_verified });
       } else {
         setUser(null);
       }

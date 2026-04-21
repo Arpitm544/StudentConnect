@@ -16,6 +16,7 @@ type EmailData struct {
 	PostedBy        string
 	AcceptedBy      string
 	Message         string
+	VerificationOTP string
 }
 
 // SendEmail sends a plain text or HTML email using Gmail SMTP
@@ -30,12 +31,12 @@ func SendEmail(to []string, subject, body string, isHTML bool) error {
 	}
 
 	auth := smtp.PlainAuth("", from, password, host)
-	
+
 	header := make(map[string]string)
 	header["From"] = from
 	header["To"] = to[0] // Primary recipient
 	header["Subject"] = subject
-	
+
 	if isHTML {
 		header["MIME-Version"] = "1.0"
 		header["Content-Type"] = "text/html; charset=\"utf-8\""
@@ -107,6 +108,21 @@ const assignmentAcceptedTemplate = `
 </html>
 `
 
+const verifyEmailTemplate = `
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+	<div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+		<h2 style="color: #4A90E2;">Your StudentConnect verification code</h2>
+		<p>Hi {{.UserName}},</p>
+		<p>Thanks for signing up. Please verify your email to activate login for your account.</p>
+		<p style="margin: 24px 0; font-size: 28px; letter-spacing: 6px; font-weight: 700; color: #111827;">{{.VerificationOTP}}</p>
+		<p style="font-size:12px;color:#666;">This OTP expires in 10 minutes.</p>
+	</div>
+</body>
+</html>
+`
+
 // SendWelcomeEmail notifies a new user
 func SendWelcomeEmail(toEmail, userName string) {
 	go func() {
@@ -168,4 +184,21 @@ func SendAssignmentAcceptedEmail(toEmail, title, msg string) {
 
 		_ = SendEmail([]string{toEmail}, "Assignment Accepted: "+title, body.String(), true)
 	}()
+}
+
+func SendVerificationEmail(toEmail, userName, verificationOTP string) error {
+	tmpl, err := template.New("verify_email").Parse(verifyEmailTemplate)
+	if err != nil {
+		return err
+	}
+
+	var body bytes.Buffer
+	if err := tmpl.Execute(&body, EmailData{
+		UserName:        userName,
+		VerificationOTP: verificationOTP,
+	}); err != nil {
+		return err
+	}
+
+	return SendEmail([]string{toEmail}, "Verify your StudentConnect account", body.String(), true)
 }

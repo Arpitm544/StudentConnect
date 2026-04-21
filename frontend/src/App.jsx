@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext.jsx';
 
 // ✅ Route-level code splitting — each page is its own JS chunk
 const Auth        = lazy(() => import('./Auth'));
+const Verify      = lazy(() => import('./Verify'));
 const Profile     = lazy(() => import('./Profile'));
 const TaskDetail  = lazy(() => import('./TaskDetail'));
 const LandingPage = lazy(() => import('./LandingPage'));
@@ -58,6 +59,17 @@ function App() {
                 <Navigate to="/dashboard" replace />
               ) : (
                 <Auth onLoginSuccess={refreshAuth} initialIsLogin={false} />
+              )
+            }
+          />
+
+          <Route
+            path="/verify"
+            element={
+              user ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Verify onVerified={refreshAuth} />
               )
             }
           />

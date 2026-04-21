@@ -45,12 +45,17 @@ func ConnectDatabase() {
 		photo_url TEXT,
 		provider VARCHAR(32) NOT NULL DEFAULT 'password',
 		password TEXT,
+		email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+		is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+		verification_token TEXT,
+		verification_token_expires TIMESTAMP,
+		verification_sent_at TIMESTAMP,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);`
 
 	if _, err := DB.Exec(createUsersTable); err != nil {
-		log.Fatal("Failed to create users table:", err)  //Fatal means stop the program if DB setup fails
+		log.Fatal("Failed to create users table:", err) //Fatal means stop the program if DB setup fails
 	}
 
 	// =========================
@@ -60,14 +65,29 @@ func ConnectDatabase() {
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS uid VARCHAR(128) UNIQUE",
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT",
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR(32) DEFAULT 'password'",
+		"ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE",
+		"ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE",
+		"ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT",
+		"ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token_expires TIMESTAMP",
+		"ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_sent_at TIMESTAMP",
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS field VARCHAR(255)",
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS college_name VARCHAR(255)",
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS year VARCHAR(50)",
+		"UPDATE users SET is_verified = email_verified WHERE is_verified IS FALSE AND email_verified IS TRUE",
 	}
 
 	for _, m := range migrations {
 		_, _ = DB.Exec(m)
 	}
+
+	// Backfill legacy password users created before verification rollout.
+	_, _ = DB.Exec(`
+		UPDATE users
+		SET is_verified = TRUE, email_verified = TRUE
+		WHERE provider = 'password'
+		  AND COALESCE(is_verified, FALSE) = FALSE
+		  AND created_at < '2026-04-22'
+	`)
 
 	// =========================
 	// CREATE TASKS TABLE

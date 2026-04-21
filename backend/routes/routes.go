@@ -13,6 +13,9 @@ func SetupRoutes(r *gin.Engine) {
 	{
 		auth.POST("/signup", controllers.Signup)
 		auth.POST("/login", controllers.Login)
+		auth.POST("/verify-otp", controllers.VerifyEmail)
+		auth.POST("/verify", controllers.VerifyEmail) // Legacy compatibility
+		auth.POST("/resend-verification", controllers.ResendVerification)
 		auth.POST("/google", controllers.GoogleAuth)
 		auth.POST("/logout", controllers.Logout)
 		auth.GET("/check", controllers.CheckAuth)

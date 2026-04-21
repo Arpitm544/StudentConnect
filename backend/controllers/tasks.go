@@ -81,7 +81,7 @@ func fetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 	defer rows.Close()
 
 	tasks := make([]models.Task, 0)
-	
+
 	for rows.Next() {
 		var t models.Task
 		var assigneeName, assigneePhoto, creatorName, creatorPhoto, description, subject, attachmentURL sql.NullString
@@ -364,7 +364,7 @@ func GetTask(c *gin.Context) {
 
 	if err := config.DB.QueryRow(query, id).Scan(
 		&t.ID, &t.Title, &description, &t.Status, &t.Accepted, &creatorIDNull, &assigneeIDNull,
-		&t.Deadline, &t.Progress, &subject, &attachmentURL, 
+		&t.Deadline, &t.Progress, &subject, &attachmentURL,
 		&subGithub, &subDocs, &subDrive, &subNotes,
 		&t.CreatedAt, &t.UpdatedAt,
 		&creatorName, &creatorEmail, &creatorPhoto,
@@ -379,8 +379,14 @@ func GetTask(c *gin.Context) {
 	}
 
 	// Fix types for IDs
-	if creatorIDNull.Valid { v := uint(creatorIDNull.Int64); t.CreatorID = &v }
-	if assigneeIDNull.Valid { v := uint(assigneeIDNull.Int64); t.AssigneeID = &v }
+	if creatorIDNull.Valid {
+		v := uint(creatorIDNull.Int64)
+		t.CreatorID = &v
+	}
+	if assigneeIDNull.Valid {
+		v := uint(assigneeIDNull.Int64)
+		t.AssigneeID = &v
+	}
 
 	// AUTHORIZATION CHECK
 	// If task is not pending (meaning it's in a private state), only involved parties can view it.
@@ -405,10 +411,18 @@ func GetTask(c *gin.Context) {
 	t.AssigneeEmail = assigneeEmail.String
 	t.AssigneePhotoURL = assigneePhoto.String
 
-	if subGithub.Valid { t.SubmissionGithub = &subGithub.String }
-	if subDocs.Valid   { t.SubmissionDocs   = &subDocs.String   }
-	if subDrive.Valid  { t.SubmissionDrive  = &subDrive.String  }
-	if subNotes.Valid  { t.SubmissionNotes  = &subNotes.String  }
+	if subGithub.Valid {
+		t.SubmissionGithub = &subGithub.String
+	}
+	if subDocs.Valid {
+		t.SubmissionDocs = &subDocs.String
+	}
+	if subDrive.Valid {
+		t.SubmissionDrive = &subDrive.String
+	}
+	if subNotes.Valid {
+		t.SubmissionNotes = &subNotes.String
+	}
 
 	// FETCH MILESTONES
 	mRows, err := config.DB.Query(`SELECT id, title, status, submission_link, submission_note, created_at, updated_at FROM milestones WHERE task_id = $1 ORDER BY id ASC`, id)
@@ -419,8 +433,12 @@ func GetTask(c *gin.Context) {
 			var subLink, subNote sql.NullString
 			m.TaskID = uint(id)
 			if err := mRows.Scan(&m.ID, &m.Title, &m.Status, &subLink, &subNote, &m.CreatedAt, &m.UpdatedAt); err == nil {
-				if subLink.Valid { m.SubmissionLink = &subLink.String }
-				if subNote.Valid { m.SubmissionNote = &subNote.String }
+				if subLink.Valid {
+					m.SubmissionLink = &subLink.String
+				}
+				if subNote.Valid {
+					m.SubmissionNote = &subNote.String
+				}
 				t.Milestones = append(t.Milestones, m)
 			}
 		}
@@ -481,8 +499,12 @@ func UpdateTaskStatus(c *gin.Context) {
 	}
 
 	progress := 0
-	if input.Progress != nil { progress = *input.Progress }
-	if status == "completed" { progress = 100 }
+	if input.Progress != nil {
+		progress = *input.Progress
+	}
+	if status == "completed" {
+		progress = 100
+	}
 
 	_, err = config.DB.Exec(`UPDATE tasks SET status = $1, progress = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, status, progress, id)
 	if err != nil {
@@ -572,12 +594,12 @@ func syncTaskStatusWithMilestones(taskID uint) error {
 	}
 	progress = (doneCount * 100) / len(statuses)
 
-	if (allDone) {
+	if allDone {
 		newStatus = "completed"
 		progress = 100
-	} else if (anyInReview) {
+	} else if anyInReview {
 		newStatus = "submitted"
-	} else if (anyInProgress) {
+	} else if anyInProgress {
 		newStatus = "in_progress"
 	}
 
@@ -612,7 +634,7 @@ func UpdateMilestoneStatus(c *gin.Context) {
 	idStr := c.Param("id")
 	id64, _ := strconv.ParseUint(idStr, 10, 64)
 	taskID := uint(id64)
-	
+
 	midStr := c.Param("mid")
 	mid, _ := strconv.Atoi(midStr)
 
@@ -642,7 +664,6 @@ func UpdateMilestoneStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Milestone updated"})
 }
 
-
 func SubmitMilestoneForReview(c *gin.Context) {
 	idStr := c.Param("id")
 	id64, _ := strconv.ParseUint(idStr, 10, 64)
@@ -660,7 +681,6 @@ func SubmitMilestoneForReview(c *gin.Context) {
 		return
 	}
 
-
 	// SEQUENTIAL CHECK: Check if previous milestones are done
 	var incompletePrevCount int
 	err := config.DB.QueryRow(`SELECT count(*) FROM milestones WHERE task_id = $1 AND id < $2 AND status != 'done'`, taskID, mid).Scan(&incompletePrevCount)
@@ -675,9 +695,9 @@ func SubmitMilestoneForReview(c *gin.Context) {
 		    submission_link = $1, 
 		    submission_note = $2, 
 		    updated_at = CURRENT_TIMESTAMP 
-		WHERE id = $3 AND task_id = $4`, 
+		WHERE id = $3 AND task_id = $4`,
 		input.Link, input.Note, mid, taskID)
-	
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit milestone: " + err.Error()})
 		return
