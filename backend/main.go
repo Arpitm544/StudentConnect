@@ -45,6 +45,10 @@ func main() {
 		"https://api.tasknest.tech/",
 		"https://web.tasknest.tech",
 		"https://web.tasknest.tech/",
+		"https://studentconnect-n538.onrender.com/",
+		"https://studentconnect-n538.onrender.com",
+		"https://student-connect-tan.vercel.app/",
+		"https://student-connect-tan.vercel.app",
 	}
 
 	// Add production domains from environment variable
