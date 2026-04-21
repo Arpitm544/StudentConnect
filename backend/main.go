@@ -43,6 +43,8 @@ func main() {
 		"https://main.d3dt3rmwfypl05.amplifyapp.com/",
 		"https://api.tasknest.tech",
 		"https://api.tasknest.tech/",
+		"https://web.tasknest.tech",
+		"https://web.tasknest.tech/",
 	}
 
 	// Add production domains from environment variable

@@ -20,6 +20,7 @@ import (
 var isSecure = os.Getenv("GIN_MODE") == "release"
 
 func Signup(c *gin.Context) {
+	
 	var input struct {
 		Name     string `json:"name"`
 		Email    string `json:"email"`
@@ -59,6 +60,7 @@ func Signup(c *gin.Context) {
 }
 
 func Login(c *gin.Context) {
+
 	var input struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -70,8 +72,11 @@ func Login(c *gin.Context) {
 	}
 
 	var user models.User
+
 	query := "SELECT id, name, email, password FROM users WHERE email = $1"
+
 	var password sql.NullString
+
 	err := config.DB.QueryRow(query, input.Email).Scan(&user.ID, &user.Name, &user.Email, &password)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -88,6 +93,7 @@ func Login(c *gin.Context) {
 	}
 
 	tokenString, err := utils.GenerateToken(int(user.ID))
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
@@ -221,8 +227,11 @@ func GetProfile(c *gin.Context) {
 	}
 
 	var user models.User
+
 	query := "SELECT id, uid, name, email, photo_url, provider, field, college_name, year, created_at FROM users WHERE id = $1"
+	
 	var uid, photo, field, college_name, year sql.NullString
+
 	err := config.DB.QueryRow(query, userID).Scan(&user.ID, &uid, &user.Name, &user.Email, &photo, &user.Provider, &field, &college_name, &year, &user.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -248,7 +257,9 @@ func GetProfile(c *gin.Context) {
 }
 
 func UpdateProfile(c *gin.Context) {
+	
 	userID, exists := c.Get("user_id")
+	
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
@@ -263,6 +274,7 @@ func UpdateProfile(c *gin.Context) {
 	field := c.Request.FormValue("field")
 	collegeName := c.Request.FormValue("college_name")
 	year := c.Request.FormValue("year")
+	
 
 	if name == "" {
 		// Log parsed form to help diagnose
@@ -281,6 +293,7 @@ func UpdateProfile(c *gin.Context) {
 	argID := 5
 
 	file, header, err := c.Request.FormFile("photo")
+
 	if err == nil && file != nil {
 		defer file.Close()
 		photoURL, uploadErr := services.UploadFile(file, header.Filename)
@@ -288,6 +301,7 @@ func UpdateProfile(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo"})
 			return
 		}
+		
 		updateQuery += fmt.Sprintf(", photo_url = $%d", argID)
 		args = append(args, photoURL)
 		argID++

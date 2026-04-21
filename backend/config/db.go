@@ -50,7 +50,7 @@ func ConnectDatabase() {
 	);`
 
 	if _, err := DB.Exec(createUsersTable); err != nil {
-		log.Fatal("Failed to create users table:", err)
+		log.Fatal("Failed to create users table:", err)  //Fatal means stop the program if DB setup fails
 	}
 
 	// =========================
