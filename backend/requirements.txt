@@ -1,0 +1,21 @@
+# Note: This backend is built with Go, which natively manages dependencies using `go.mod` and `go.sum`.
+# You do NOT need to install these using pip or a similar package manager.
+# To install all required dependencies, simply run the following command in the backend directory:
+#
+#    go mod tidy
+#
+# Below is a list of the main Go packages required by this project for reference:
+
+firebase.google.com/go/v4
+github.com/aws/aws-sdk-go-v2
+github.com/aws/aws-sdk-go-v2/config
+github.com/aws/aws-sdk-go-v2/credentials
+github.com/aws/aws-sdk-go-v2/feature/s3/manager
+github.com/aws/aws-sdk-go-v2/service/s3
+github.com/gin-contrib/cors
+github.com/gin-gonic/gin
+github.com/golang-jwt/jwt/v5
+github.com/joho/godotenv
+github.com/lib/pq
+golang.org/x/crypto
+google.golang.org/api
