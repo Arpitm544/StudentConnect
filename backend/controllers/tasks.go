@@ -324,7 +324,7 @@ func ListInvitations(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var invitations []models.TaskInvitation
+	invitations := make([]models.TaskInvitation, 0)
 	for rows.Next() {
 		var i models.TaskInvitation
 		rows.Scan(&i.ID, &i.TaskID, &i.InviteeEmail, &i.Status, &i.CreatedAt, &i.TaskTitle, &i.CreatorName)
