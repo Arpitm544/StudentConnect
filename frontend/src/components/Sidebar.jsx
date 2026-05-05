@@ -11,7 +11,7 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, end: true },
   { to: '/dashboard/market', label: 'Task Market', icon: <Briefcase size={18} /> },
   { to: '/dashboard/my-tasks', label: 'My Tasks', icon: <CheckSquare size={18} /> },
-  { to: '/dashboard/active-workflows', label: 'Active WorkFlow', icon: <PieChart size={18} /> },
+  { to: '/dashboard/invitations', label: 'Task Requests', icon: <Users size={18} /> },
   { to: '/dashboard/posted-requests', label: 'Post Task', icon: <FileText size={18} /> },
 ];
 

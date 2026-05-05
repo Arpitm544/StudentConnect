@@ -11,6 +11,7 @@ import (
 
 	"backend/config"
 	"backend/routes"
+	"backend/services"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -123,27 +124,8 @@ func main() {
 
 	log.Printf("🚀 Server running on :%s\n", port)
 
-	// Background cleanup for unverified users
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		for range ticker.C {
-			log.Println("🧹 Running background cleanup for unverified users...")
-			result, err := config.DB.Exec(`
-				DELETE FROM users 
-				WHERE is_verified = FALSE 
-				  AND provider = 'password' 
-				  AND created_at < NOW() - INTERVAL '10 minutes'
-			`)
-			if err != nil {
-				log.Println("❌ Cleanup error:", err)
-			} else {
-				rows, _ := result.RowsAffected()
-				if rows > 0 {
-					log.Printf("✅ Deleted %d unverified users\n", rows)
-				}
-			}
-		}
-	}()
+	// Start background tasks (cleanup, notifications)
+	services.StartBackgroundTaskRunner()
 
 	r.Run(":" + port)
 }

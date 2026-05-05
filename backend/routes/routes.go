@@ -51,7 +51,12 @@ func SetupRoutes(r *gin.Engine) {
 		tasks.POST("/:id/accept", controllers.AcceptTask)
 		tasks.POST("/:id/leave", controllers.LeaveTask)
 		tasks.POST("/:id/status", controllers.UpdateTaskStatus)
+		tasks.PUT("/:id", controllers.UpdateTask)
 		tasks.DELETE("/:id", controllers.DeleteTask)
+		
+		tasks.POST("/:id/invite", controllers.InviteUser)
+		tasks.GET("/invitations", controllers.ListInvitations)
+		tasks.POST("/invitations/:id/respond", controllers.RespondToInvitation)
 
 		tasks.POST("/:id/milestones", controllers.AddMilestone)
 		tasks.POST("/:id/milestones/:mid/status", controllers.UpdateMilestoneStatus)

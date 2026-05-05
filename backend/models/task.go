@@ -1,6 +1,15 @@
 package models
 
-import "time"
+import (
+	"time"
+)
+
+type UserBasic struct {
+	ID       uint   `json:"id,string"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	PhotoURL string `json:"photo_url"`
+}
 
 type Milestone struct {
 	ID             uint      `json:"id,string"`
@@ -25,7 +34,7 @@ type Task struct {
 	Progress      int        `json:"progress"`
 	Subject       string     `json:"subject"`
 	AttachmentURL *string    `json:"attachment_url"`
-
+	ExtensionEmailSent bool `json:"extension_email_sent"`
 	SubmissionLink *string `json:"submission_link"`
 
 	Milestones []Milestone `json:"milestones"`
@@ -36,6 +45,19 @@ type Task struct {
 	CreatorName      string    `json:"creator_name"`
 	CreatorEmail     string    `json:"creator_email"`
 	CreatorPhotoURL  string    `json:"creator_photo_url"`
+
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type TaskInvitation struct {
+	ID           uint      `json:"id,string"`
+	TaskID       uint      `json:"task_id,string"`
+	InviteeEmail string    `json:"invitee_email"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	
+	// Join fields
+	TaskTitle    string    `json:"task_title"`
+	CreatorName  string    `json:"creator_name"`
 }

@@ -111,6 +111,8 @@ func ConnectDatabase() {
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_docs TEXT",
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_drive TEXT",
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_notes TEXT",
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS extension_email_sent BOOLEAN DEFAULT FALSE",
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS max_assignees INT DEFAULT 1",
 	}
 
 	for _, m := range tasksMigrations {
@@ -139,6 +141,32 @@ func ConnectDatabase() {
 
 	for _, m := range milestonesMigrations {
 		_, _ = DB.Exec(m)
+	}
+
+	taskAssigneesTableQuery := `
+	CREATE TABLE IF NOT EXISTS task_assignees (
+		task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+		user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		accepted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (task_id, user_id)
+	);`
+
+	if _, err := DB.Exec(taskAssigneesTableQuery); err != nil {
+		log.Fatal("Failed to create task_assignees table:", err)
+	}
+
+	taskInvitationsTableQuery := `
+	CREATE TABLE IF NOT EXISTS task_invitations (
+		id BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+		task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+		invitee_email TEXT NOT NULL,
+		status VARCHAR(20) DEFAULT 'pending',
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(task_id, invitee_email)
+	);`
+
+	if _, err := DB.Exec(taskInvitationsTableQuery); err != nil {
+		log.Fatal("Failed to create task_invitations table:", err)
 	}
 }
 

@@ -132,6 +132,25 @@ const verifyEmailTemplate = `
 </html>
 `
 
+const deadlineExtensionTemplate = `
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+	<div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+		<h2 style="color: #E67E22;">Deadline Approaching!</h2>
+		<p>Hi {{.UserName}},</p>
+		<p>The deadline for your assignment <strong>"{{.AssignmentTitle}}"</strong> is approaching soon.</p>
+		<p>Currently, this assignment is either not yet accepted or has not been submitted by the assignee.</p>
+		<p>Would you like to extend the deadline to give more time for completion? You can do this from the assignment details page.</p>
+		<p><strong>Note:</strong> If the deadline passes without any submission or extension, the assignment will be automatically removed from the system.</p>
+		<hr style="border: 0; border-top: 1px solid #eee;" />
+		<p style="font-size: 12px; color: #777;">StudentConnect Notification</p>
+	</div>
+</body>
+</html>
+`
+
+
 func SendWelcomeEmail(toEmail, userName string) {
 	go func() {
 		tmpl, err := template.New("welcome").Parse(welcomeTemplate)
@@ -207,4 +226,24 @@ func SendVerificationEmail(toEmail, userName, verificationOTP string) error {
 	}
 
 	return SendEmail([]string{toEmail}, "Verify your StudentConnect account", body.String(), true)
+}
+
+func SendDeadlineExtensionEmail(toEmail, userName, title string) {
+	go func() {
+		tmpl, err := template.New("deadline_extension").Parse(deadlineExtensionTemplate)
+		if err != nil {
+			return
+		}
+
+		var body bytes.Buffer
+		data := EmailData{
+			UserName:        userName,
+			AssignmentTitle: title,
+		}
+		if err := tmpl.Execute(&body, data); err != nil {
+			return
+		}
+
+		_ = SendEmail([]string{toEmail}, "Action Required: Deadline Approaching for "+title, body.String(), true)
+	}()
 }

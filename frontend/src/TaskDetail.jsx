@@ -63,7 +63,7 @@ const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateL
     return (
       <div className="bg-accent-soft border border-accent/20 rounded-xl p-5 flex flex-col gap-4 w-full">
         <div className="text-[13px] text-accent font-medium">This task is waiting to be accepted.</div>
-        {!isCreator && (
+        {!isCreator && !isAssignee && (
           <button
             onClick={onAccept}
             disabled={updateLoading}
@@ -134,6 +134,9 @@ export default function TaskDetail() {
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState('');
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userProfile,   setUserProfile]   = useState(null);
   const [searchTerm,    setSearchTerm]    = useState('');
@@ -155,6 +158,15 @@ export default function TaskDetail() {
   const [isAddingMilestone, setIsAddingMilestone] = useState(false);
   const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
 
+  // Edit Task State
+  const [editForm, setEditForm] = useState({
+    title: '',
+    description: '',
+    subject: '',
+    deadline: '',
+    max_assignees: 1,
+  });
+
   // ── Data fetching (useCallback so stable reference across renders) ──────────
 
   const fetchTask = useCallback(async () => {
@@ -164,7 +176,15 @@ export default function TaskDetail() {
         if (res.status === 404) throw new Error('Task not found.');
         throw new Error(`Failed to load task (${res.status})`);
       }
-      setTask(await res.json());
+      const data = await res.json();
+      setTask(data);
+      setEditForm({
+        title: data.title || '',
+        description: data.description || '',
+        subject: data.subject || '',
+        deadline: data.deadline ? new Date(data.deadline).toISOString().slice(0, 16) : '',
+        max_assignees: data.max_assignees || 1,
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -384,6 +404,57 @@ export default function TaskDetail() {
     }
   }, [id, navigate]);
 
+  const handleUpdateTask = useCallback(async (e) => {
+    if (e) e.preventDefault();
+    setUpdateLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(editForm),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Update failed');
+      }
+      setIsEditing(false);
+      fetchTask();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdateLoading(false);
+    }
+  }, [id, editForm, fetchTask]);
+
+  const handleInviteUser = useCallback(async (e) => {
+    if (e) e.preventDefault();
+    if (!inviteEmail) return;
+    
+    setUpdateLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/tasks/${id}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: inviteEmail }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to send invitation');
+      }
+      setIsInviting(false);
+      setInviteEmail('');
+      alert('Invitation sent successfully!');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdateLoading(false);
+    }
+  }, [id, inviteEmail]);
+
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
   const openMobileMenu  = useCallback(() => setMobileMenuOpen(true),  []);
 
@@ -523,11 +594,19 @@ export default function TaskDetail() {
                 Accept Task
               </button>
             )}
-            <button className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-text-primary/3 border border-border-subtle text-text-primary hover:bg-text-primary/6 rounded-xl text-[13px] font-semibold transition-colors">
-              <UserPlus size={16} /> Assign
-            </button>
+            {isCreator && (task.current_assignees === 0 || !task.accepted) && (
+              <button 
+                onClick={() => setIsInviting(true)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-text-primary/3 border border-border-subtle text-text-primary hover:bg-text-primary/6 rounded-xl text-[13px] font-semibold transition-colors"
+              >
+                <UserPlus size={16} /> Assign
+              </button>
+            )}
             {isCreator && (
-              <button className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-text-primary/3 border border-border-subtle text-text-primary hover:bg-text-primary/6 rounded-xl text-[13px] font-semibold transition-colors">
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-text-primary/3 border border-border-subtle text-text-primary hover:bg-text-primary/6 rounded-xl text-[13px] font-semibold transition-colors"
+              >
                 <Edit3 size={16} /> Edit
               </button>
             )}
@@ -546,10 +625,14 @@ export default function TaskDetail() {
               </div>
               <div>
                 <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-4 flex items-center gap-2 opacity-60"><User size={14} /> Assigned To</p>
-                {task.assignee_name ? (
-                  <div className="flex items-center gap-3">
-                    <Avatar name={task.assignee_name} photoUrl={task.assignee_photo_url} size="md" />
-                    <span className="text-[15px] font-semibold text-text-primary">{task.assignee_name}</span>
+                {task.assignees && task.assignees.length > 0 ? (
+                  <div className="flex flex-col gap-3">
+                    {task.assignees.map((assignee) => (
+                      <div key={assignee.id} className="flex items-center gap-3">
+                        <Avatar name={assignee.name} photoUrl={assignee.photo_url} size="md" />
+                        <span className="text-[15px] font-semibold text-text-primary">{assignee.name}</span>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <p className="text-[15px] font-medium text-text-secondary italic">Unassigned</p>
@@ -875,6 +958,102 @@ export default function TaskDetail() {
               <button onClick={() => setSubmittingMilestone(null)} className="flex-1 py-3 text-text-secondary font-semibold rounded-xl hover:text-text-primary transition-all">Cancel</button>
               <button onClick={handleMilestoneSubmit} disabled={updateLoading} className="flex-1 py-3 bg-accent text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-50">
                 Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Task Modal */}
+      {isEditing && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-bg-card rounded-xl w-full max-w-lg shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-2xl font-semibold text-text-primary tracking-tight">Edit Assignment</h3>
+                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-text-primary/5 rounded-full transition-colors text-text-secondary"><X size={20} /></button>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2 opacity-60">Title</label>
+                  <input 
+                    type="text" 
+                    value={editForm.title} 
+                    onChange={e => setEditForm({...editForm, title: e.target.value})} 
+                    className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2 opacity-60">Subject</label>
+                  <input 
+                    type="text" 
+                    value={editForm.subject} 
+                    onChange={e => setEditForm({...editForm, subject: e.target.value})} 
+                    className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2 opacity-60">Deadline</label>
+                  <input 
+                    type="datetime-local" 
+                    value={editForm.deadline} 
+                    onChange={e => setEditForm({...editForm, deadline: e.target.value})} 
+                    className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2 opacity-60">Description</label>
+                  <textarea 
+                    value={editForm.description} 
+                    onChange={e => setEditForm({...editForm, description: e.target.value})} 
+                    rows={4} 
+                    className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-8 bg-bg-main/30 border-t border-border-subtle flex gap-4">
+              <button onClick={() => setIsEditing(false)} className="flex-1 py-3 text-text-secondary font-semibold rounded-xl hover:text-text-primary transition-all">Cancel</button>
+              <button onClick={handleUpdateTask} disabled={updateLoading} className="flex-1 py-3 bg-accent text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-accent/10">
+                {updateLoading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite User Modal */}
+      {isInviting && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-bg-card rounded-xl w-full max-w-sm shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-2xl font-semibold text-text-primary tracking-tight">Assign Task</h3>
+                <button onClick={() => setIsInviting(false)} className="p-2 hover:bg-text-primary/5 rounded-full transition-colors text-text-secondary"><X size={20} /></button>
+              </div>
+              
+              <p className="text-sm text-text-secondary mb-6">Enter the email of the person you want to invite to this assignment.</p>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest opacity-60">Invitee Email</label>
+                  <input 
+                    type="email" 
+                    value={inviteEmail} 
+                    onChange={e => setInviteEmail(e.target.value)} 
+                    placeholder="user@example.com"
+                    className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-8 bg-bg-main/30 border-t border-border-subtle flex gap-4">
+              <button onClick={() => setIsInviting(false)} className="flex-1 py-3 text-text-secondary font-semibold rounded-xl hover:text-text-primary transition-all">Cancel</button>
+              <button onClick={handleInviteUser} disabled={updateLoading || !inviteEmail} className="flex-1 py-3 bg-accent text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-accent/10">
+                {updateLoading ? 'Sending...' : 'Send Request'}
               </button>
             </div>
           </div>

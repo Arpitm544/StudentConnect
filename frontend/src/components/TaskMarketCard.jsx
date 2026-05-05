@@ -14,11 +14,11 @@ const TaskMarketCard = React.memo(({ task, onAccept, onView, formatDate }) => {
               High Priority
             </span>
           )}
-          {task.subject && (
-            <span className="px-2 py-0.5 bg-accent-soft text-accent text-[10px] font-semibold uppercase tracking-wider rounded border border-accent/10">
-              {task.subject}
-            </span>
-          )}
+           {task.subject && (
+             <span className="px-2 py-0.5 bg-accent-soft text-accent text-[10px] font-semibold uppercase tracking-wider rounded border border-accent/10">
+               {task.subject}
+             </span>
+           )}
         </div>
       </div>
 

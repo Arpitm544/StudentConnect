@@ -29,6 +29,8 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 
+
+
 	userID := c.GetInt("user_id")
 	var id int64
 	err := config.DB.QueryRow(
@@ -61,6 +63,53 @@ func CreateTask(c *gin.Context) {
 	}()
 }
 
+// UpdateTask - Creator can update task details (e.g., deadline)
+func UpdateTask(c *gin.Context) {
+	taskID, _ := strconv.Atoi(c.Param("id"))
+	userID := c.GetInt("user_id")
+
+	var creatorID int
+	err := config.DB.QueryRow("SELECT creator_id FROM tasks WHERE id = $1", taskID).Scan(&creatorID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+		return
+	}
+
+	if creatorID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var input struct {
+		Title         string  `json:"title"`
+		Description   string  `json:"description"`
+		Subject       string  `json:"subject"`
+		Deadline      *string `json:"deadline"`
+		AttachmentURL *string `json:"attachment_url"`
+	}
+
+	if c.BindJSON(&input) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	// If deadline is updated, reset extension_email_sent
+	_, err = config.DB.Exec(
+		`UPDATE tasks 
+		 SET title = $1, description = $2, subject = $3, deadline = $4, attachment_url = $5, 
+		     extension_email_sent = FALSE, updated_at = CURRENT_TIMESTAMP 
+		 WHERE id = $6`,
+		input.Title, input.Description, input.Subject, input.Deadline, input.AttachmentURL, taskID,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Task updated successfully"})
+}
+
 // ListTasks - Publicly available assignments (excludes tasks created by the current user)
 func ListTasks(c *gin.Context) {
 	userID := c.GetInt("user_id")
@@ -68,7 +117,7 @@ func ListTasks(c *gin.Context) {
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
 	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id
-	          WHERE t.status = 'pending' AND t.assignee_id IS NULL AND t.accepted = FALSE AND t.creator_id <> $1 ORDER BY t.id DESC`
+	          WHERE t.assignee_id IS NULL AND t.creator_id <> $1 ORDER BY t.id DESC`
 
 	tasks, err := services.FetchTasksByQuery(query, userID)
 	if err != nil {
@@ -100,8 +149,11 @@ func AcceptTask(c *gin.Context) {
 	userID := c.GetInt("user_id")
 
 	var creatorID int
+	var assigneeID sql.NullInt64
 	var status string
-	err := config.DB.QueryRow(`SELECT creator_id, status FROM tasks WHERE id = $1`, taskID).Scan(&creatorID, &status)
+	var title string
+	err := config.DB.QueryRow(`SELECT creator_id, assignee_id, status, title FROM tasks WHERE id = $1`, taskID).Scan(&creatorID, &assigneeID, &status, &title)
+	
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
 		return
@@ -111,25 +163,30 @@ func AcceptTask(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "You cannot accept your own assignment"})
 		return
 	}
-	if status != "pending" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Task is no longer open"})
+	if assigneeID.Valid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Assignment is already accepted by someone else"})
 		return
 	}
 
-	result, _ := config.DB.Exec(`UPDATE tasks SET accepted = TRUE, assignee_id = $1, status = 'accepted', updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND status = 'pending'`, userID, taskID)
-	if rows, _ := result.RowsAffected(); rows == 0 {
-		c.JSON(http.StatusConflict, gin.H{"error": "Task was just taken by someone else"})
+	_, err = config.DB.Exec(`UPDATE tasks SET accepted = TRUE, assignee_id = $1, status = 'accepted', updated_at = CURRENT_TIMESTAMP WHERE id = $2`, userID, taskID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Assignment accepted"})
 
 	go func() {
-		var title string
 		var cEmail, cName, aEmail, aName string
-		config.DB.QueryRow(`SELECT t.title, u_c.email, u_c.name, u_a.email, u_a.name FROM tasks t JOIN users u_c ON t.creator_id = u_c.id JOIN users u_a ON t.assignee_id = u_a.id WHERE t.id = $1`, taskID).Scan(&title, &cEmail, &cName, &aEmail, &aName)
-		services.SendAssignmentAcceptedEmail(cEmail, title, fmt.Sprintf("Accepted by %s", aName))
-		services.SendAssignmentAcceptedEmail(aEmail, title, fmt.Sprintf("You accepted %s's assignment", cName))
+		config.DB.QueryRow(`
+			SELECT u_c.email, u_c.name, u_a.email, u_a.name 
+			FROM tasks t 
+			JOIN users u_c ON t.creator_id = u_c.id 
+			JOIN users u_a ON u_a.id = $1
+			WHERE t.id = $2`, userID, taskID).Scan(&cEmail, &cName, &aEmail, &aName)
+		
+		services.SendAssignmentAcceptedEmail(cEmail, title, "Your assignment has been accepted")
+		services.SendAssignmentAcceptedEmail(aEmail, title, "You have accepted this assignment")
 	}()
 }
 
@@ -182,6 +239,7 @@ func GetTask(c *gin.Context) {
 	if t.Status != "pending" && t.Accepted {
 		isCreator := cid.Valid && int(cid.Int64) == userID
 		isAssignee := aid.Valid && int(aid.Int64) == userID
+		
 		if !isCreator && !isAssignee {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access"})
 			return
@@ -204,6 +262,119 @@ func GetTask(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, t)
+}
+
+// InviteUser - Creator requests a specific user by email
+func InviteUser(c *gin.Context) {
+	taskID, _ := strconv.Atoi(c.Param("id"))
+	userID := c.GetInt("user_id")
+
+	var input struct {
+		Email string `json:"email"`
+	}
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email"})
+		return
+	}
+
+	// Verify current user is creator
+	var creatorID int
+	var taskTitle string
+	err := config.DB.QueryRow(`SELECT creator_id, title FROM tasks WHERE id = $1`, taskID).Scan(&creatorID, &taskTitle)
+	if err != nil || creatorID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only creators can invite users"})
+		return
+	}
+
+	_, err = config.DB.Exec(`INSERT INTO task_invitations (task_id, invitee_email) VALUES ($1, $2)`, taskID, input.Email)
+	if err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Invitation already sent to this user"})
+		return
+	}
+
+	// Send email notification
+	go func() {
+		var creatorName string
+		config.DB.QueryRow(`SELECT name FROM users WHERE id = $1`, userID).Scan(&creatorName)
+		services.SendAssignmentAcceptedEmail(input.Email, taskTitle, fmt.Sprintf("%s has requested you to work on their assignment", creatorName))
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"message": "Invitation sent successfully"})
+}
+
+// ListInvitations - List invitations for the current user
+func ListInvitations(c *gin.Context) {
+	userEmail := c.GetString("user_email")
+	if userEmail == "" {
+		// Fetch email if not in context
+		userID := c.GetInt("user_id")
+		config.DB.QueryRow(`SELECT email FROM users WHERE id = $1`, userID).Scan(&userEmail)
+	}
+
+	rows, err := config.DB.Query(`
+		SELECT i.id, i.task_id, i.invitee_email, i.status, i.created_at, t.title, u.name
+		FROM task_invitations i
+		JOIN tasks t ON i.task_id = t.id
+		JOIN users u ON t.creator_id = u.id
+		WHERE i.invitee_email = $1 AND i.status = 'pending'`, userEmail)
+	
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch invitations"})
+		return
+	}
+	defer rows.Close()
+
+	var invitations []models.TaskInvitation
+	for rows.Next() {
+		var i models.TaskInvitation
+		rows.Scan(&i.ID, &i.TaskID, &i.InviteeEmail, &i.Status, &i.CreatedAt, &i.TaskTitle, &i.CreatorName)
+		invitations = append(invitations, i)
+	}
+
+	c.JSON(http.StatusOK, invitations)
+}
+
+// RespondToInvitation - Accept or Reject
+func RespondToInvitation(c *gin.Context) {
+	invitationID, _ := strconv.Atoi(c.Param("id"))
+	userID := c.GetInt("user_id")
+	userEmail := c.GetString("user_email")
+	if userEmail == "" {
+		config.DB.QueryRow(`SELECT email FROM users WHERE id = $1`, userID).Scan(&userEmail)
+	}
+
+	var input struct {
+		Action string `json:"action"` // "accept" or "reject"
+	}
+	c.BindJSON(&input)
+
+	var taskID int
+	var inviteeEmail string
+	err := config.DB.QueryRow(`SELECT task_id, invitee_email FROM task_invitations WHERE id = $1`, invitationID).Scan(&taskID, &inviteeEmail)
+	if err != nil || inviteeEmail != userEmail {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	if input.Action == "reject" {
+		config.DB.Exec(`UPDATE task_invitations SET status = 'rejected' WHERE id = $1`, invitationID)
+		c.JSON(http.StatusOK, gin.H{"message": "Invitation rejected"})
+		return
+	}
+
+	// Action is "accept"
+	// Re-use AcceptTask logic or call it? 
+	// Better to implement inline to handle the invitation status update.
+	
+	tx, _ := config.DB.Begin()
+	
+	// Accept task
+	tx.Exec(`UPDATE tasks SET accepted = TRUE, assignee_id = $1, status = 'accepted', updated_at = CURRENT_TIMESTAMP WHERE id = $2`, userID, taskID)
+	tx.Exec(`UPDATE task_invitations SET status = 'accepted' WHERE id = $1`, invitationID)
+	
+	tx.Commit()
+
+	c.JSON(http.StatusOK, gin.H{"message": "Invitation accepted"})
 }
 
 // Milestone Management
@@ -296,7 +467,9 @@ func LeaveTask(c *gin.Context) {
 func ListMyTasks(c *gin.Context) {
 	userID := c.GetInt("user_id")
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id WHERE t.assignee_id = $1`
+	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url
+	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id 
+	          WHERE t.assignee_id = $1`
 	tasks, _ := services.FetchTasksByQuery(query, userID)
 	c.JSON(http.StatusOK, tasks)
 }
@@ -304,7 +477,8 @@ func ListMyTasks(c *gin.Context) {
 func ListPostedTasks(c *gin.Context) {
 	userID := c.GetInt("user_id")
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id WHERE t.creator_id = $1`
+	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url
+	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id WHERE t.creator_id = $1`
 	tasks, _ := services.FetchTasksByQuery(query, userID)
 	c.JSON(http.StatusOK, tasks)
 }
@@ -312,7 +486,10 @@ func ListPostedTasks(c *gin.Context) {
 func ListActiveTasks(c *gin.Context) {
 	userID := c.GetInt("user_id")
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id WHERE (t.creator_id = $1 OR t.assignee_id = $2) AND t.status IN ('accepted', 'in_progress', 'submitted')`
+	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url
+	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id 
+	          WHERE (t.creator_id = $1 OR t.assignee_id = $2) 
+	          AND t.status IN ('accepted', 'in_progress', 'submitted')`
 	tasks, _ := services.FetchTasksByQuery(query, userID, userID)
 	c.JSON(http.StatusOK, tasks)
 }

@@ -33,11 +33,14 @@ export default function Profile({ onLogout }) {
   const [tasks, setTasks] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
-  const [newTask, setNewTask] = useState({ title: '', description: '', subject: '', deadline: '', attachment: null });
+  const [newTask, setNewTask] = useState({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null });
   const [postLoading, setPostLoading] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tasksLoading, setTasksLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [invitations, setInvitations] = useState([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileFormData, setProfileFormData] = useState({
     name: '',
@@ -61,7 +64,7 @@ export default function Profile({ onLogout }) {
     let endpoint = '/tasks/dashboard';
     if (currentPath === 'my-tasks') endpoint = '/tasks/mine';
     if (currentPath === 'posted-requests') endpoint = '/tasks/posted';
-    if (currentPath === 'active-workflows') endpoint = '/tasks/active';
+    if (currentPath === 'invitations') endpoint = '/tasks/invitations';
     if (currentPath === 'market') endpoint = '/tasks';
 
     setTasksLoading(true);
@@ -76,6 +79,20 @@ export default function Profile({ onLogout }) {
       setTasksLoading(false);
     }
   }, [currentPath]);
+
+  const fetchInvitations = useCallback(async () => {
+    setInvitationsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/tasks/invitations`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load invitations');
+      const data = await res.json();
+      setInvitations(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setInvitationsLoading(false);
+    }
+  }, []);
 
   const loadProfile = useCallback(async () => {
     setProfileLoading(true);
@@ -110,6 +127,7 @@ export default function Profile({ onLogout }) {
 
   useEffect(() => {
     if (currentPath !== 'profile') fetchTasks();
+    if (currentPath === 'invitations') fetchInvitations();
     
     // Auto-open post form if redirected from dashboard with state
     if (currentPath === 'posted-requests' && location.state?.openForm) {
@@ -162,13 +180,17 @@ export default function Profile({ onLogout }) {
 
   // ── Search Filtering ──
   const filteredTasks = useMemo(() => {
-    if (!searchTerm) return tasks;
-    return tasks.filter(t => 
-      t.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      t.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.creator_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [tasks, searchTerm]);
+    return tasks.filter(t => {
+      const matchesSearch = !searchTerm || 
+        t.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        t.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        t.creator_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || t.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [tasks, searchTerm, statusFilter]);
 
   const handleLogout = async () => {
     try {
@@ -219,6 +241,25 @@ export default function Profile({ onLogout }) {
       setError(err.message);
     }
   }, [fetchTasks]);
+
+  const handleRespondInvitation = async (id, action) => {
+    try {
+      const res = await fetch(`${API_BASE}/tasks/invitations/${id}/respond`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Response failed');
+      }
+      fetchInvitations();
+      fetchTasks();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -285,6 +326,7 @@ export default function Profile({ onLogout }) {
           description: newTask.description,
           subject: newTask.subject,
           deadline: newTask.deadline ? new Date(newTask.deadline).toISOString() : null,
+          max_assignees: parseInt(newTask.max_assignees, 10),
           attachment_url: attachmentUrl
         }),
       });
@@ -517,9 +559,9 @@ export default function Profile({ onLogout }) {
                           </div>
                           <h3 className="text-2xl font-semibold text-text-primary tracking-tight">Recent Tasks</h3>
                        </div>
-                       <NavLink to="/dashboard/active-workflows" className="text-xs font-semibold text-accent hover:opacity-80 flex items-center gap-1 group">
-                          View all <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                       </NavLink>
+                        <NavLink to="/dashboard/my-tasks" className="text-xs font-semibold text-accent hover:opacity-80 flex items-center gap-1 group">
+                           View all <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                        </NavLink>
                     </div>
 
                     <div className="premium-card">
@@ -548,6 +590,54 @@ export default function Profile({ onLogout }) {
                        </div>
                     </div>
                  </div>
+              </div>
+            } />
+
+            <Route path="invitations" element={
+              <div className="space-y-8 animate-fade-up">
+                 <div className="flex items-center justify-between mb-8">
+                     <div>
+                        <h2 className="text-3xl font-semibold text-text-primary tracking-tight">Task Requests</h2>
+                        <p className="text-text-secondary font-medium">Pending invitations to collaborate on assignments.</p>
+                     </div>
+                  </div>
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+                      {invitationsLoading ? (
+                        [...Array(3)].map((_, i) => <TaskMarketCardSkeleton key={i} />)
+                      ) : invitations.length === 0 ? (
+                        <div className="col-span-full premium-card py-20 text-center border-dashed border-2">
+                          <GitMerge size={32} className="mx-auto text-text-secondary/30 mb-4" />
+                          <h4 className="text-lg font-semibold text-text-primary">No pending requests</h4>
+                          <p className="text-text-secondary font-medium">When someone invites you to their project, it will appear here.</p>
+                        </div>
+                      ) : (
+                        invitations.map((invite) => (
+                          <div key={invite.id} className="premium-card flex flex-col h-full bg-accent/5 border-accent/20">
+                            <div className="flex-1">
+                              <span className="px-2 py-0.5 bg-accent-soft text-accent text-[10px] font-bold uppercase tracking-wider rounded mb-4 inline-block">Invitation</span>
+                              <h3 className="text-lg font-semibold text-text-primary mb-2 line-clamp-1">{invite.task_title}</h3>
+                              <p className="text-text-secondary text-sm mb-6 opacity-80">
+                                <strong>{invite.creator_name}</strong> has invited you to work on this assignment.
+                              </p>
+                            </div>
+                            <div className="flex gap-3 pt-6 border-t border-border-subtle mt-auto">
+                               <button 
+                                 onClick={() => handleRespondInvitation(invite.id, 'reject')}
+                                 className="flex-1 py-2 px-4 border border-border-subtle text-text-secondary text-xs font-semibold rounded-lg hover:text-text-primary hover:bg-text-primary/5 transition-all"
+                               >
+                                 Decline
+                               </button>
+                               <button 
+                                 onClick={() => handleRespondInvitation(invite.id, 'accept')}
+                                 className="flex-1 py-2 px-4 bg-accent text-white text-xs font-semibold rounded-lg hover:opacity-90 transition-all active:scale-95"
+                               >
+                                 Accept Request
+                               </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                   </div>
               </div>
             } />
 
@@ -589,11 +679,49 @@ export default function Profile({ onLogout }) {
                   <div>
                     <h1 className="text-3xl font-semibold text-text-primary">
                       {currentPath === 'posted-requests' ? 'Post Task' : 
-                       currentPath === 'active-workflows' ? 'Active Workflow' : 
+                       currentPath === 'invitations' ? 'Task Requests' : 
                        currentPath.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </h1>
                     <p className="text-text-secondary font-medium mt-1">Your task records and details.</p>
                   </div>
+                  
+                  <div className="flex items-center gap-4">
+                    {currentPath !== 'posted-requests' && currentPath !== 'invitations' && (
+                      <div className="hidden md:flex bg-bg-card p-1 rounded-xl border border-border-subtle">
+                        {[
+                          { id: 'all', label: 'All' },
+                          { id: 'accepted', label: 'Accepted' },
+                          { id: 'in_progress', label: 'In Progress' },
+                          { id: 'completed', label: 'Completed' }
+                        ].map((filter) => (
+                          <button
+                            key={filter.id}
+                            onClick={() => setStatusFilter(filter.id)}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                              statusFilter === filter.id 
+                                ? 'bg-accent text-white shadow-sm' 
+                                : 'text-text-secondary hover:text-text-primary'
+                            }`}
+                          >
+                            {filter.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {currentPath !== 'posted-requests' && currentPath !== 'invitations' && (
+                      <select 
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="md:hidden bg-bg-card border border-border-subtle rounded-xl px-3 py-2 text-xs font-semibold text-text-primary outline-none focus:border-accent/30"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    )}
+
                     {currentPath === 'posted-requests' && (
                       <button
                         className="px-6 py-2.5 bg-accent text-white rounded-xl hover:opacity-90 transition font-semibold active:scale-95"
@@ -602,6 +730,7 @@ export default function Profile({ onLogout }) {
                         {showPostForm ? 'Cancel' : '+ Create Task'}
                       </button>
                     )}
+                  </div>
                 </div>
 
                 {showPostForm && (
