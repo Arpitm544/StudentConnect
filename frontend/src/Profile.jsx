@@ -14,6 +14,7 @@ import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
 import TaskRow from './components/TaskRow.jsx';
 import TaskMarketCard from './components/TaskMarketCard.jsx';
+import { StatCardSkeleton, TaskRowSkeleton, TaskMarketCardSkeleton } from './components/Skeleton.jsx';
 import {
   LineChart,
   Line,
@@ -36,6 +37,7 @@ export default function Profile({ onLogout }) {
   const [postLoading, setPostLoading] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [tasksLoading, setTasksLoading] = useState(true);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileFormData, setProfileFormData] = useState({
     name: '',
@@ -62,6 +64,7 @@ export default function Profile({ onLogout }) {
     if (currentPath === 'active-workflows') endpoint = '/tasks/active';
     if (currentPath === 'market') endpoint = '/tasks';
 
+    setTasksLoading(true);
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load tasks');
@@ -69,6 +72,8 @@ export default function Profile({ onLogout }) {
       setTasks(data);
     } catch (err) {
       setError(err.message || 'Could not fetch tasks');
+    } finally {
+      setTasksLoading(false);
     }
   }, [currentPath]);
 
@@ -350,28 +355,30 @@ export default function Profile({ onLogout }) {
           openMobileMenu={openMobileMenu}
         />
 
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
           
           <Routes>
             <Route path="/" element={
               <div className="space-y-8 animate-fade-up">
                 
                 {/* Welcome & Stats Row */}
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 md:gap-8">
                    <div className="space-y-2">
-                      <h2 className="text-3xl font-semibold text-text-primary tracking-tight">Welcome back, {userProfile?.name?.split(' ')[0]}</h2>
+                      <h2 className="text-2xl md:text-3xl font-semibold text-text-primary tracking-tight">Welcome back, {userProfile?.name?.split(' ')[0]}</h2>
                       <p className="text-text-secondary font-medium">You have <span className="text-accent font-semibold">{inProgress + pending} active tasks</span> to focus on this week.</p>
                    </div>
-                   <div className="flex gap-4">
-                      <button onClick={() => navigate('/dashboard/posted-requests', { state: { openForm: true } })} className="px-6 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-all flex items-center gap-2">
+                   <div className="flex gap-4 flex-shrink-0">
+                      <button onClick={() => navigate('/dashboard/posted-requests', { state: { openForm: true } })} className="px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-all flex items-center gap-2">
                          <Plus size={13} /> Post Task
                       </button>
                    </div>
                 </div>
 
                 {/* Stat Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                  {[
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                  {tasksLoading
+                    ? [...Array(4)].map((_, i) => <StatCardSkeleton key={i} />)
+                    : [
                     { label: 'Completion', value: `${completionRate}%`, sub: 'Overall efficiency', icon: <CheckSquare className="text-accent" /> },
                     { label: 'Due Soon', value: dueSoonCount, sub: 'Next 48 hours', icon: <Clock className="text-accent" /> },
                     { label: 'Active', value: inProgress, sub: 'Currently working', icon: <TrendingUp className="text-accent" /> },
@@ -392,7 +399,7 @@ export default function Profile({ onLogout }) {
                 </div>
 
                 {/* Charts Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
                    {/* Activity Chart */}
                    <div className="lg:col-span-2 premium-card">
                       <div className="flex items-center justify-between mb-10">
@@ -467,8 +474,10 @@ export default function Profile({ onLogout }) {
                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                       {filteredTasks.length === 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-8">
+                       {tasksLoading ? (
+                          [...Array(3)].map((_, i) => <TaskMarketCardSkeleton key={i} />)
+                        ) : filteredTasks.length === 0 ? (
                          <div className="col-span-full premium-card py-20 text-center border-dashed border-2">
                             <Briefcase size={32} className="mx-auto text-text-secondary/30 mb-4" />
                             <h4 className="text-lg font-semibold text-text-primary">No tasks found</h4>
@@ -515,25 +524,27 @@ export default function Profile({ onLogout }) {
 
                     <div className="premium-card">
                        <div className="space-y-1">
-                          {filteredTasks.length === 0 ? (
-                            <div className="py-12 text-center">
-                              <p className="text-text-secondary font-medium">No tasks found matching your search.</p>
-                            </div>
-                          ) : (
-                            filteredTasks.map((task) => (
-                              <TaskRow 
-                                key={task.id} 
-                                task={task} 
-                                currentPath={currentPath}
-                                userProfile={userProfile}
-                                onAccept={handleAccept}
-                                onStatusChange={handleStatusChange}
-                                onDelete={handleDeleteTask}
-                                onView={handleView}
-                                formatDate={formatDate}
-                              />
-                            ))
-                          )}
+                           {tasksLoading ? (
+                             [...Array(5)].map((_, i) => <TaskRowSkeleton key={i} />)
+                           ) : filteredTasks.length === 0 ? (
+                             <div className="py-12 text-center">
+                               <p className="text-text-secondary font-medium">No tasks found matching your search.</p>
+                             </div>
+                           ) : (
+                             filteredTasks.map((task) => (
+                               <TaskRow 
+                                 key={task.id} 
+                                 task={task} 
+                                 currentPath={currentPath}
+                                 userProfile={userProfile}
+                                 onAccept={handleAccept}
+                                 onStatusChange={handleStatusChange}
+                                 onDelete={handleDeleteTask}
+                                 onView={handleView}
+                                 formatDate={formatDate}
+                               />
+                             ))
+                           )}
                        </div>
                     </div>
                  </div>
@@ -548,17 +559,27 @@ export default function Profile({ onLogout }) {
                         <p className="text-text-secondary font-medium">Browse and accept tasks from across the community.</p>
                      </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                     {filteredTasks.map((task) => (
-                       <TaskMarketCard 
-                         key={task.id} 
-                         task={task} 
-                         onAccept={handleAccept} 
-                         onView={handleView}
-                         formatDate={formatDate}
-                       />
-                     ))}
-                  </div>
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+                      {tasksLoading ? (
+                        [...Array(6)].map((_, i) => <TaskMarketCardSkeleton key={i} />)
+                      ) : filteredTasks.length === 0 ? (
+                        <div className="col-span-full premium-card py-20 text-center border-dashed border-2">
+                          <Briefcase size={32} className="mx-auto text-text-secondary/30 mb-4" />
+                          <h4 className="text-lg font-semibold text-text-primary">No tasks in the market</h4>
+                          <p className="text-text-secondary font-medium">Check back later for new assignments.</p>
+                        </div>
+                      ) : (
+                        filteredTasks.map((task) => (
+                          <TaskMarketCard 
+                            key={task.id} 
+                            task={task} 
+                            onAccept={handleAccept} 
+                            onView={handleView}
+                            formatDate={formatDate}
+                          />
+                        ))
+                      )}
+                   </div>
               </div>
             } />
 
@@ -662,7 +683,9 @@ export default function Profile({ onLogout }) {
 
                 <div className="premium-card">
                    <div className="space-y-4">
-                     {filteredTasks.length === 0 ? (
+                     {tasksLoading ? (
+                       [...Array(5)].map((_, i) => <TaskRowSkeleton key={i} />)
+                     ) : filteredTasks.length === 0 ? (
                         <div className="py-20 text-center">
                            <AlertCircle size={32} className="mx-auto text-text-secondary/20 mb-4" />
                            <p className="text-text-secondary font-medium">No tasks match your current view or search.</p>

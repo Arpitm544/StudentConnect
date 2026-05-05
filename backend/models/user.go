@@ -13,7 +13,7 @@ type User struct {
 	Provider                 string     `json:"provider"`
 	Password                 *string    `json:"password,omitempty"`
 	IsVerified               bool       `json:"is_verified"`
-	EmailVerified            bool       `json:"email_verified"` // Legacy compatibility
+	EmailVerified            bool       `json:"email_verified"`
 	VerificationToken        *string    `json:"-"`
 	VerificationTokenExpires *time.Time `json:"-"`
 	VerificationSentAt       *time.Time `json:"-"`

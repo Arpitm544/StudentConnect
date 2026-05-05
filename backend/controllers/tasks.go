@@ -44,7 +44,6 @@ func CreateTask(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{"id": strconv.FormatInt(id, 10)})
 
-	// Async Email Notification
 	go func() {
 		var name string
 		config.DB.QueryRow("SELECT name FROM users WHERE id=$1", userID).Scan(&name)
@@ -70,7 +69,7 @@ func ListTasks(c *gin.Context) {
 	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE t.status = 'pending' AND t.assignee_id IS NULL AND t.accepted = FALSE AND t.creator_id <> $1 ORDER BY t.id DESC`
-	
+
 	tasks, err := services.FetchTasksByQuery(query, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list tasks"})
@@ -86,7 +85,7 @@ func ListDashboardTasks(c *gin.Context) {
 	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE t.creator_id = $1 OR t.assignee_id = $2 ORDER BY t.id DESC`
-	
+
 	tasks, err := services.FetchTasksByQuery(query, userID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch dashboard"})
@@ -100,7 +99,6 @@ func AcceptTask(c *gin.Context) {
 	taskID, _ := strconv.Atoi(c.Param("id"))
 	userID := c.GetInt("user_id")
 
-	// 1. Validation Logic
 	var creatorID int
 	var status string
 	err := config.DB.QueryRow(`SELECT creator_id, status FROM tasks WHERE id = $1`, taskID).Scan(&creatorID, &status)
@@ -118,7 +116,6 @@ func AcceptTask(c *gin.Context) {
 		return
 	}
 
-	// 2. Atomic Update
 	result, _ := config.DB.Exec(`UPDATE tasks SET accepted = TRUE, assignee_id = $1, status = 'accepted', updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND status = 'pending'`, userID, taskID)
 	if rows, _ := result.RowsAffected(); rows == 0 {
 		c.JSON(http.StatusConflict, gin.H{"error": "Task was just taken by someone else"})
@@ -127,7 +124,6 @@ func AcceptTask(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Assignment accepted"})
 
-	// 3. Notify parties
 	go func() {
 		var title string
 		var cEmail, cName, aEmail, aName string
@@ -146,7 +142,7 @@ func GetTask(c *gin.Context) {
 	          t.submission_github as submission_link, t.created_at, t.updated_at,
 	          u_c.name, u_c.email, u_c.photo_url, u_a.name, u_a.email, u_a.photo_url
 	          FROM tasks t LEFT JOIN users u_c ON t.creator_id = u_c.id LEFT JOIN users u_a ON t.assignee_id = u_a.id WHERE t.id = $1`
-	
+
 	var t models.Task
 	var desc, subj, attach, subL sql.NullString
 	var cn, ce, cp, an, ae, ap sql.NullString
@@ -163,25 +159,26 @@ func GetTask(c *gin.Context) {
 		return
 	}
 
-	// Simple Mapping
 	t.Description = desc.String
 	t.Subject = subj.String
-	if attach.Valid { t.AttachmentURL = &attach.String }
+	if attach.Valid {
+		t.AttachmentURL = &attach.String
+	}
 	t.CreatorName, t.CreatorEmail, t.CreatorPhotoURL = cn.String, ce.String, cp.String
 	t.AssigneeName, t.AssigneeEmail, t.AssigneePhotoURL = an.String, ae.String, ap.String
-	if subL.Valid { t.SubmissionLink = &subL.String }
+	if subL.Valid {
+		t.SubmissionLink = &subL.String
+	}
 
-	// Map IDs for frontend checks
-	if cid.Valid { 
+	if cid.Valid {
 		ucid := uint(cid.Int64)
-		t.CreatorID = &ucid 
+		t.CreatorID = &ucid
 	}
-	if aid.Valid { 
+	if aid.Valid {
 		uaid := uint(aid.Int64)
-		t.AssigneeID = &uaid 
+		t.AssigneeID = &uaid
 	}
 
-	// Auth check for private tasks
 	if t.Status != "pending" && t.Accepted {
 		isCreator := cid.Valid && int(cid.Int64) == userID
 		isAssignee := aid.Valid && int(aid.Int64) == userID
@@ -191,15 +188,18 @@ func GetTask(c *gin.Context) {
 		}
 	}
 
-	// Fetch Milestones
 	mRows, _ := config.DB.Query(`SELECT id, title, status, submission_link, submission_note, created_at, updated_at FROM milestones WHERE task_id = $1 ORDER BY id ASC`, id)
 	defer mRows.Close()
 	for mRows.Next() {
 		var m models.Milestone
 		var sl, sn sql.NullString
 		mRows.Scan(&m.ID, &m.Title, &m.Status, &sl, &sn, &m.CreatedAt, &m.UpdatedAt)
-		if sl.Valid { m.SubmissionLink = &sl.String }
-		if sn.Valid { m.SubmissionNote = &sn.String }
+		if sl.Valid {
+			m.SubmissionLink = &sl.String
+		}
+		if sn.Valid {
+			m.SubmissionNote = &sn.String
+		}
 		t.Milestones = append(t.Milestones, m)
 	}
 
@@ -209,7 +209,9 @@ func GetTask(c *gin.Context) {
 // Milestone Management
 func AddMilestone(c *gin.Context) {
 	taskID, _ := strconv.Atoi(c.Param("id"))
-	var input struct{ Title string `json:"title"` }
+	var input struct {
+		Title string `json:"title"`
+	}
 	c.BindJSON(&input)
 
 	config.DB.Exec(`INSERT INTO milestones (task_id, title, status) VALUES ($1, $2, 'pending')`, taskID, input.Title)
@@ -220,7 +222,9 @@ func AddMilestone(c *gin.Context) {
 func UpdateMilestoneStatus(c *gin.Context) {
 	taskID, _ := strconv.Atoi(c.Param("id"))
 	mid, _ := strconv.Atoi(c.Param("mid"))
-	var input struct{ Status string `json:"status"` }
+	var input struct {
+		Status string `json:"status"`
+	}
 	c.BindJSON(&input)
 
 	config.DB.Exec(`UPDATE milestones SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND task_id = $3`, strings.ToLower(input.Status), mid, taskID)
@@ -232,7 +236,10 @@ func UpdateMilestoneStatus(c *gin.Context) {
 func SubmitMilestoneForReview(c *gin.Context) {
 	taskID, _ := strconv.Atoi(c.Param("id"))
 	mid, _ := strconv.Atoi(c.Param("mid"))
-	var input struct{ Link string `json:"link"`; Note string `json:"note"` }
+	var input struct {
+		Link string `json:"link"`
+		Note string `json:"note"`
+	}
 	c.BindJSON(&input)
 
 	config.DB.Exec(`UPDATE milestones SET status = 'submitted', submission_link = $1, submission_note = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 AND task_id = $4`, input.Link, input.Note, mid, taskID)
@@ -243,7 +250,7 @@ func SubmitMilestoneForReview(c *gin.Context) {
 // UpdateTaskStatus - Manual status update (only if no milestones)
 func UpdateTaskStatus(c *gin.Context) {
 	taskID, _ := strconv.Atoi(c.Param("id"))
-	
+
 	var count int
 	config.DB.QueryRow("SELECT COUNT(*) FROM milestones WHERE task_id = $1", taskID).Scan(&count)
 	if count > 0 {
@@ -251,9 +258,12 @@ func UpdateTaskStatus(c *gin.Context) {
 		return
 	}
 
-	var input struct{ Status string `json:"status"`; Progress int `json:"progress"` }
+	var input struct {
+		Status   string `json:"status"`
+		Progress int    `json:"progress"`
+	}
 	c.BindJSON(&input)
-	
+
 	config.DB.Exec(`UPDATE tasks SET status = $1, progress = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, strings.ToLower(input.Status), input.Progress, taskID)
 	c.JSON(http.StatusOK, gin.H{"message": "Updated"})
 }
@@ -261,7 +271,7 @@ func UpdateTaskStatus(c *gin.Context) {
 func DeleteTask(c *gin.Context) {
 	taskID, _ := strconv.Atoi(c.Param("id"))
 	userID := c.GetInt("user_id")
-	
+
 	var creatorID int
 	config.DB.QueryRow("SELECT creator_id FROM tasks WHERE id = $1", taskID).Scan(&creatorID)
 	if creatorID != userID {

@@ -4,7 +4,7 @@ const Header = React.memo(({
   userProfile, 
 }) => {
   return (
-    <header className="sticky top-0 z-40 bg-bg-main/70 backdrop-blur-md border-b border-border-subtle px-8 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-bg-main/70 backdrop-blur-md border-b border-border-subtle px-4 md:px-8 h-16 flex items-center justify-between">
       <div className="flex items-center gap-4 flex-1 max-w-xl">
       </div>
       <div className="flex items-center gap-4">

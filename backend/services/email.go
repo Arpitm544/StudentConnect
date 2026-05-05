@@ -8,7 +8,6 @@ import (
 	"os"
 )
 
-// EmailData represents the info for templates
 type EmailData struct {
 	UserName        string
 	AssignmentTitle string
@@ -19,17 +18,24 @@ type EmailData struct {
 	VerificationOTP string
 }
 
-// SendEmail sends a plain text or HTML email using Gmail SMTP
 func SendEmail(to []string, subject, body string, isHTML bool) error {
 	from := os.Getenv("SMTP_EMAIL")
 	password := os.Getenv("SMTP_PASSWORD")
 	host := os.Getenv("SMTP_HOST")
 	port := os.Getenv("SMTP_PORT")
 
-	if from == "" { return fmt.Errorf("SMTP_EMAIL is missing") }
-	if password == "" { return fmt.Errorf("SMTP_PASSWORD is missing") }
-	if host == "" { return fmt.Errorf("SMTP_HOST is missing") }
-	if port == "" { return fmt.Errorf("SMTP_PORT is missing") }
+	if from == "" {
+		return fmt.Errorf("SMTP_EMAIL is missing")
+	}
+	if password == "" {
+		return fmt.Errorf("SMTP_PASSWORD is missing")
+	}
+	if host == "" {
+		return fmt.Errorf("SMTP_HOST is missing")
+	}
+	if port == "" {
+		return fmt.Errorf("SMTP_PORT is missing")
+	}
 
 	auth := smtp.PlainAuth("", from, password, host)
 
@@ -63,7 +69,6 @@ func SendEmail(to []string, subject, body string, isHTML bool) error {
 	return nil
 }
 
-// Templates
 const welcomeTemplate = `
 <!DOCTYPE html>
 <html>
@@ -127,7 +132,6 @@ const verifyEmailTemplate = `
 </html>
 `
 
-// SendWelcomeEmail notifies a new user
 func SendWelcomeEmail(toEmail, userName string) {
 	go func() {
 		tmpl, err := template.New("welcome").Parse(welcomeTemplate)
@@ -144,7 +148,6 @@ func SendWelcomeEmail(toEmail, userName string) {
 	}()
 }
 
-// SendNewAssignmentEmail notifies all relevant users
 func SendNewAssignmentEmail(toEmails []string, title, description, postedBy string) {
 	if len(toEmails) == 0 {
 		return
@@ -169,7 +172,6 @@ func SendNewAssignmentEmail(toEmails []string, title, description, postedBy stri
 	}()
 }
 
-// SendAssignmentAcceptedEmail notifies both parties
 func SendAssignmentAcceptedEmail(toEmail, title, msg string) {
 	go func() {
 		tmpl, err := template.New("accepted").Parse(assignmentAcceptedTemplate)

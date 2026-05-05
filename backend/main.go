@@ -44,6 +44,10 @@ func main() {
 	allowedOrigins := []string{
 		"http://localhost:5173",
 		"http://localhost:5173/",
+		"http://localhost:5174",
+		"http://localhost:5174/",
+		"http://localhost:5175",
+		"http://localhost:5175/",
 		"https://main.d63s59pcpq7j4.amplifyapp.com",
 		"https://main.d63s59pcpq7j4.amplifyapp.com/",
 		"https://main.d3dt3rmwfypl05.amplifyapp.com",

@@ -89,7 +89,7 @@ export default function LandingPage() {
         </div>
       )}
 
-      <main className="pt-32 pb-20">
+      <main className="pt-24 md:pt-32 pb-20">
         {/* 2. HERO SECTION */}
         <section className="px-6 max-w-6xl mx-auto text-center mb-24 animate-fade-up">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-100 border border-zinc-200 mb-8 mt-4">
@@ -106,24 +106,24 @@ export default function LandingPage() {
             StudentConnect is the modern way for college students to post, track, and collaborate on assignments. Built for speed, designed for focus.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             {user ? (
-               <Link to="/dashboard" className="w-full sm:w-auto px-6 py-3.5 bg-zinc-900 text-white font-medium rounded-xl hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-200 flex items-center justify-center gap-2">
+               <Link to="/dashboard" className="w-full sm:w-auto px-6 py-3 bg-zinc-900 text-white font-medium rounded-xl hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-200 flex items-center justify-center gap-2">
                  Go to Dashboard <ArrowRight size={18} />
                </Link>
             ) : (
-              <Link to="/signup" className="w-full sm:w-auto px-6 py-3.5 bg-zinc-900 text-white font-medium rounded-xl hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-200 flex items-center justify-center gap-2">
+              <Link to="/signup" className="w-full sm:w-auto px-6 py-3 bg-zinc-900 text-white font-medium rounded-xl hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-200 flex items-center justify-center gap-2">
                 Get Started <ArrowRight size={18} />
               </Link>
             )}
-            <a href="#how-it-works" className="w-full sm:w-auto px-6 py-3.5 bg-white text-zinc-700 font-medium rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 shadow-sm">
+            <a href="#how-it-works" className="w-full sm:w-auto px-6 py-3 bg-white text-zinc-700 font-medium rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-all flex items-center justify-center gap-2 shadow-sm">
               <PlayCircle size={18} /> View Demo
             </a>
           </div>
         </section>
 
         {/* 6. DASHBOARD PREVIEW */}
-        <section className="px-4 max-w-5xl mx-auto mb-32 animate-fade-up" style={{ animationDelay: '0.2s' }}>
+        <section className="px-4 max-w-5xl mx-auto mb-16 md:mb-28 animate-fade-up" style={{ animationDelay: '0.2s' }}>
           <div className="relative rounded-2xl md:rounded-[32px] bg-white border border-zinc-200/80 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] p-2 md:p-4 overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent z-10 pointer-events-none rounded-[32px]"></div>
             
@@ -169,16 +169,16 @@ export default function LandingPage() {
         </section>
 
         {/* 3. SOCIAL PROOF */}
-        <section className="mb-32 border-y border-zinc-200/60 bg-white py-12 text-center">
-          <p className="text-sm font-semibold text-zinc-400 tracking-wider uppercase mb-8">
+        <section className="mb-24 md:mb-32 border-y border-zinc-200/60 bg-white py-10 md:py-12 text-center overflow-hidden">
+          <p className="text-xs md:text-sm font-semibold text-zinc-400 tracking-wider uppercase mb-6 md:mb-8 px-4">
             Trusted by students from forward-thinking universities
           </p>
-          <div className="flex flex-wrap justify-center gap-x-12 gap-y-6 opacity-60 grayscale px-6">
-            <span className="text-xl font-bold tracking-tighter text-zinc-800">Stanford</span>
-            <span className="text-xl font-bold tracking-tighter text-zinc-800">MIT</span>
-            <span className="text-xl font-black tracking-widest text-zinc-800 font-serif">HARVARD</span>
-            <span className="text-xl font-bold tracking-tight text-zinc-800">UC Berkeley</span>
-            <span className="text-xl font-semibold tracking-tighter text-zinc-800">NYU</span>
+          <div className="flex flex-wrap justify-center gap-x-8 md:gap-x-12 gap-y-4 md:gap-y-6 opacity-60 grayscale px-6">
+            <span className="text-lg md:text-xl font-bold tracking-tighter text-zinc-800">Stanford</span>
+            <span className="text-lg md:text-xl font-bold tracking-tighter text-zinc-800">MIT</span>
+            <span className="text-lg md:text-xl font-black tracking-widest text-zinc-800 font-serif">HARVARD</span>
+            <span className="text-lg md:text-xl font-bold tracking-tight text-zinc-800">UC Berkeley</span>
+            <span className="text-lg md:text-xl font-semibold tracking-tighter text-zinc-800">NYU</span>
           </div>
         </section>
 

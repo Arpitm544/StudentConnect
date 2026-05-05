@@ -21,7 +21,6 @@ func SetupRoutes(r *gin.Engine) {
 		auth.GET("/check", controllers.CheckAuth)
 	}
 
-	// Protect task APIs so the frontend dashboard is truly private.
 	requireAuth := func(c *gin.Context) {
 		token, err := c.Cookie("token")
 		if err != nil || token == "" {
@@ -35,7 +34,6 @@ func SetupRoutes(r *gin.Engine) {
 			return
 		}
 
-		// Not used by current handlers, but useful if you later make tasks user-specific.
 		c.Set("user_id", userID)
 		c.Next()
 	}

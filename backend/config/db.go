@@ -13,20 +13,17 @@ import (
 var DB *sql.DB
 
 func ConnectDatabase() {
-	// ✅ Use CockroachDB connection string
 	dsn := os.Getenv("DATABASE_URL")
 
 	if dsn == "" {
 		log.Fatal("DATABASE_URL not set in environment")
 	}
 
-	// Open DB connection
 	database, err := sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatal("Failed to open database connection:", err)
 	}
 
-	// Test connection with retry
 	err = retry(5, 2*time.Second, func() error {
 		return database.Ping()
 	})
@@ -37,8 +34,6 @@ func ConnectDatabase() {
 	DB = database
 	fmt.Println("✅ Connected to CockroachDB")
 
-
-	// CREATE USERS TABLE
 	createUsersTable := `
 	CREATE TABLE IF NOT EXISTS users (
 		id BIGINT PRIMARY KEY DEFAULT unique_rowid(),
@@ -80,7 +75,6 @@ func ConnectDatabase() {
 		_, _ = DB.Exec(m)
 	}
 
-	// Backfill legacy password users created before verification rollout.
 	_, _ = DB.Exec(`
 		UPDATE users
 		SET is_verified = TRUE, email_verified = TRUE
@@ -148,7 +142,6 @@ func ConnectDatabase() {
 	}
 }
 
-// retry is a simple helper to repeat an operation
 func retry(attempts int, sleep time.Duration, fn func() error) error {
 	var err error
 	for i := 0; i < attempts; i++ {

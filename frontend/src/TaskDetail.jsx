@@ -4,6 +4,7 @@ import Avatar from './components/Avatar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
 import { useTheme } from './context/ThemeContext.jsx';
+import { TaskDetailSkeleton } from './components/Skeleton.jsx';
 import {
   ArrowLeft, Clock, CheckCircle2, AlertCircle,
   Briefcase, User, Zap, RefreshCw, FileText,
@@ -434,8 +435,12 @@ export default function TaskDetail() {
   // ── Early returns ───────────────────────────────────────────────────────────
 
   if (loading) return (
-    <div className="flex flex-col justify-center items-center min-h-screen bg-bg-main gap-4">
-      <p className="text-text-secondary text-sm font-medium animate-pulse">Loading workspace…</p>
+    <div className="flex bg-bg-main h-screen overflow-hidden">
+      <div className="w-[280px] shrink-0 bg-bg-sidebar border-r border-border-subtle hidden md:block animate-pulse" />
+      <div className="flex-1 overflow-y-auto">
+        <div className="h-16 border-b border-border-subtle animate-pulse bg-bg-main/70" />
+        <TaskDetailSkeleton />
+      </div>
     </div>
   );
 
@@ -479,7 +484,7 @@ export default function TaskDetail() {
           openMobileMenu={() => setMobileMenuOpen(true)}
         />
 
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
 
         {/* Breadcrumb */}
         <div className="mb-10">

@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// FetchTasksByQuery executes a task list query and returns hydrated task models
 func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 	rows, err := config.DB.Query(query, args...)
 	if err != nil {
@@ -33,7 +32,6 @@ func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 			t.AttachmentURL = &attachmentURL.String
 		}
 
-		// Fetch Milestones for this task
 		mRows, err := config.DB.Query(`SELECT id, task_id, title, status, submission_link, submission_note, created_at, updated_at FROM milestones WHERE task_id = $1 ORDER BY id ASC`, t.ID)
 		if err == nil {
 			t.Milestones = make([]models.Milestone, 0)
@@ -51,8 +49,13 @@ func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 	return tasks, nil
 }
 
-// SyncTaskStatusWithMilestones recalculates task status based on its milestones
 func SyncTaskStatusWithMilestones(taskID uint) error {
+	var isAccepted bool
+	err := config.DB.QueryRow(`SELECT accepted FROM tasks WHERE id = $1`, taskID).Scan(&isAccepted)
+	if err != nil {
+		return err
+	}
+
 	rows, err := config.DB.Query(`SELECT status FROM milestones WHERE task_id = $1`, taskID)
 	if err != nil {
 		return err
@@ -89,7 +92,6 @@ func SyncTaskStatusWithMilestones(taskID uint) error {
 	newStatus := "accepted"
 	progress := 0
 
-	// Calculate Progress %
 	doneCount := 0
 	for _, s := range statuses {
 		if s == "done" {
@@ -98,13 +100,17 @@ func SyncTaskStatusWithMilestones(taskID uint) error {
 	}
 	progress = (doneCount * 100) / len(statuses)
 
-	if allDone {
-		newStatus = "completed"
-		progress = 100
-	} else if anyInReview {
-		newStatus = "submitted"
-	} else if anyInProgress {
-		newStatus = "in_progress"
+	if isAccepted {
+		if allDone {
+			newStatus = "completed"
+			progress = 100
+		} else if anyInReview {
+			newStatus = "submitted"
+		} else if anyInProgress {
+			newStatus = "in_progress"
+		}
+	} else {
+		newStatus = "pending"
 	}
 
 	_, err = config.DB.Exec(`UPDATE tasks SET status = $1, progress = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, newStatus, progress, taskID)

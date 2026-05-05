@@ -151,6 +151,9 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
     }
   };
 
+const DEMO_EMAIL    = 'tasknestsupport@gmail.com';
+const DEMO_PASSWORD = 'task@123';
+
   return (
     <div className="min-h-screen w-full flex justify-center items-center bg-bg-main p-4 text-text-primary font-inter transition-colors duration-300">
       <Link to="/" className="absolute top-8 left-8 text-text-secondary hover:text-accent flex items-center gap-2 transition-all text-xs font-bold uppercase tracking-widest">
@@ -212,6 +215,24 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+
+          {/* Demo Fill Button — login only */}
+          {isLogin && (
+            <button
+              type="button"
+              id="demo-login-btn"
+              onClick={() => {
+                setFormData(prev => ({ ...prev, email: DEMO_EMAIL, password: DEMO_PASSWORD }));
+                setError('');
+              }}
+              className="w-full py-2.5 border border-dashed border-accent/40 bg-accent/5 hover:bg-accent/10 text-accent rounded-xl text-[13px] font-semibold transition-all flex items-center justify-center gap-2 group"
+            >
+              <span className="text-base leading-none"></span>
+              Try Demo Account
+              <span className="text-[10px] font-bold bg-accent/10 px-2 py-0.5 rounded-full tracking-widest uppercase opacity-70 group-hover:opacity-100 transition-opacity">auto-fill</span>
+            </button>
+          )}
+
           {!isLogin && (
             <div>
               <label className="block mb-2 font-bold text-[10px] text-text-secondary uppercase tracking-widest opacity-60">Full Name</label>
