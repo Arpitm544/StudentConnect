@@ -55,6 +55,51 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const AnimatedNumber = ({ value, duration = 1500, suffix = "" }) => {
+    const [count, setCount] = useState(0);
+    const [ref, setRef] = useState(null);
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+      if (!ref) return;
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) setIsVisible(true);
+        },
+        { threshold: 0.1 }
+      );
+      observer.observe(ref);
+      return () => observer.disconnect();
+    }, [ref]);
+
+    useEffect(() => {
+      if (!isVisible) return;
+      let start = 0;
+      const end = parseInt(value);
+      if (start === end) {
+        setCount(end);
+        return;
+      }
+
+      let timer = setInterval(() => {
+        start += Math.ceil(end / (duration / 16));
+        if (start >= end) {
+          setCount(end);
+          clearInterval(timer);
+        } else {
+          setCount(start);
+        }
+      }, 16);
+      return () => clearInterval(timer);
+    }, [isVisible, value, duration]);
+
+    return (
+      <span ref={setRef}>
+        {count.toLocaleString()}{suffix}
+      </span>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 selection:bg-zinc-200 dark:selection:bg-zinc-800 font-sans transition-colors duration-300">
       
@@ -159,34 +204,8 @@ export default function LandingPage() {
             </a>
           </div>
 
-          {/* Live Stats Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 max-w-4xl mx-auto border-t border-zinc-100 dark:border-zinc-800 pt-16 transition-colors">
-            <div className="text-center">
-              <p className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white mb-1">
-                {statsLoading ? '...' : (stats.total_tasks >= 1000 ? `${(stats.total_tasks / 1000).toFixed(1)}k+` : stats.total_tasks)}
-              </p>
-              <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Tasks Created</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white mb-1">
-                {statsLoading ? '...' : stats.completed_tasks}
-              </p>
-              <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Completed</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white mb-1">
-                {statsLoading ? '...' : stats.active_tasks}
-              </p>
-              <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">In Progress</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white mb-1">
-                {statsLoading ? '...' : `${stats.days_live}+`}
-              </p>
-              <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Days Live</p>
-            </div>
-          </div>
         </section>
+
         {/* CORE FEATURES SHOWCASE */}
         <section className="px-6 max-w-6xl mx-auto mb-28">
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -232,6 +251,52 @@ export default function LandingPage() {
               <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 Never miss a deadline with automated status updates and visual milestone tracking.
               </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Live Stats Row */}
+        <section className="px-6 max-w-6xl mx-auto mb-28">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto border-y border-zinc-200 dark:border-zinc-800 py-12 transition-colors">
+            <div className="text-center">
+              <p className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white mb-1 tracking-tight">
+                {statsLoading ? (
+                  <span className="opacity-20">...</span>
+                ) : (
+                  <AnimatedNumber value={stats.total_tasks} suffix={stats.total_tasks >= 1000 ? "k+" : "+"} />
+                )}
+              </p>
+              <p className="text-sm text-zinc-500 dark:text-zinc-500">Tasks Created</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white mb-1 tracking-tight">
+                {statsLoading ? (
+                  <span className="opacity-20">...</span>
+                ) : (
+                  <AnimatedNumber value={stats.completed_tasks} />
+                )}
+              </p>
+              <p className="text-sm text-zinc-500 dark:text-zinc-500">Completed</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white mb-1 tracking-tight">
+                {statsLoading ? (
+                  <span className="opacity-20">...</span>
+                ) : (
+                  <AnimatedNumber value={stats.active_tasks} />
+                )}
+              </p>
+              <p className="text-sm text-zinc-500 dark:text-zinc-500">In Progress</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-white mb-1 tracking-tight">
+                {statsLoading ? (
+                  <span className="opacity-20">...</span>
+                ) : (
+                  <AnimatedNumber value={stats.days_live} suffix="+" />
+                )}
+              </p>
+              <p className="text-sm text-zinc-500 dark:text-zinc-500">Days Live</p>
             </div>
           </div>
         </section>
