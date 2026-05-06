@@ -14,6 +14,7 @@ import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
 import TaskRow from './components/TaskRow.jsx';
 import TaskMarketCard from './components/TaskMarketCard.jsx';
+import ActivityChart from './components/ActivityChart.jsx';
 import { StatCardSkeleton, TaskRowSkeleton, TaskMarketCardSkeleton } from './components/Skeleton.jsx';
 import {
   LineChart,
@@ -478,50 +479,21 @@ export default function Profile({ onLogout }) {
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
                    {/* Activity Chart */}
-                   <div className="lg:col-span-2 premium-card">
-                      <div className="flex items-center justify-between mb-10">
-                         <div>
-                            <h3 className="text-lg font-semibold text-text-primary tracking-tight">Productivity Flow</h3>
-                            <p className="text-xs text-text-secondary font-medium">Daily task completion analytics</p>
-                         </div>
-                         <div className="flex items-center gap-2 px-3 py-1.5 bg-text-primary/5 rounded-lg border border-border-subtle">
-                            <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                            <span className="text-[10px] font-bold text-text-secondary">Last 12 Months</span>
-                         </div>
-                      </div>
-                      <div className="h-[280px] w-full">
-                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData}>
-                               <defs>
-                                  <linearGradient id="colorComp" x1="0" y1="0" x2="0" y2="1">
-                                     <stop offset="5%" stopColor={theme === 'dark' ? '#4F8CFF' : '#4F8CFF'} stopOpacity={0.1}/>
-                                     <stop offset="95%" stopColor={theme === 'dark' ? '#4F8CFF' : '#4F8CFF'} stopOpacity={0}/>
-                                  </linearGradient>
-                               </defs>
-                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'} />
-                               <XAxis 
-                                 dataKey="name" 
-                                 axisLine={false} 
-                                 tickLine={false} 
-                                 tick={{ fill: 'var(--text-secondary)', fontSize: 10, fontWeight: 500 }} 
-                                 dy={10} 
-                               />
-                               <YAxis hide />
-                               <Tooltip 
-                                  contentStyle={{ 
-                                    borderRadius: '12px', 
-                                    border: theme === 'dark' ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)', 
-                                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', 
-                                    backgroundColor: 'var(--bg-card)', 
-                                    color: 'var(--text-primary)' 
-                                  }}
-                                  itemStyle={{ color: 'var(--text-primary)' }}
-                               />
-                               <Area type="monotone" dataKey="completed" stroke="#4F8CFF" strokeWidth={2} fillOpacity={1} fill="url(#colorComp)" />
-                            </AreaChart>
-                         </ResponsiveContainer>
-                      </div>
-                   </div>
+                    <div className="lg:col-span-2 premium-card">
+                       <div className="flex items-center justify-between mb-10">
+                          <div>
+                             <h3 className="text-lg font-bold text-text-primary tracking-tight">Performance Analytics</h3>
+                             <p className="text-xs text-text-secondary font-medium">Tracking postings, completions, and global activity</p>
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-text-primary/5 rounded-lg border border-border-subtle">
+                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                             <span className="text-[10px] font-bold text-text-secondary">Live Metrics</span>
+                          </div>
+                       </div>
+                       <div className="h-[300px] w-full">
+                          <ActivityChart theme={theme} />
+                       </div>
+                    </div>
 
                    {/* Featured Peer/Task */}
                    <div className="bg-accent rounded-xl p-8 text-white relative overflow-hidden group">
