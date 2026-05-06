@@ -822,19 +822,6 @@ export default function Profile({ onLogout }) {
                         <h2 className="text-3xl font-semibold text-text-primary tracking-tight">Task Market</h2>
                         <p className="text-text-secondary font-medium">Browse and accept tasks from across the community.</p>
                      </div>
-                     <div className="relative w-full md:w-96 group">
-                        <Search 
-                          size={18} 
-                          className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/50 group-focus-within:text-accent transition-colors" 
-                        />
-                        <input
-                          type="text"
-                          placeholder="Search market tasks..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full bg-bg-card border border-border-subtle rounded-2xl py-3 pl-12 pr-4 text-sm font-medium text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-accent/30 focus:ring-4 focus:ring-accent/5 transition-all shadow-sm"
-                        />
-                     </div>
                   </div>
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
                       {tasksLoading ? (
@@ -875,21 +862,6 @@ export default function Profile({ onLogout }) {
                   </div>
                   
                   <div className="flex flex-col md:flex-row items-center gap-4">
-                    {currentPath !== 'invitations' && (
-                      <div className="relative w-full md:w-64 group">
-                        <Search 
-                          size={16} 
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary/50 group-focus-within:text-accent transition-colors" 
-                        />
-                        <input
-                          type="text"
-                          placeholder="Search these tasks..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full bg-bg-card border border-border-subtle rounded-xl py-2 pl-9 pr-4 text-xs font-medium text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-accent/30 transition-all"
-                        />
-                      </div>
-                    )}
                     
                     {currentPath !== 'posted-requests' && currentPath !== 'invitations' && (
                       <div className="hidden md:flex bg-bg-card p-1 rounded-xl border border-border-subtle">
