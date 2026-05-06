@@ -13,9 +13,14 @@ const TaskMarketCard = React.memo(({ task, onAccept, onView, formatDate }) => {
     <div className="premium-card flex flex-col h-full">
       <div className="flex items-center justify-between mb-6">
         <div className="flex gap-2 flex-wrap">
-          {isHighPriority && (
-            <span className="px-2 py-0.5 bg-red-400/5 text-red-400 text-[10px] font-semibold uppercase tracking-wider rounded border border-red-400/10">
-              High Priority
+          {task.priority && (
+            <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border ${
+              task.priority === 'Critical' ? 'bg-red-500/20 text-red-400 border-red-500/20' :
+              task.priority === 'High' ? 'bg-orange-500/20 text-orange-400 border-orange-500/20' :
+              task.priority === 'Medium' ? 'bg-blue-500/20 text-blue-400 border-blue-500/20' :
+              'bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
+            }`}>
+              {task.priority}
             </span>
           )}
            {task.subject && (

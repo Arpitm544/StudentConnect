@@ -38,6 +38,11 @@ func SetupRoutes(r *gin.Engine) {
 		c.Next()
 	}
 
+	// ✅ EMERGENCY FIX: Direct AI Routes
+	r.POST("/api/tasks/ai/predict-priority", requireAuth, controllers.PredictPriority)
+	r.POST("/api/tasks/ai/generate-milestones", requireAuth, controllers.GenerateMilestones)
+	r.POST("/api/tasks/ai/recommend-users", requireAuth, controllers.RecommendUsers)
+
 	tasks := r.Group("/tasks")
 	tasks.Use(requireAuth)
 	{
@@ -61,6 +66,7 @@ func SetupRoutes(r *gin.Engine) {
 		tasks.POST("/:id/milestones", controllers.AddMilestone)
 		tasks.POST("/:id/milestones/:mid/status", controllers.UpdateMilestoneStatus)
 		tasks.POST("/:id/milestones/:mid/submit", controllers.SubmitMilestoneForReview)
+		tasks.DELETE("/:id/milestones/:mid", controllers.DeleteMilestone)
 	}
 
 	user := r.Group("/api/user")

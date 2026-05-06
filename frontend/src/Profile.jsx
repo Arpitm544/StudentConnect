@@ -4,7 +4,7 @@ import {
   User, Trash2, Zap, LogOut, AlertCircle,
   Menu, X, Search, MoreVertical, Briefcase,
   TrendingUp, ArrowUpRight, Plus, Clock, Upload,
-  File, Camera
+  File, Camera, RefreshCw
 } from 'lucide-react';
 import { Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
@@ -33,7 +33,8 @@ export default function Profile({ onLogout }) {
   const [tasks, setTasks] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
-  const [newTask, setNewTask] = useState({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null });
+  const [newTask, setNewTask] = useState({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium' });
+  const [isPredictingPriority, setIsPredictingPriority] = useState(false);
   const [postLoading, setPostLoading] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -180,16 +181,26 @@ export default function Profile({ onLogout }) {
 
   // ── Search Filtering ──
   const filteredTasks = useMemo(() => {
-    return tasks.filter(t => {
-      const matchesSearch = !searchTerm || 
-        t.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        t.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.creator_name?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = statusFilter === 'all' || t.status === statusFilter;
-      
-      return matchesSearch && matchesStatus;
-    });
+    const priorityMap = { 'Critical': 4, 'High': 3, 'Medium': 2, 'Low': 1 };
+    
+    return tasks
+      .filter(t => {
+        const matchesSearch = !searchTerm || 
+          t.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+          t.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          t.creator_name?.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const matchesStatus = statusFilter === 'all' || t.status === statusFilter;
+        
+        return matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => {
+        const pA = priorityMap[a.priority] || 2;
+        const pB = priorityMap[b.priority] || 2;
+        if (pA !== pB) return pB - pA;
+        // Secondary sort by date (newest first)
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
   }, [tasks, searchTerm, statusFilter]);
 
   const handleLogout = async () => {
@@ -261,6 +272,29 @@ export default function Profile({ onLogout }) {
     }
   };
 
+  const handleAiPredictPriority = async () => {
+    if (!newTask.title || !newTask.description) {
+      alert('Please enter a title and description first');
+      return;
+    }
+    setIsPredictingPriority(true);
+    try {
+      const res = await fetch(`${API_BASE}/tasks/ai/predict-priority`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ title: newTask.title, description: newTask.description }),
+      });
+      if (!res.ok) throw new Error('Failed to predict priority');
+      const data = await res.json();
+      setNewTask(prev => ({ ...prev, priority: data.priority }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsPredictingPriority(false);
+    }
+  };
+
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setProfileLoading(true);
@@ -327,12 +361,13 @@ export default function Profile({ onLogout }) {
           subject: newTask.subject,
           deadline: newTask.deadline ? new Date(newTask.deadline).toISOString() : null,
           max_assignees: parseInt(newTask.max_assignees, 10),
+          priority: newTask.priority,
           attachment_url: attachmentUrl
         }),
       });
       if (!res.ok) throw new Error('Failed to post task');
       
-      setNewTask({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null });
+      setNewTask({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium' });
       setShowPostForm(false);
       fetchTasks();
     } catch (err) {
@@ -769,6 +804,30 @@ export default function Profile({ onLogout }) {
                                   onChange={(e) => setNewTask({...newTask, deadline: e.target.value})}
                                   className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
                                />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center justify-between">
+                                 Priority
+                                 <button 
+                                   type="button" 
+                                   onClick={handleAiPredictPriority}
+                                   disabled={isPredictingPriority || !newTask.title || !newTask.description}
+                                   className="text-[9px] font-bold text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded hover:bg-purple-500/30 transition-all flex items-center gap-1 uppercase border border-purple-500/30"
+                                 >
+                                   {isPredictingPriority ? <RefreshCw size={10} className="animate-spin" /> : <Zap size={10} />}
+                                   AI Predict
+                                 </button>
+                               </label>
+                               <select 
+                                  value={newTask.priority}
+                                  onChange={(e) => setNewTask({...newTask, priority: e.target.value})}
+                                  className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                               >
+                                  <option value="Low">Low</option>
+                                  <option value="Medium">Medium</option>
+                                  <option value="High">High</option>
+                                  <option value="Critical">Critical</option>
+                                </select>
                             </div>
                             <div className="space-y-2">
                                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Max Assignees</label>

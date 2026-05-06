@@ -78,7 +78,7 @@ export default function LandingPage() {
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-white pt-20 px-6 animate-fade-up">
+        <div className="fixed inset-0 z-40 bg-white pt-20 px-6">
           <div className="flex flex-col gap-6 text-lg">
             <a href="#features" onClick={() => setMobileMenuOpen(false)} className="font-medium border-b border-zinc-100 pb-4">Features</a>
             <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="font-medium border-b border-zinc-100 pb-4">How it Works</a>
@@ -91,7 +91,7 @@ export default function LandingPage() {
 
       <main className="pt-24 md:pt-32 pb-20">
         {/* 2. HERO SECTION */}
-        <section className="px-6 max-w-6xl mx-auto text-center mb-24 animate-fade-up">
+        <section className="px-6 max-w-6xl mx-auto text-center mb-24">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-100 border border-zinc-200 mb-8 mt-4">
             <span className="flex h-2 w-2 rounded-full bg-blue-500"></span>
             <span className="text-xs font-semibold text-zinc-600 tracking-wide uppercase">Introducing Workflow 2.0</span>
@@ -121,49 +121,51 @@ export default function LandingPage() {
             </a>
           </div>
         </section>
+        {/* CORE FEATURES SHOWCASE */}
+        <section className="px-6 max-w-6xl mx-auto mb-28">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Feature 1: AI */}
+            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-900 transition-all group">
+              <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
+                <Zap size={20} fill="currentColor" />
+              </div>
+              <h4 className="font-bold text-zinc-900 mb-2">AI Roadmap</h4>
+              <p className="text-sm text-zinc-500 leading-relaxed">
+                Automatically generate subject-specific milestones using Llama-3 AI for project clarity.
+              </p>
+            </div>
 
-        {/* 6. DASHBOARD PREVIEW */}
-        <section className="px-4 max-w-5xl mx-auto mb-16 md:mb-28 animate-fade-up" style={{ animationDelay: '0.2s' }}>
-          <div className="relative rounded-2xl md:rounded-[32px] bg-white border border-zinc-200/80 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] p-2 md:p-4 overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent z-10 pointer-events-none rounded-[32px]"></div>
-            
-            {/* Mock Dashboard UI */}
-            <div className="bg-zinc-50 rounded-xl md:rounded-2xl border border-zinc-200/60 overflow-hidden flex flex-col md:flex-row aspect-video md:aspect-[16/9]">
-              {/* Sidebar */}
-              <div className="hidden md:block w-48 border-r border-zinc-200/60 bg-white p-4">
-                <div className="h-6 w-24 bg-zinc-200 rounded animate-pulse mb-8"></div>
-                <div className="space-y-3">
-                  <div className="h-4 w-full bg-zinc-100 rounded"></div>
-                  <div className="h-4 w-3/4 bg-zinc-100 rounded"></div>
-                  <div className="h-4 w-5/6 bg-zinc-100 rounded"></div>
-                </div>
+            {/* Feature 2: Marketplace */}
+            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-900 transition-all group">
+              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
+                <LayoutDashboard size={20} />
               </div>
-              
-              {/* Main Content Area */}
-              <div className="flex-1 p-6 flex flex-col">
-                <div className="flex justify-between items-center mb-8">
-                  <div className="h-6 w-32 bg-zinc-200 rounded animate-pulse"></div>
-                  <div className="h-8 w-8 rounded-full bg-zinc-200"></div>
-                </div>
-                
-                {/* Mock Tasks */}
-                <div className="space-y-3 flex-1">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-white border border-zinc-200/60 p-4 rounded-xl flex items-center justify-between shadow-sm">
-                      <div className="flex items-center gap-4">
-                        <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${i === 1 ? 'bg-blue-50 text-blue-500' : 'bg-zinc-100 text-zinc-400'}`}>
-                          <FileText size={20} />
-                        </div>
-                        <div>
-                          <div className="h-4 w-40 bg-zinc-200 rounded mb-2"></div>
-                          <div className="h-3 w-24 bg-zinc-100 rounded"></div>
-                        </div>
-                      </div>
-                      <div className="hidden md:block h-6 w-20 bg-zinc-100 rounded-full"></div>
-                    </div>
-                  ))}
-                </div>
+              <h4 className="font-bold text-zinc-900 mb-2">Marketplace</h4>
+              <p className="text-sm text-zinc-500 leading-relaxed">
+                Post and accept academic assignments in a secure, student-only collaborative environment.
+              </p>
+            </div>
+
+            {/* Feature 3: Team */}
+            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-900 transition-all group">
+              <div className="w-10 h-10 bg-green-50 text-green-600 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
+                <Users size={20} />
               </div>
+              <h4 className="font-bold text-zinc-900 mb-2">Team Sync</h4>
+              <p className="text-sm text-zinc-500 leading-relaxed">
+                Invite peers to your tasks and manage team capacity with built-in permission controls.
+              </p>
+            </div>
+
+            {/* Feature 4: Deadlines */}
+            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-900 transition-all group">
+              <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
+                <CheckCircle2 size={20} />
+              </div>
+              <h4 className="font-bold text-zinc-900 mb-2">Tracking</h4>
+              <p className="text-sm text-zinc-500 leading-relaxed">
+                Never miss a deadline with automated status updates and visual milestone tracking.
+              </p>
             </div>
           </div>
         </section>

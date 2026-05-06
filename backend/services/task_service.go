@@ -18,10 +18,13 @@ func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 
 	for rows.Next() {
 		var t models.Task
-		var assigneeName, assigneePhoto, creatorName, creatorPhoto, description, subject, attachmentURL sql.NullString
-		if err := rows.Scan(&t.ID, &t.Title, &description, &t.Status, &t.Accepted, &t.CreatorID, &t.AssigneeID, &t.Deadline, &t.Progress, &subject, &attachmentURL, &t.CreatedAt, &t.UpdatedAt, &assigneeName, &assigneePhoto, &creatorName, &creatorPhoto); err != nil {
+		var assigneeName, assigneePhoto, creatorName, creatorPhoto, description, subject, attachmentURL, priority sql.NullString
+		var aiOptimized sql.NullBool
+		if err := rows.Scan(&t.ID, &t.Title, &description, &t.Status, &t.Accepted, &t.CreatorID, &t.AssigneeID, &t.Deadline, &t.Progress, &subject, &attachmentURL, &t.CreatedAt, &t.UpdatedAt, &assigneeName, &assigneePhoto, &creatorName, &creatorPhoto, &priority, &aiOptimized); err != nil {
 			return nil, err
 		}
+		t.Priority = priority.String
+		t.AiOptimized = aiOptimized.Bool
 		t.AssigneeName = assigneeName.String
 		t.AssigneePhotoURL = assigneePhoto.String
 		t.CreatorName = creatorName.String

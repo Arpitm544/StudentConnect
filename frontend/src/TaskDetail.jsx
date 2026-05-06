@@ -11,12 +11,11 @@ import {
   UserPlus, Edit3, Check, ChevronRight,
   LayoutDashboard, Users, CheckSquare, GitMerge,
   LogOut, Menu, X, Code, ExternalLink, Link2, Lock,
-  Plus, Send
+  Plus, Send, Trash2
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_URL_SECONDARY || '';
 
-// ─── Module-level constants (never re-created per render) ─────────────────────
 
 const STEPS = [
   { id: 'accepted',    label: 'Accepted' },
@@ -29,9 +28,7 @@ const STEPS = [
 
 const DATE_FMT = { month: 'short', day: 'numeric', year: 'numeric' };
 
-// ─── Memoised sub-components ─────────────────────────────────────────────────
 
-/** Step circle in the timeline — only re-renders when its own state changes */
 const TimelineStep = memo(function TimelineStep({ step, isCompleted, isActive }) {
   return (
     <div className="relative flex flex-col items-center flex-1 z-10 w-full group cursor-default">
@@ -57,7 +54,7 @@ const TimelineStep = memo(function TimelineStep({ step, isCompleted, isActive })
   );
 });
 
-/** CTA action strip — memoised so it doesn't flicker on unrelated state updates */
+
 const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateLoading, onAccept, onAction, onLeave, hasMilestones, slotsFilled, capacity }) {
   if (status === 'pending') {
     return (
@@ -144,8 +141,6 @@ const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateL
   );
 });
 
-// ─── Main component ───────────────────────────────────────────────────────────
-
 export default function TaskDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -161,32 +156,33 @@ export default function TaskDetail() {
   const [searchTerm,    setSearchTerm]    = useState('');
   const { theme, toggleTheme } = useTheme();
 
-  // Proof of Work Submission State
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [subGithub, setSubGithub] = useState('');
   const [subDocs, setSubDocs] = useState('');
   const [subDrive, setSubDrive] = useState('');
   const [subNotes, setSubNotes] = useState('');
 
-  // Milestone Submission State
   const [submittingMilestone, setSubmittingMilestone] = useState(null);
   const [mileLink, setMileLink] = useState('');
   const [mileNote, setMileNote] = useState('');
-
-  // Add Milestone Inline State
   const [isAddingMilestone, setIsAddingMilestone] = useState(false);
+  const [milestoneToDelete, setMilestoneToDelete] = useState(null);
   const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
 
-  // Edit Task State
   const [editForm, setEditForm] = useState({
     title: '',
     description: '',
     subject: '',
     deadline: '',
     max_assignees: 1,
+    priority: 'Medium',
+    ai_optimized: false,
   });
 
-  // ── Data fetching (useCallback so stable reference across renders) ──────────
+  const [aiRecommendation, setAiRecommendation] = useState('');
+  const [isGeneratingMilestones, setIsGeneratingMilestones] = useState(false);
+  const [isRecommendingUsers, setIsRecommendingUsers] = useState(false);
+
 
   const fetchTask = useCallback(async () => {
     try {
@@ -203,11 +199,11 @@ export default function TaskDetail() {
         subject: data.subject || '',
         deadline: data.deadline ? new Date(data.deadline).toISOString().slice(0, 16) : '',
         max_assignees: data.max_assignees || 1,
+        priority: data.priority || 'Medium',
+        ai_optimized: data.ai_optimized || false,
       });
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   }, [id]);
 
@@ -221,13 +217,19 @@ export default function TaskDetail() {
   }, []);
 
   useEffect(() => {
-    if (id) {
-       fetchTask();
-       loadProfile();
-    }
+    const init = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([fetchTask(), loadProfile()]);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (id) init();
   }, [id, fetchTask, loadProfile]);
 
-  // ── Action handlers ─────────────────────────────────────────────────────────
 
   const handleLogout = useCallback(async () => {
     try {
@@ -447,10 +449,8 @@ export default function TaskDetail() {
     }
   }, [id, editForm, fetchTask]);
 
-  const handleInviteUser = useCallback(async (e) => {
-    if (e) e.preventDefault();
+  const handleInviteUser = useCallback(async () => {
     if (!inviteEmail) return;
-    
     setUpdateLoading(true);
     setError('');
     try {
@@ -462,17 +462,81 @@ export default function TaskDetail() {
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to send invitation');
+        throw new Error(errData.error || 'Failed to invite user');
       }
-      setIsInviting(false);
       setInviteEmail('');
-      alert('Invitation sent successfully!');
+      setIsInviting(false);
+      fetchTask();
     } catch (err) {
       setError(err.message);
     } finally {
       setUpdateLoading(false);
     }
-  }, [id, inviteEmail]);
+  }, [id, inviteEmail, fetchTask]);
+
+  const handleDeleteMilestone = useCallback(async () => {
+    if (!milestoneToDelete) return;
+    try {
+      const res = await fetch(`${API_BASE}/tasks/${id}/milestones/${milestoneToDelete}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to delete milestone');
+      setMilestoneToDelete(null);
+      fetchTask();
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [id, milestoneToDelete, fetchTask]);
+
+  const handleAiGenerateMilestones = useCallback(async () => {
+    setIsGeneratingMilestones(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/tasks/ai/generate-milestones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          task_id: id, 
+          title: task.title, 
+          description: task.description,
+          subject: task.subject
+        }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to generate milestones');
+      }
+      
+      fetchTask();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsGeneratingMilestones(false);
+    }
+  }, [id, task?.title, task?.description, fetchTask]);
+
+  const handleAiRecommendUsers = useCallback(async () => {
+    setIsRecommendingUsers(true);
+    setAiRecommendation('');
+    try {
+      const res = await fetch(`${API_BASE}/tasks/ai/recommend-users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ subject: task.subject }),
+      });
+      if (!res.ok) throw new Error('Failed to get recommendation');
+      const data = await res.json();
+      setAiRecommendation(data.recommendation);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsRecommendingUsers(false);
+    }
+  }, [task?.subject]);
+
 
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
   const openMobileMenu  = useCallback(() => setMobileMenuOpen(true),  []);
@@ -490,8 +554,11 @@ export default function TaskDetail() {
   );
 
   const isCreator = useMemo(
-    () => !!(userProfile && task && String(task.creator_id) === String(userProfile.id)),
-    [userProfile, task?.creator_id]
+    () => {
+      if (!userProfile || !task) return false;
+      return String(task.creator_id) === String(userProfile.id);
+    },
+    [userProfile?.id, task?.creator_id, task?.id]
   );
 
   const isAssignee = useMemo(
@@ -515,14 +582,12 @@ export default function TaskDetail() {
     return map[task.status] ?? 0;
   }, [task?.progress, task?.status, task?.milestones]);
 
-  // ── Progress bar width (memoised string to avoid recalc on every render) ───
 
   const progressBarStyle = useMemo(
     () => ({ width: `calc(${percentage}% - 16px)` }),
     [percentage]
   );
 
-  // ── Early returns ───────────────────────────────────────────────────────────
 
   if (loading) return (
     <div className="flex bg-bg-main h-screen overflow-hidden">
@@ -690,8 +755,20 @@ export default function TaskDetail() {
                 </div>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-3 flex items-center gap-2 opacity-60"><Clock size={14} /> Deadline</p>
                 <p className={`text-[15px] font-semibold ${isPastDeadline ? 'text-red-400' : 'text-text-primary'}`}>{formatDate(task.deadline)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-3 flex items-center gap-2 opacity-60"><AlertCircle size={14} /> Priority</p>
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-tighter ${
+                    task.priority === 'Critical' ? 'bg-red-500/10 text-red-500' :
+                    task.priority === 'High' ? 'bg-orange-500/10 text-orange-500' :
+                    task.priority === 'Medium' ? 'bg-blue-500/10 text-blue-500' :
+                    'bg-emerald-500/10 text-emerald-500'
+                  }`}>
+                    {task.priority || 'Medium'}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -756,12 +833,26 @@ export default function TaskDetail() {
                <GitMerge size={20} className="text-accent" /> Milestones
             </h3>
             {isCreator && !isAddingMilestone && (
-               <button 
-                 onClick={() => setIsAddingMilestone(true)}
-                 className="text-[11px] font-bold text-accent hover:text-white bg-accent/10 border border-accent/20 px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 uppercase tracking-widest"
-                >
-                 <Plus size={14} /> Add Milestone
-               </button>
+               <div className="flex items-center gap-2">
+                 <button 
+                    onClick={handleAiGenerateMilestones}
+                    disabled={isGeneratingMilestones || (task?.ai_milestone_count >= 2)}
+                    className={`text-[11px] font-bold text-white px-4 py-1.5 rounded-lg transition-all flex items-center gap-2 uppercase tracking-widest shadow-lg ${
+                      (task?.ai_milestone_count >= 2) 
+                        ? 'bg-gray-500/20 text-text-secondary cursor-not-allowed shadow-none border border-border-subtle' 
+                        : 'bg-gradient-to-r from-purple-600 to-accent hover:opacity-90 shadow-purple-500/10'
+                    }`}
+                   >
+                    {isGeneratingMilestones ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
+                    {task?.ai_milestone_count >= 2 ? 'AI Limit Reached' : `AI Optimize (${2 - (task?.ai_milestone_count || 0)} left)`}
+                  </button>
+                 <button 
+                   onClick={() => setIsAddingMilestone(true)}
+                   className="text-[11px] font-bold text-accent hover:text-white bg-accent/10 border border-accent/20 px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 uppercase tracking-widest"
+                  >
+                   <Plus size={14} /> Add
+                 </button>
+               </div>
             )}
           </div>
 
@@ -819,6 +910,18 @@ export default function TaskDetail() {
                     </div>
                   
                   <div className="flex items-center gap-3">
+                    {isCreator && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMilestoneToDelete(m.id);
+                        }}
+                        className="p-2 text-text-secondary hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all border border-transparent hover:border-red-400/20"
+                        title="Delete Milestone"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                     {isAssignee && m.status === 'pending' && (
                       <button 
                         onClick={() => handleMilestoneStatus(m.id, 'in_progress')} 
@@ -1096,16 +1199,63 @@ export default function TaskDetail() {
               </div>
             </div>
             
-            <div className="p-8 bg-bg-main/30 border-t border-border-subtle flex gap-4">
-              <button onClick={() => setIsInviting(false)} className="flex-1 py-3 text-text-secondary font-semibold rounded-xl hover:text-text-primary transition-all">Cancel</button>
-              <button onClick={handleInviteUser} disabled={updateLoading || !inviteEmail} className="flex-1 py-3 bg-accent text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-accent/10">
-                {updateLoading ? 'Sending...' : 'Send Request'}
-              </button>
+            <div className="p-8 bg-bg-main/30 border-t border-border-subtle">
+              {isCreator && (
+                <div className="mb-6">
+                  <button 
+                    onClick={handleAiRecommendUsers}
+                    disabled={isRecommendingUsers}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-xl text-[13px] font-bold hover:bg-purple-500/20 transition-all mb-4"
+                  >
+                    {isRecommendingUsers ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
+                    Smart Suggest Candidates
+                  </button>
+                  {aiRecommendation && (
+                    <div className="p-4 bg-purple-500/5 border border-purple-500/10 rounded-xl text-[12px] text-purple-300/80 leading-relaxed animate-fade-in italic">
+                      {aiRecommendation}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex gap-4">
+                <button onClick={() => setIsInviting(false)} className="flex-1 py-3 text-text-secondary font-semibold rounded-xl hover:text-text-primary transition-all">Cancel</button>
+                <button onClick={handleInviteUser} disabled={updateLoading || !inviteEmail} className="flex-1 py-3 bg-accent text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-accent/10">
+                  {updateLoading ? 'Sending...' : 'Send Request'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Milestone Deletion Confirmation Modal */}
+      {milestoneToDelete && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-bg-card rounded-xl w-full max-w-sm shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">
+            <div className="p-8 text-center">
+              <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 size={24} />
+              </div>
+              <h3 className="text-xl font-semibold text-text-primary tracking-tight mb-2">Remove Milestone?</h3>
+              <p className="text-sm text-text-secondary font-medium leading-relaxed">This will remove the milestone from the project timeline.</p>
+            </div>
+            <div className="p-6 bg-bg-main/30 border-t border-border-subtle flex gap-4">
+              <button 
+                onClick={() => setMilestoneToDelete(null)} 
+                className="flex-1 py-2.5 text-text-secondary font-semibold rounded-xl hover:text-text-primary transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleDeleteMilestone}
+                className="flex-1 py-2.5 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-all"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

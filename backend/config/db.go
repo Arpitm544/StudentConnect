@@ -113,8 +113,10 @@ func ConnectDatabase() {
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_notes TEXT",
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS extension_email_sent BOOLEAN DEFAULT FALSE",
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS max_assignees INT DEFAULT 1",
-		// Multi-assignee capacity column (replaces max_assignees semantically)
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS capacity INT NOT NULL DEFAULT 1",
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority VARCHAR(20) DEFAULT 'Medium'",
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ai_optimized BOOLEAN DEFAULT FALSE",
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ai_milestone_count INT DEFAULT 0",
 	}
 
 	for _, m := range tasksMigrations {
@@ -160,7 +162,6 @@ func ConnectDatabase() {
 		log.Fatal("Failed to create task_assignees table:", err)
 	}
 
-	// Migrate existing task_assignees rows to add new columns if they don't exist
 	taskAssigneesMigrations := []string{
 		"ALTER TABLE task_assignees ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'accepted'",
 		"ALTER TABLE task_assignees ADD COLUMN IF NOT EXISTS progress INT NOT NULL DEFAULT 0",
@@ -170,7 +171,6 @@ func ConnectDatabase() {
 		_, _ = DB.Exec(m)
 	}
 
-	// Migrate existing single-assignee tasks into the task_assignees table
 	_, _ = DB.Exec(`
 		INSERT INTO task_assignees (task_id, user_id, status, progress)
 		SELECT id, assignee_id, status, progress

@@ -58,6 +58,9 @@ type Task struct {
 	Assignees   []TaskAssignee `json:"assignees"`
 
 	Milestones []Milestone `json:"milestones"`
+	Priority          string      `json:"priority"`
+	AiOptimized       bool        `json:"ai_optimized"`
+	AiMilestoneCount int         `json:"ai_milestone_count"`
 
 	// Backward-compat join fields (used by FetchTasksByQuery)
 	AssigneeName     string    `json:"assignee_name"`
