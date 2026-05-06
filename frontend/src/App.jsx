@@ -11,6 +11,7 @@ const Verify      = lazy(() => import('./Verify'));
 const Profile     = lazy(() => import('./Profile'));
 const TaskDetail  = lazy(() => import('./TaskDetail'));
 const LandingPage = lazy(() => import('./LandingPage'));
+import CommandPalette from './components/CommandPalette.jsx';
 
 // Minimal full-screen skeleton shown while a lazy chunk loads
 function PageLoader() {
@@ -41,6 +42,7 @@ function App() {
 
   return (
     <ThemeProvider>
+      <CommandPalette onLogout={handleLogout} />
       <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
         <Routes>

@@ -20,6 +20,9 @@ type User struct {
 	Field                    *string    `json:"field"`
 	CollegeName              *string    `json:"college_name"`
 	Year                     *string    `json:"year"`
+	XP                       int        `json:"xp"`
+	Level                    int        `json:"level"`
+	Badges                   string     `json:"badges"`
 	CreatedAt                time.Time  `json:"created_at"`
 	UpdatedAt                time.Time  `json:"updated_at"`
 }

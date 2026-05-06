@@ -68,6 +68,9 @@ func ConnectDatabase() {
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS field VARCHAR(255)",
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS college_name VARCHAR(255)",
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS year VARCHAR(50)",
+		"ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INT DEFAULT 0",
+		"ALTER TABLE users ADD COLUMN IF NOT EXISTS level INT DEFAULT 1",
+		"ALTER TABLE users ADD COLUMN IF NOT EXISTS badges TEXT DEFAULT ''",
 		"UPDATE users SET is_verified = email_verified WHERE is_verified IS FALSE AND email_verified IS TRUE",
 	}
 

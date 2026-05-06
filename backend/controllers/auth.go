@@ -166,8 +166,8 @@ func GetProfile(c *gin.Context) {
 	var user models.User
 	var uid, photo, field, college, year sql.NullString
 
-	query := "SELECT id, uid, name, email, photo_url, provider, field, college_name, year, is_verified, created_at FROM users WHERE id = $1"
-	err := config.DB.QueryRow(query, userID).Scan(&user.ID, &uid, &user.Name, &user.Email, &photo, &user.Provider, &field, &college, &year, &user.IsVerified, &user.CreatedAt)
+	query := "SELECT id, uid, name, email, photo_url, provider, field, college_name, year, is_verified, xp, level, badges, created_at FROM users WHERE id = $1"
+	err := config.DB.QueryRow(query, userID).Scan(&user.ID, &uid, &user.Name, &user.Email, &photo, &user.Provider, &field, &college, &year, &user.IsVerified, &user.XP, &user.Level, &user.Badges, &user.CreatedAt)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -179,6 +179,7 @@ func GetProfile(c *gin.Context) {
 		"name": user.Name, "email": user.Email, "photo_url": services.NullToEmpty(photo),
 		"field": services.NullToEmpty(field), "college_name": services.NullToEmpty(college), "year": services.NullToEmpty(year),
 		"is_verified": user.IsVerified, "created_at": user.CreatedAt,
+		"xp": user.XP, "level": user.Level, "badges": user.Badges,
 	})
 }
 

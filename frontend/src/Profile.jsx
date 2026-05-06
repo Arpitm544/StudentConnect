@@ -1,12 +1,13 @@
+// Profile component - Main dashboard and user profile view
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Users, LayoutDashboard, CheckSquare, FileText, GitMerge,
-  User, Trash2, Zap, LogOut, AlertCircle,
+  User, Trash2, LogOut, AlertCircle,
   Menu, X, Search, MoreVertical, Briefcase,
   TrendingUp, ArrowUpRight, Plus, Clock, Upload,
-  File, Camera, RefreshCw, ChevronRight
+  File, Camera, RefreshCw, ChevronRight, CheckCircle2, Target, Layers
 } from 'lucide-react';
-import { Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import { useTheme } from './context/ThemeContext.jsx';
 import Avatar from './components/Avatar.jsx';
@@ -14,7 +15,10 @@ import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
 import TaskRow from './components/TaskRow.jsx';
 import TaskMarketCard from './components/TaskMarketCard.jsx';
+import KanbanBoard from './components/KanbanBoard.jsx';
 import ActivityChart from './components/ActivityChart.jsx';
+import PriorityTasks from './components/SmartFocus.jsx';
+import SettingsModal from './components/SettingsModal.jsx';
 import { StatCardSkeleton, TaskRowSkeleton, TaskMarketCardSkeleton } from './components/Skeleton.jsx';
 import {
   LineChart,
@@ -43,7 +47,7 @@ export default function Profile({ onLogout }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [invitations, setInvitations] = useState([]);
   const [invitationsLoading, setInvitationsLoading] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [profileFormData, setProfileFormData] = useState({
     name: '',
     field: '',
@@ -58,13 +62,25 @@ export default function Profile({ onLogout }) {
 
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const currentPath = location.pathname.split('/').pop() || 'dashboard';
 
   const [userProfile, setUserProfile] = useState(null);
   const [globalActivity, setGlobalActivity] = useState([]);
   const [activityView, setActivityView] = useState('platform'); // 'platform' or 'personal'
   const [globalStatsLoading, setGlobalStatsLoading] = useState(true);
-  
+
+  // Auto-open settings if ?settings=true in URL
+  useEffect(() => {
+    if (searchParams.get('settings') === 'true') {
+      setIsSettingsModalOpen(true);
+      // Clean up the URL without triggering a full navigation
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('settings');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const fetchTasks = useCallback(async (search = '') => {
     let endpoint = '/tasks/dashboard';
     if (currentPath === 'my-tasks') endpoint = `/tasks/mine${search ? `?search=${encodeURIComponent(search)}` : ''}`;
@@ -255,7 +271,52 @@ export default function Profile({ onLogout }) {
     }));
   }, [tasks]);
 
-  // ── Search Filtering ──
+  const focusTasks = useMemo(() => {
+    if (!userProfile) return [];
+    
+    let filtered = tasks.filter(t => {
+      const isCompleted = t.status === 'completed';
+      const isAssignee = t.assignees?.some(a => String(a.user_id) === String(userProfile?.id)) || (t.assignee_id && String(t.assignee_id) === String(userProfile?.id));
+      const isNotCreator = String(t.creator_id) !== String(userProfile?.id);
+      return !isCompleted && t.accepted && isAssignee && isNotCreator;
+    });
+
+    if (filtered.length < 2) {
+      const ownTasks = tasks
+        .filter(t => String(t.creator_id) === String(userProfile?.id) && t.status !== 'completed' && !filtered.some(f => f.id === t.id))
+        .sort((a, b) => {
+           const aDue = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+           const bDue = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+           return aDue - bDue;
+        });
+      
+      const needed = 2 - filtered.length;
+      filtered = [...filtered, ...ownTasks.slice(0, needed)];
+    }
+
+    return filtered
+      .map(t => {
+        let score = 0;
+        if (t.deadline) {
+          const hoursLeft = (new Date(t.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60);
+          if (hoursLeft < 0) score += 1000;
+          else if (hoursLeft < 24) score += 500;
+          else if (hoursLeft < 72) score += 200;
+        }
+        const p = t.priority?.toLowerCase();
+        if (p === 'critical') score += 400;
+        if (p === 'high') score += 200;
+        if (p === 'medium') score += 100;
+        if ((t.progress || 0) < 10) score += 50;
+
+        return { ...t, focusScore: score };
+      })
+      .sort((a, b) => b.focusScore - a.focusScore)
+      .slice(0, 6);
+    
+    return filtered;
+  }, [tasks, userProfile]);
+
   const filteredTasks = useMemo(() => {
     const priorityMap = { 'Critical': 4, 'High': 3, 'Medium': 2, 'Low': 1 };
     
@@ -274,7 +335,7 @@ export default function Profile({ onLogout }) {
         const pA = priorityMap[a.priority] || 2;
         const pB = priorityMap[b.priority] || 2;
         if (pA !== pB) return pB - pA;
-        // Secondary sort by date (newest first)
+        
         return new Date(b.created_at) - new Date(a.created_at);
       });
   }, [tasks, searchTerm, statusFilter]);
@@ -306,7 +367,11 @@ export default function Profile({ onLogout }) {
   }, [navigate]);
 
   const handleView = useCallback((id) => {
-    navigate(`/dashboard/task/${id}`, { state: { from: currentPath } });
+    if (id === 'explore') {
+      navigate('/dashboard/market');
+    } else {
+      navigate(`/dashboard/task/${id}`, { state: { from: currentPath } });
+    }
   }, [navigate, currentPath]);
 
   const handleStatusChange = useCallback(async (id, status, progress = null) => {
@@ -400,7 +465,7 @@ export default function Profile({ onLogout }) {
       const profileRes = await fetch(`${API_BASE}/api/user/profile`, { credentials: 'include' });
       if (profileRes.ok) setUserProfile(await profileRes.json());
       
-      setIsProfileModalOpen(false);
+      setIsSettingsModalOpen(false);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -494,7 +559,7 @@ export default function Profile({ onLogout }) {
         theme={theme}
         toggleTheme={toggleTheme}
         onLogout={onLogout}
-        setIsProfileModalOpen={setIsProfileModalOpen}
+        setIsSettingsModalOpen={setIsSettingsModalOpen}
         tasks={tasks}
       />
 
@@ -507,6 +572,7 @@ export default function Profile({ onLogout }) {
           userProfile={userProfile}
           setShowPostForm={setShowPostForm}
           openMobileMenu={openMobileMenu}
+          setIsSettingsModalOpen={setIsSettingsModalOpen}
         />
 
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
@@ -517,10 +583,12 @@ export default function Profile({ onLogout }) {
                 
                 {/* Welcome & Stats Row */}
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 md:gap-8">
-                   <div className="space-y-2">
-                      <h2 className="text-2xl md:text-3xl font-semibold text-text-primary tracking-tight">Welcome back, {userProfile?.name?.split(' ')[0]}</h2>
-                      <p className="text-text-secondary font-medium">You have <span className="text-accent font-semibold">{inProgress + pending} active tasks</span> to focus on this week.</p>
-                   </div>
+                    <div className="space-y-2">
+                       <h2 className="text-2xl md:text-3xl font-semibold text-text-primary tracking-tight">Welcome back, {userProfile?.name?.split(' ')[0]}</h2>
+                       <p className="text-text-secondary font-medium">You have <span className="text-accent font-semibold">{inProgress + pending} active tasks</span> to focus on this week.</p>
+                       
+
+                    </div>
                    <div className="flex gap-4 flex-shrink-0">
                       <button onClick={() => navigate('/dashboard/posted-requests', { state: { openForm: true } })} className="px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-all flex items-center gap-2">
                          <Plus size={13} /> Post Task
@@ -551,6 +619,7 @@ export default function Profile({ onLogout }) {
                     </div>
                   ))}
                 </div>
+
 
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
@@ -586,68 +655,36 @@ export default function Profile({ onLogout }) {
                        </div>
                     </div>
 
-                   {/* Featured Peer/Task */}
-                   <div className="bg-accent rounded-xl p-8 text-white relative overflow-hidden group">
+                   {/* Professional Minimalist Engagement Card */}
+                   <div className="bg-bg-card border border-border-subtle rounded-3xl p-8 relative overflow-hidden group hover:border-accent/30 transition-all duration-300 shadow-premium animate-fade-in">
                       <div className="relative z-10 h-full flex flex-col">
-                         <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-6">
-                            <TrendingUp size={20} />
+                         <div className="w-12 h-12 bg-accent-soft rounded-2xl flex items-center justify-center mb-8 border border-accent/10 group-hover:bg-accent group-hover:text-white transition-all duration-300">
+                            <Users size={24} className="group-hover:text-white text-accent" />
                          </div>
-                         <h3 className="text-xl font-semibold tracking-tight mb-2 leading-tight">Build your reputation.</h3>
-                         <p className="text-white/70 text-sm font-medium leading-relaxed mb-10">Complete high-priority tasks from the market to earn badges and unlock exclusive projects.</p>
-                         <button onClick={() => navigate('/dashboard/market')} className="mt-auto w-full py-3 bg-white text-accent font-semibold rounded-xl hover:bg-white/90 transition-all">
+                         <h3 className="text-2xl font-bold tracking-tight mb-3 text-text-primary leading-tight">Grow your network.</h3>
+                         <p className="text-text-secondary text-sm font-medium leading-relaxed mb-12 max-w-[260px]">
+                            Collaborate on assignments and share resources with peers across the platform.
+                         </p>
+                         <button 
+                            onClick={() => navigate('/dashboard/market')} 
+                            className="mt-auto w-full py-4 bg-text-primary text-bg-main font-bold rounded-2xl hover:opacity-90 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 shadow-sm"
+                         >
                             Browse Market
+                            <ArrowUpRight size={18} />
                          </button>
                       </div>
                    </div>
                 </div>
 
-                {/* Today's Focus & Task Market */}
-                 <div className="space-y-8 pt-4">
-                    <div className="flex items-center justify-between">
-                       <div>
-                          <h3 className="text-2xl font-semibold text-text-primary tracking-tight">Today's Focus</h3>
-                          <p className="text-sm text-text-secondary font-medium">Suggested tasks based on your skills and deadlines.</p>
-                       </div>
-                       <div className="flex bg-bg-card p-1 rounded-xl border border-border-subtle">
-                          <button className="px-4 py-1.5 bg-text-primary/5 text-text-primary text-xs font-semibold rounded-lg shadow-sm">Suggested</button>
-                          <button onClick={() => navigate('/dashboard/market')} className="px-4 py-1.5 text-text-secondary text-xs font-medium hover:text-text-primary transition-all">All Tasks</button>
-                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-8">
-                       {tasksLoading ? (
-                          [...Array(3)].map((_, i) => <TaskMarketCardSkeleton key={i} />)
-                        ) : filteredTasks.length === 0 ? (
-                         <div className="col-span-full premium-card py-20 text-center border-dashed border-2">
-                            <Briefcase size={32} className="mx-auto text-text-secondary/30 mb-4" />
-                            <h4 className="text-lg font-semibold text-text-primary">No tasks found</h4>
-                            <p className="text-text-secondary font-medium">Check the Task Market or adjust your search.</p>
-                         </div>
-                       ) : (
-                         filteredTasks.slice(0, 3).map((task) => (
-                           <TaskMarketCard 
-                             key={task.id} 
-                             task={task} 
-                             onAccept={handleAccept} 
-                             onView={handleView}
-                             formatDate={formatDate}
-                           />
-                         ))
-                       )}
-                       
-                       {/* Looking for more card */}
-                       <div className="bg-accent/5 rounded-xl border border-dashed border-accent/20 flex flex-col items-center justify-center p-8 text-center transition-all duration-300" onClick={() => navigate('/dashboard/market')}>
-                          <div className="w-12 h-12 bg-bg-card rounded-full flex items-center justify-center border border-border-subtle shadow-sm mb-6 transition-transform">
-                             <Search size={20} className="text-accent" />
-                          </div>
-                          <h4 className="text-lg font-semibold text-text-primary mb-2 tracking-tight">Looking for more?</h4>
-                          <p className="text-sm text-text-secondary font-medium mb-8 leading-relaxed">Explore the global task market to find projects that match your skills.</p>
-                          <button className="text-accent font-semibold text-xs flex items-center gap-1 transition-all">
-                             Explore Market <ArrowUpRight size={14} />
-                          </button>
-                       </div>
-                    </div>
-                 </div>
+                {/* Priority Tasks Engine */}
+                <div className="space-y-8 pt-4">
+                   <PriorityTasks 
+                      tasks={focusTasks} 
+                      onAction={handleView} 
+                      formatDate={formatDate} 
+                      loading={tasksLoading}
+                   />
+                </div>
 
                 <div className="space-y-8 pt-8">
                     <div className="flex items-center justify-between">
@@ -758,6 +795,23 @@ export default function Profile({ onLogout }) {
                         ))
                       )}
                    </div>
+              </div>
+            } />
+
+            <Route path="board" element={
+              <div className="space-y-8 animate-fade-up">
+                 <div className="flex items-center justify-between mb-8">
+                     <div>
+                        <h2 className="text-3xl font-semibold text-text-primary tracking-tight">Project Board</h2>
+                        <p className="text-text-secondary font-medium">Visualize your workflow and manage task stages.</p>
+                     </div>
+                  </div>
+                  <KanbanBoard 
+                    tasks={tasks} 
+                    onStatusChange={handleStatusChange} 
+                    onView={handleView}
+                    formatDate={formatDate}
+                  />
               </div>
             } />
 
@@ -939,10 +993,10 @@ export default function Profile({ onLogout }) {
                                    type="button" 
                                    onClick={handleAiPredictPriority}
                                    disabled={isPredictingPriority || !newTask.title || !newTask.description}
-                                   className="text-[9px] font-bold text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded hover:bg-purple-500/30 transition-all flex items-center gap-1 uppercase border border-purple-500/30"
+                                   className="text-[9px] font-bold text-accent bg-accent-soft px-2 py-0.5 rounded hover:bg-accent/20 transition-all flex items-center gap-1 uppercase border border-accent/20"
                                  >
-                                   {isPredictingPriority ? <RefreshCw size={10} className="animate-spin" /> : <Zap size={10} />}
-                                   AI Predict
+                                   {isPredictingPriority ? <RefreshCw size={10} className="animate-spin" /> : <Target size={10} />}
+                                   Estimate
                                  </button>
                                </label>
                                <select 
@@ -1059,113 +1113,19 @@ export default function Profile({ onLogout }) {
           <X size={20} />
         </button>
       )}
-      {/* Profile Update Modal */}
-      {isProfileModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-bg-card rounded-xl w-full max-w-lg shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">
-            <form onSubmit={handleUpdateProfile}>
-              <div className="p-8">
-                <div className="flex items-center justify-between mb-10">
-                  <h3 className="text-2xl font-semibold text-text-primary tracking-tight">Update Profile</h3>
-                  <button type="button" onClick={() => setIsProfileModalOpen(false)} className="p-2 hover:bg-text-primary/5 rounded-full transition-colors text-text-secondary"><X size={18} /></button>
-                </div>
-
-                <div className="space-y-8">
-                  {/* Avatar Upload */}
-                  <div className="flex flex-col items-center gap-4 mb-4">
-                    <div className="relative group">
-                      <div className="w-24 h-24 rounded-full bg-bg-main overflow-hidden border border-text-primary/10 shadow-sm">
-                        <img 
-                          src={profileFormData.photoPreview || "https://ui-avatars.com/api/?name="+profileFormData.name} 
-                          alt="Avatar Preview" 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <label htmlFor="profile-photo" className="absolute bottom-0 right-0 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:opacity-90 transition-colors border-2 border-bg-card">
-                        <Camera size={14} />
-                        <input 
-                          type="file" 
-                          id="profile-photo" 
-                          className="hidden" 
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              setProfileFormData({
-                                ...profileFormData,
-                                photo: file,
-                                photoPreview: URL.createObjectURL(file)
-                              });
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                    <p className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-widest">Profile Photo</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2">Full Name</label>
-                      <div className="relative">
-                        <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
-                        <input 
-                          type="text" 
-                          required
-                          value={profileFormData.name}
-                          onChange={(e) => setProfileFormData({...profileFormData, name: e.target.value})}
-                          placeholder="Your Name" 
-                          className="w-full bg-bg-main border border-border-subtle rounded-xl pl-11 pr-4 py-3 text-sm focus:border-accent/30 outline-none text-text-primary placeholder-text-secondary/30" 
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2">College</label>
-                      <input 
-                        type="text" 
-                        value={profileFormData.college_name}
-                        onChange={(e) => setProfileFormData({...profileFormData, college_name: e.target.value})}
-                        placeholder="University Name" 
-                        className="w-full bg-bg-main border border-border-subtle rounded-xl px-4 py-3 text-sm focus:border-accent/30 outline-none text-text-primary placeholder-text-secondary/30" 
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2">Graduation Year</label>
-                      <input 
-                        type="text" 
-                        value={profileFormData.year}
-                        onChange={(e) => setProfileFormData({...profileFormData, year: e.target.value})}
-                        placeholder="e.g. 2025" 
-                        className="w-full bg-bg-main border border-border-subtle rounded-xl px-4 py-3 text-sm focus:border-accent/30 outline-none text-text-primary placeholder-text-secondary/30" 
-                      />
-                    </div>
-
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2">Major / Field</label>
-                      <input 
-                        type="text" 
-                        value={profileFormData.field}
-                        onChange={(e) => setProfileFormData({...profileFormData, field: e.target.value})}
-                        placeholder="e.g. Computer Science" 
-                        className="w-full bg-bg-main border border-border-subtle rounded-xl px-4 py-3 text-sm focus:border-accent/30 outline-none text-text-primary placeholder-text-secondary/30" 
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-8 bg-bg-main/30 border-t border-border-subtle flex gap-4">
-                <button type="button" onClick={() => setIsProfileModalOpen(false)} className="flex-1 py-3 text-text-secondary font-semibold rounded-xl hover:text-text-primary transition-all">Cancel</button>
-                <button type="submit" disabled={profileLoading} className="flex-1 py-3 bg-accent text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-50">
-                  {profileLoading ? 'Updating...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Settings Modal (Unified Profile/Prefs) */}
+      <SettingsModal 
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        userProfile={userProfile}
+        profileFormData={profileFormData}
+        setProfileFormData={setProfileFormData}
+        handleUpdateProfile={handleUpdateProfile}
+        profileLoading={profileLoading}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        onLogout={onLogout}
+      />
 
       {/* Deletion Confirmation Modal */}
       {taskToDelete && (

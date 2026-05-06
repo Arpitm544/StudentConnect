@@ -7,11 +7,11 @@ import { useTheme } from './context/ThemeContext.jsx';
 import { TaskDetailSkeleton } from './components/Skeleton.jsx';
 import {
   ArrowLeft, Clock, CheckCircle2, AlertCircle,
-  Briefcase, User, Zap, RefreshCw, FileText,
+  Briefcase, User, RefreshCw, FileText,
   UserPlus, Edit3, Check, ChevronRight,
   LayoutDashboard, Users, CheckSquare, GitMerge,
   LogOut, Menu, X, Code, ExternalLink, Link2, Lock,
-  Plus, Send, Trash2
+  Plus, Send, Trash2, Activity, Layers
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_URL_SECONDARY || '';
@@ -693,7 +693,7 @@ export default function TaskDetail() {
             {/* Properties grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-10 gap-x-12">
               <div>
-                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-3 flex items-center gap-2 opacity-60"><Zap size={14} /> Status</p>
+                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-3 flex items-center gap-2 opacity-60"><Activity size={14} /> Status</p>
                 <p className="text-[15px] font-semibold text-text-primary capitalize">{task.status?.replace('_', ' ') || 'Pending'}</p>
               </div>
               <div>
@@ -822,8 +822,8 @@ export default function TaskDetail() {
                         : 'bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 active:scale-95'
                     }`}
                    >
-                    {isGeneratingMilestones ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
-                    {task?.ai_milestone_count >= 2 ? 'AI Limit Reached' : `AI Optimize (${2 - (task?.ai_milestone_count || 0)} left)`}
+                    {isGeneratingMilestones ? <RefreshCw size={14} className="animate-spin" /> : <Layers size={14} />}
+                    {task?.ai_milestone_count >= 2 ? 'Roadmap Finalized' : `Smart Roadmap (${2 - (task?.ai_milestone_count || 0)} left)`}
                   </button>
                  <button 
                    onClick={() => setIsAddingMilestone(true)}

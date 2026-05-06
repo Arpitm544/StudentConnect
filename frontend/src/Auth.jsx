@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { GoogleAuthProvider, signInWithPopup, getRedirectResult } from 'firebase/auth';
 import { auth } from './firebase.js';
-import { Zap, ArrowRight, ArrowLeft, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Layers, ArrowRight, ArrowLeft, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_URL_SECONDARY || '';
@@ -162,8 +162,8 @@ const DEMO_PASSWORD = 'task@123';
       
       <div className="w-full max-w-[420px] bg-bg-card rounded-xl border border-border-subtle p-10 shadow-2xl animate-fade-up">
         <div className="mb-10 text-center">
-          <div className="w-12 h-12 bg-accent rounded-xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-accent/20">
-            <Zap size={20} className="text-white" fill="currentColor" />
+          <div className="w-12 h-12 bg-accent rounded-xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-accent/10">
+            <Layers size={20} className="text-white" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-text-primary mb-3">
             {isLogin ? 'Welcome back' : 'Create an account'}

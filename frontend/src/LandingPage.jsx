@@ -7,14 +7,15 @@ import {
   LayoutDashboard, 
   Menu, 
   X, 
-  Zap, 
+  Layers, 
   Shield, 
   Rocket, 
   Users, 
   Star,
   PlayCircle,
   Moon,
-  Sun
+  Sun,
+  Zap
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
@@ -108,7 +109,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-2 cursor-pointer group" onClick={() => navigate('/')}>
             <div className="bg-zinc-900 dark:bg-white p-1.5 rounded-lg flex items-center justify-center transition-colors">
-              <Zap size={18} className="text-white dark:text-zinc-950" fill="currentColor" />
+              <Layers size={18} className="text-white dark:text-zinc-950" />
             </div>
             <span className="text-lg font-bold tracking-tight dark:text-white group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">TaskNest</span>
           </div>
@@ -176,8 +177,8 @@ export default function LandingPage() {
         {/* 2. HERO SECTION */}
         <section className="px-6 max-w-6xl mx-auto text-center mb-24">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 mb-8 mt-4 transition-colors">
-            <span className="flex h-2 w-2 rounded-full bg-blue-500"></span>
-            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 tracking-wide uppercase">Introducing Workflow 2.0</span>
+            <span className="flex h-2 w-2 rounded-full bg-zinc-400"></span>
+            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 tracking-wide uppercase">Version 2.0 now live</span>
           </div>
           
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-zinc-900 dark:text-white mb-6 leading-[1.05] transition-colors">
@@ -344,8 +345,7 @@ export default function LandingPage() {
         {/* 5. HOW IT WORKS */}
         <section id="how-it-works" className="max-w-5xl mx-auto px-6 mb-32">
           <div className="bg-zinc-900 dark:bg-zinc-900/50 dark:border dark:border-zinc-800 rounded-[32px] text-zinc-50 p-10 md:p-16 relative overflow-hidden transition-colors">
-            {/* Subtle background glow */}
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-500/5 rounded-full blur-[100px] pointer-events-none transition-colors"></div>
+
             
             <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center">
               <div>
@@ -485,7 +485,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-8 mb-12 border-b border-zinc-200 dark:border-zinc-800 pb-12 transition-colors">
             <div className="col-span-2">
               <div className="flex items-center gap-2 mb-4">
-                 <Zap size={18} className="text-zinc-900 dark:text-white" fill="currentColor" />
+                 <Layers size={18} className="text-zinc-900 dark:text-white" />
                  <span className="font-bold tracking-tight dark:text-white">TaskNest</span>
               </div>
               <p className="text-zinc-500 dark:text-zinc-400 text-sm max-w-sm transition-colors">

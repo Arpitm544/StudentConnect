@@ -2,13 +2,14 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Briefcase, 
-  PieChart, FileText, Zap, X, UserCircle, 
-  Sun, Moon, LogOut, CheckSquare, GitMerge, Users
+  PieChart, FileText, X, UserCircle, 
+  Sun, Moon, LogOut, CheckSquare, GitMerge, Users, Kanban, Layers, Settings
 } from 'lucide-react';
 import Avatar from './Avatar.jsx';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, end: true },
+  { to: '/dashboard/board', label: 'Kanban Board', icon: <Kanban size={18} /> },
   { to: '/dashboard/market', label: 'Task Market', icon: <Briefcase size={18} /> },
   { to: '/dashboard/my-tasks', label: 'My Tasks', icon: <CheckSquare size={18} /> },
   { to: '/dashboard/invitations', label: 'Task Requests', icon: <Users size={18} /> },
@@ -22,7 +23,7 @@ const Sidebar = React.memo(({
   theme, 
   toggleTheme, 
   onLogout, 
-  setIsProfileModalOpen,
+  setIsSettingsModalOpen,
   tasks = [] 
 }) => {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ const Sidebar = React.memo(({
       <div className="p-6 flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white">
-            <Zap size={18} fill="currentColor" />
+            <Layers size={18} />
           </div>
           <h1 className="text-lg font-semibold text-text-primary tracking-tight">TaskNest</h1>
         </div>
@@ -94,25 +95,45 @@ const Sidebar = React.memo(({
              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
            </button>
          )}
-         {setIsProfileModalOpen && (
-           <button 
+         <button 
+           onClick={() => {
+             if (setIsSettingsModalOpen) {
+               setIsSettingsModalOpen(true);
+             } else {
+               navigate('/dashboard?settings=true');
+             }
+             closeMobileMenu();
+           }}
+           className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm hover:bg-text-primary/5 hover:text-text-primary transition-colors"
+         >
+           <Settings size={18} /> Settings
+         </button>
+         {userProfile && (
+           <div 
              onClick={() => {
-               setIsProfileModalOpen(true);
+               if (setIsSettingsModalOpen) {
+                 setIsSettingsModalOpen(true);
+               } else {
+                 navigate('/dashboard?settings=true');
+               }
                closeMobileMenu();
              }}
-             className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm hover:bg-text-primary/5 hover:text-text-primary transition-colors"
+             className="mt-4 flex items-center gap-3 px-4 py-4 bg-text-primary/5 rounded-2xl border border-border-subtle cursor-pointer hover:bg-text-primary/10 transition-all group"
            >
-             <UserCircle size={18} /> Profile Update
-           </button>
-         )}
-         {userProfile && (
-           <div className="mt-4 flex items-center gap-3 px-4 py-4 bg-text-primary/5 rounded-2xl border border-border-subtle">
              <Avatar name={userProfile?.name} photoUrl={userProfile?.photo_url} size="sm" />
-             <div className="flex-1 min-w-0">
-               <p className="text-xs font-semibold text-text-primary truncate leading-none mb-1">{userProfile?.name || 'Loading...'}</p>
-               <p className="text-[10px] text-text-secondary truncate">{userProfile?.email}</p>
-             </div>
-             <button onClick={onLogout} className="text-text-secondary hover:text-text-primary transition-colors">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-xs font-semibold text-text-primary truncate leading-none group-hover:text-accent transition-colors">{userProfile?.name || 'Loading...'}</p>
+                </div>
+                <p className="text-[10px] text-text-secondary truncate">{userProfile?.email}</p>
+              </div>
+             <button 
+               onClick={(e) => {
+                 e.stopPropagation();
+                 onLogout();
+               }} 
+               className="text-text-secondary hover:text-red-400 transition-colors p-1"
+             >
                 <LogOut size={14} />
              </button>
            </div>

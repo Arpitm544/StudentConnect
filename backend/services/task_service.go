@@ -162,10 +162,17 @@ func SyncTaskStatusWithMilestones(taskID int64) error {
 		newStatus = "pending"
 	}
 
+	var oldStatus string
+	config.DB.QueryRow(`SELECT status FROM tasks WHERE id = $1`, taskID).Scan(&oldStatus)
+
 	_, err = config.DB.Exec(`UPDATE tasks SET status = $1, progress = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, newStatus, progress, taskID)
 	if err == nil {
 		// Sync all assignees' progress with the global milestone state
 		_, _ = config.DB.Exec(`UPDATE task_assignees SET status = $1, progress = $2 WHERE task_id = $3`, newStatus, progress, taskID)
+		
+		if newStatus == "completed" && oldStatus != "completed" {
+			// Gamification removed
+		}
 	}
 	return err
 }

@@ -1,0 +1,280 @@
+import React, { useState } from 'react';
+import { 
+  X, User, Shield, Palette, 
+  Camera, LogOut, Trash2, Moon, Sun
+} from 'lucide-react';
+import Avatar from './Avatar.jsx';
+
+const SettingsModal = ({ 
+  isOpen, 
+  onClose, 
+  userProfile, 
+  profileFormData, 
+  setProfileFormData, 
+  handleUpdateProfile, 
+  profileLoading,
+  theme,
+  toggleTheme,
+  onLogout
+}) => {
+  const [activeTab, setActiveTab] = useState('profile');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+
+  if (!isOpen) return null;
+
+  const tabs = [
+    { id: 'profile', label: 'Profile', icon: <User size={16} /> },
+    { id: 'preferences', label: 'Appearance', icon: <Palette size={16} /> },
+    { id: 'security', label: 'Account', icon: <Shield size={16} /> },
+  ];
+
+  const renderProfileTab = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between pb-4 border-b border-border-subtle">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-lg bg-bg-main overflow-hidden border border-border-subtle">
+            <img 
+              src={profileFormData.photoPreview || `https://ui-avatars.com/api/?name=${profileFormData.name}&background=random`} 
+              alt="Avatar Preview" 
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div>
+             <h4 className="text-base font-semibold text-text-primary">{userProfile?.name}</h4>
+             <p className="text-xs text-text-secondary">{userProfile?.email}</p>
+          </div>
+        </div>
+        {!isEditingProfile && (
+          <button 
+            onClick={() => setIsEditingProfile(true)}
+            className="px-4 py-1.5 text-xs font-medium bg-bg-main border border-border-subtle rounded-lg hover:bg-bg-card transition-colors"
+          >
+            Edit Profile
+          </button>
+        )}
+      </div>
+
+      {!isEditingProfile ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12 py-4">
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Full Name</p>
+            <p className="text-sm font-medium text-text-primary">{userProfile?.name || 'Not set'}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">College / Institution</p>
+            <p className="text-sm font-medium text-text-primary">{userProfile?.college_name || 'Not set'}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Graduation Year</p>
+            <p className="text-sm font-medium text-text-primary">{userProfile?.year || 'Not set'}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Major / Field</p>
+            <p className="text-sm font-medium text-text-primary">{userProfile?.field || 'Not set'}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6 animate-fade-in">
+          <div className="relative inline-block">
+             <label htmlFor="profile-photo-settings" className="absolute -bottom-1 -right-1 w-6 h-6 bg-text-primary text-bg-main rounded-md flex items-center justify-center cursor-pointer shadow-lg z-10">
+               <Camera size={12} />
+               <input 
+                 type="file" 
+                 id="profile-photo-settings" 
+                 className="hidden" 
+                 accept="image/*"
+                 onChange={(e) => {
+                   const file = e.target.files[0];
+                   if (file) {
+                     setProfileFormData({
+                       ...profileFormData,
+                       photo: file,
+                       photoPreview: URL.createObjectURL(file)
+                     });
+                   }
+                 }}
+               />
+             </label>
+             <p className="text-[10px] text-text-secondary mt-2">Change photo</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-xs font-medium text-text-secondary">Full Name</label>
+              <input 
+                type="text" 
+                value={profileFormData.name}
+                onChange={(e) => setProfileFormData({...profileFormData, name: e.target.value})}
+                className="w-full bg-bg-card border border-border-subtle rounded-lg px-3 py-2 text-sm focus:border-accent outline-none text-text-primary transition-all" 
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary">College / Institution</label>
+              <input 
+                type="text" 
+                value={profileFormData.college_name}
+                onChange={(e) => setProfileFormData({...profileFormData, college_name: e.target.value})}
+                className="w-full bg-bg-card border border-border-subtle rounded-lg px-3 py-2 text-sm focus:border-accent outline-none text-text-primary transition-all" 
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary">Graduation Year</label>
+              <input 
+                type="text" 
+                value={profileFormData.year}
+                onChange={(e) => setProfileFormData({...profileFormData, year: e.target.value})}
+                className="w-full bg-bg-card border border-border-subtle rounded-lg px-3 py-2 text-sm focus:border-accent outline-none text-text-primary transition-all" 
+              />
+            </div>
+
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-xs font-medium text-text-secondary">Major / Field of Study</label>
+              <input 
+                type="text" 
+                value={profileFormData.field}
+                onChange={(e) => setProfileFormData({...profileFormData, field: e.target.value})}
+                className="w-full bg-bg-card border border-border-subtle rounded-lg px-3 py-2 text-sm focus:border-accent outline-none text-text-primary transition-all" 
+              />
+            </div>
+          </div>
+          
+          <div className="pt-4 flex justify-end gap-3">
+             <button 
+               onClick={() => setIsEditingProfile(false)}
+               className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+             >
+               Cancel
+             </button>
+             <button 
+               onClick={() => {
+                 handleUpdateProfile();
+                 setIsEditingProfile(false);
+               }}
+               disabled={profileLoading}
+               className="px-6 py-2 bg-text-primary text-bg-main text-sm font-medium rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
+             >
+               Save Changes
+             </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderPreferencesTab = () => (
+    <div className="space-y-8 animate-fade-in">
+      <div>
+        <h4 className="text-sm font-medium text-text-primary mb-4">Appearance</h4>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { id: 'light', label: 'Light', icon: <Sun size={16} /> },
+            { id: 'dark', label: 'Dark', icon: <Moon size={16} /> },
+          ].map((mode) => (
+            <button
+              key={mode.id}
+              onClick={toggleTheme}
+              className={`p-3 rounded-lg border flex items-center justify-center gap-3 transition-all ${
+                (mode.id === 'dark' && theme === 'dark') || (mode.id === 'light' && theme !== 'dark')
+                  ? 'bg-bg-main border-accent text-accent'
+                  : 'bg-bg-card border-border-subtle text-text-secondary hover:border-text-primary/20'
+              }`}
+            >
+              {mode.icon}
+              <span className="text-xs font-medium">{mode.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSecurityTab = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="space-y-4">
+        <h4 className="text-sm font-medium text-text-primary">Password</h4>
+        <div className="grid gap-3">
+           <input type="password" placeholder="Current password" className="w-full bg-bg-card border border-border-subtle rounded-lg px-3 py-2 text-sm outline-none focus:border-accent" />
+           <input type="password" placeholder="New password" className="w-full bg-bg-card border border-border-subtle rounded-lg px-3 py-2 text-sm outline-none focus:border-accent" />
+           <button className="w-full py-2 bg-bg-main border border-border-subtle text-text-primary text-sm font-medium rounded-lg hover:bg-bg-card transition-colors">Change Password</button>
+        </div>
+      </div>
+
+      <div className="pt-6 border-t border-border-subtle">
+         <h4 className="text-sm font-medium text-red-500 mb-1">Delete Account</h4>
+         <p className="text-xs text-text-secondary mb-4">
+            This will permanently remove all your data.
+         </p>
+         <button className="text-xs font-medium text-red-500 hover:underline">
+            Delete my account
+         </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+      <div className="bg-bg-card rounded-xl w-full max-w-3xl h-[600px] shadow-2xl flex flex-col md:flex-row overflow-hidden border border-border-subtle">
+        
+        {/* Sidebar */}
+        <div className="w-full md:w-56 bg-bg-sidebar border-r border-border-subtle flex flex-col p-6 shrink-0">
+          <h3 className="text-lg font-semibold text-text-primary mb-6">Settings</h3>
+
+          <nav className="space-y-1 flex-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-text-primary text-bg-sidebar'
+                    : 'text-text-secondary hover:bg-text-primary/5 hover:text-text-primary'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="pt-6 border-t border-border-subtle space-y-4">
+             <div className="flex items-center gap-2">
+                <Avatar name={userProfile?.name} photoUrl={userProfile?.photo_url} size="xs" />
+                <p className="text-xs font-medium text-text-primary truncate">{userProfile?.name}</p>
+             </div>
+             <button 
+               onClick={onLogout}
+               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500/10 text-red-500 text-xs font-bold rounded-lg hover:bg-red-500 hover:text-white transition-all"
+             >
+               <LogOut size={14} />
+               Sign Out
+             </button>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+           <div className="p-4 border-b border-border-subtle flex items-center justify-between md:hidden">
+              <h4 className="font-semibold text-text-primary">{tabs.find(t => t.id === activeTab)?.label}</h4>
+              <button onClick={onClose} className="text-text-secondary"><X size={18} /></button>
+           </div>
+           
+           <div className="hidden md:flex justify-end p-4">
+              <button onClick={onClose} className="p-1 hover:bg-bg-main rounded text-text-secondary transition-colors">
+                 <X size={18} />
+              </button>
+           </div>
+
+           <div className="flex-1 overflow-y-auto px-6 md:px-10 pb-10 pt-0">
+              {activeTab === 'profile' && renderProfileTab()}
+              {activeTab === 'preferences' && renderPreferencesTab()}
+              {activeTab === 'security' && renderSecurityTab()}
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SettingsModal;
