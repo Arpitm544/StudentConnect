@@ -74,9 +74,9 @@ const welcomeTemplate = `
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
 	<div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-		<h2 style="color: #4A90E2;">Welcome to StudentConnect, {{.UserName}}!</h2>
+		<h2 style="color: #4A90E2;">Welcome to TaskNest, {{.UserName}}!</h2>
 		<p>We're thrilled to have you join our community.</p>
-		<p>StudentConnect is a platform where you can post assignments, collaborate with peers, and manage your academic tasks efficiently.</p>
+		<p>TaskNest is a platform where you can post projects, collaborate with peers, and manage your tasks efficiently.</p>
 		<p>Get started by exploring the dashboard and posting your first task!</p>
 		<hr style="border: 0; border-top: 1px solid #eee;" />
 		<p style="font-size: 12px; color: #777;">This is an automated message. Please do not reply.</p>
@@ -95,7 +95,7 @@ const newAssignmentTemplate = `
 		<p><strong>Description:</strong> {{.Description}}</p>
 		<p>Check the marketplace to accept this assignment!</p>
 		<hr style="border: 0; border-top: 1px solid #eee;" />
-		<p style="font-size: 12px; color: #777;">StudentConnect Notification</p>
+		<p style="font-size: 12px; color: #777;">TaskNest Notification</p>
 	</div>
 </body>
 </html>
@@ -111,7 +111,7 @@ const assignmentAcceptedTemplate = `
 		<p><strong>Status:</strong> Accepted</p>
 		<p>The assignment has been successfully linked. {{.Message}}</p>
 		<hr style="border: 0; border-top: 1px solid #eee;" />
-		<p style="font-size: 12px; color: #777;">StudentConnect Notification</p>
+		<p style="font-size: 12px; color: #777;">TaskNest Notification</p>
 	</div>
 </body>
 </html>
@@ -126,9 +126,9 @@ const invitationTemplate = `
 		<p><strong>Assignment:</strong> {{.AssignmentTitle}}</p>
 		<p><strong>Posted By:</strong> {{.PostedBy}}</p>
 		<p>{{.Message}}</p>
-		<p>Check your "Task Requests" on StudentConnect to accept or reject this invitation.</p>
+		<p>Check your "Task Requests" on TaskNest to accept or reject this invitation.</p>
 		<hr style="border: 0; border-top: 1px solid #eee;" />
-		<p style="font-size: 12px; color: #777;">StudentConnect Notification</p>
+		<p style="font-size: 12px; color: #777;">TaskNest Notification</p>
 	</div>
 </body>
 </html>
@@ -139,7 +139,7 @@ const verifyEmailTemplate = `
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
 	<div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-		<h2 style="color: #4A90E2;">Your StudentConnect verification code</h2>
+		<h2 style="color: #4A90E2;">Your TaskNest verification code</h2>
 		<p>Hi {{.UserName}},</p>
 		<p>Thanks for signing up. Please verify your email to activate login for your account.</p>
 		<p style="margin: 24px 0; font-size: 28px; letter-spacing: 6px; font-weight: 700; color: #111827;">{{.VerificationOTP}}</p>
@@ -156,12 +156,12 @@ const deadlineExtensionTemplate = `
 	<div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
 		<h2 style="color: #E67E22;">Deadline Approaching!</h2>
 		<p>Hi {{.UserName}},</p>
-		<p>The deadline for your assignment <strong>"{{.AssignmentTitle}}"</strong> is approaching soon.</p>
-		<p>Currently, this assignment is either not yet accepted or has not been submitted by the assignee.</p>
-		<p>Would you like to extend the deadline to give more time for completion? You can do this from the assignment details page.</p>
-		<p><strong>Note:</strong> If the deadline passes without any submission or extension, the assignment will be automatically removed from the system.</p>
+		<p>The deadline for your project <strong>"{{.AssignmentTitle}}"</strong> is approaching soon.</p>
+		<p>Currently, this project is either not yet accepted or has not been submitted by the assignee.</p>
+		<p>Would you like to extend the deadline to give more time for completion? You can do this from the project details page.</p>
+		<p><strong>Note:</strong> If the deadline passes without any submission or extension, the project will be automatically removed from the system.</p>
 		<hr style="border: 0; border-top: 1px solid #eee;" />
-		<p style="font-size: 12px; color: #777;">StudentConnect Notification</p>
+		<p style="font-size: 12px; color: #777;">TaskNest Notification</p>
 	</div>
 </body>
 </html>
@@ -180,7 +180,7 @@ func SendWelcomeEmail(toEmail, userName string) {
 			return
 		}
 
-		_ = SendEmail([]string{toEmail}, "Welcome to StudentConnect!", body.String(), true)
+		_ = SendEmail([]string{toEmail}, "Welcome to TaskNest!", body.String(), true)
 	}()
 }
 
@@ -263,7 +263,7 @@ func SendVerificationEmail(toEmail, userName, verificationOTP string) error {
 		return err
 	}
 
-	return SendEmail([]string{toEmail}, "Verify your StudentConnect account", body.String(), true)
+	return SendEmail([]string{toEmail}, "Verify your TaskNest account", body.String(), true)
 }
 
 func SendDeadlineExtensionEmail(toEmail, userName, title string) {

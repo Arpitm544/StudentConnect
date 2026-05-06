@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
-import { useParams, useNavigate, Link, NavLink } from 'react-router-dom';
+import { useParams, useNavigate, Link, NavLink, useLocation } from 'react-router-dom';
 import Avatar from './components/Avatar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
@@ -150,6 +150,8 @@ const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateL
 export default function TaskDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromPath = location.state?.from || 'dashboard';
   const [task,          setTask]          = useState(null);
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState('');
@@ -614,8 +616,8 @@ export default function TaskDetail() {
         <h2 className="text-xl font-semibold text-text-primary mb-2">Task Not Found</h2>
         <p className="text-text-secondary text-sm max-w-sm mb-6">{error}</p>
       </div>
-      <Link to="/dashboard" className="px-6 py-3 bg-bg-card border border-border-subtle text-text-primary rounded-xl font-medium text-sm hover:bg-text-primary/5 transition-colors shadow-sm">
-        ← Back to Dashboard
+      <Link to={fromPath === 'dashboard' ? '/dashboard' : `/dashboard/${fromPath}`} className="px-6 py-3 bg-bg-card border border-border-subtle text-text-primary rounded-xl font-medium text-sm hover:bg-text-primary/5 transition-colors shadow-sm">
+        ← Back to {fromPath === 'dashboard' ? 'Dashboard' : fromPath.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
       </Link>
     </div>
   );
@@ -649,11 +651,14 @@ export default function TaskDetail() {
 
         {/* Breadcrumb */}
         <div className="mb-10">
-          <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-accent transition-colors group">
+          <Link 
+            to={fromPath === 'dashboard' ? '/dashboard' : `/dashboard/${fromPath}`} 
+            className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-accent transition-colors group"
+          >
             <div className="p-1.5 rounded-lg bg-text-primary/3 group-hover:bg-accent/10 group-hover:text-accent transition-all">
               <ArrowLeft size={16} />
             </div>
-            Back to Dashboard
+            Back to {fromPath === 'dashboard' ? 'Dashboard' : fromPath.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
           </Link>
         </div>
 

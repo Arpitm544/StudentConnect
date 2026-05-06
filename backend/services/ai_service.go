@@ -41,7 +41,7 @@ func CallGroq(prompt string) (string, error) {
 	reqBody := GroqRequest{
 		Model: "llama-3.3-70b-versatile",
 		Messages: []GroqMessage{
-			{Role: "system", Content: "You are a helpful assistant for StudentConnect, a task management platform. Provide concise, structured JSON responses when asked."},
+			{Role: "system", Content: "You are a helpful assistant for TaskNest, a task management platform. Provide concise, structured JSON responses when asked."},
 			{Role: "user", Content: prompt},
 		},
 	}

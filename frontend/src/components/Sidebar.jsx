@@ -35,7 +35,7 @@ const Sidebar = React.memo(({
           <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white">
             <Zap size={18} fill="currentColor" />
           </div>
-          <h1 className="text-lg font-semibold text-text-primary tracking-tight">StudentConnect</h1>
+          <h1 className="text-lg font-semibold text-text-primary tracking-tight">TaskNest</h1>
         </div>
         <button className="md:hidden p-2 text-text-secondary hover:text-text-primary" onClick={closeMobileMenu}>
           <X size={18} />

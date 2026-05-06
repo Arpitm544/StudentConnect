@@ -173,7 +173,7 @@ func ListTasks(c *gin.Context) {
 	search := c.Query("search")
 
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url, t.priority, t.ai_optimized
+	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE t.creator_id <> $1
 	            AND (SELECT COUNT(*) FROM task_assignees ta WHERE ta.task_id = t.id) < COALESCE(t.capacity, 1)
@@ -202,7 +202,7 @@ func ListTasks(c *gin.Context) {
 func ListDashboardTasks(c *gin.Context) {
 	userID := c.MustGet("user_id").(int64)
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url, t.priority, t.ai_optimized
+	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE t.creator_id = $1
 	             OR EXISTS (SELECT 1 FROM task_assignees ta WHERE ta.task_id = t.id AND ta.user_id = $2)
@@ -660,7 +660,7 @@ func ListMyTasks(c *gin.Context) {
 	search := c.Query("search")
 
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized
+	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE EXISTS (SELECT 1 FROM task_assignees ta WHERE ta.task_id = t.id AND ta.user_id = $1)`
 	
@@ -685,7 +685,7 @@ func ListPostedTasks(c *gin.Context) {
 	search := c.Query("search")
 
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized
+	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id WHERE t.creator_id = $1`
 	
 	var tasks []models.Task
@@ -709,7 +709,7 @@ func ListActiveTasks(c *gin.Context) {
 	search := c.Query("search")
 
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized
+	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id 
 	          WHERE (t.creator_id = $1 OR EXISTS (SELECT 1 FROM task_assignees ta WHERE ta.task_id = t.id AND ta.user_id = $2)) 
 	          AND t.status IN ('accepted', 'in_progress', 'submitted')`

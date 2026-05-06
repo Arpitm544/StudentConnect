@@ -110,7 +110,7 @@ export default function LandingPage() {
             <div className="bg-zinc-900 dark:bg-white p-1.5 rounded-lg flex items-center justify-center transition-colors">
               <Zap size={18} className="text-white dark:text-zinc-950" fill="currentColor" />
             </div>
-            <span className="text-lg font-bold tracking-tight dark:text-white group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">StudentConnect</span>
+            <span className="text-lg font-bold tracking-tight dark:text-white group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">TaskNest</span>
           </div>
 
           {/* Desktop Links */}
@@ -181,12 +181,12 @@ export default function LandingPage() {
           </div>
           
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-zinc-900 dark:text-white mb-6 leading-[1.05] transition-colors">
-            Manage academic work <br className="hidden md:block" />
+            Master your projects <br className="hidden md:block" />
             <span className="text-zinc-400 dark:text-zinc-600">with absolute clarity.</span>
           </h1>
           
           <p className="text-lg md:text-xl text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            StudentConnect is the modern way for college students to post, track, and collaborate on assignments. Built for speed, designed for focus.
+            TaskNest is the sophisticated workspace where ideas turn into achievements. Organize, track, and collaborate with precision. Built for speed, designed for focus.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-20">
@@ -200,7 +200,7 @@ export default function LandingPage() {
               </Link>
             )}
             <a href="#how-it-works" className="w-full sm:w-auto px-6 py-3 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 shadow-sm">
-              <PlayCircle size={18} /> View Demo
+              <ChevronRight size={18} /> Explore Workflow
             </a>
           </div>
 
@@ -227,7 +227,7 @@ export default function LandingPage() {
               </div>
               <h4 className="font-bold text-zinc-900 dark:text-white mb-2">Marketplace</h4>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Post and accept academic assignments in a secure, student-only collaborative environment.
+                Post and accept tasks in a secure, professional collaborative environment.
               </p>
             </div>
 
@@ -308,7 +308,7 @@ export default function LandingPage() {
               Everything you need. Nothing you don't.
             </h2>
             <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto transition-colors">
-              A carefully curated set of tools designed around modern student workflows.
+              A carefully curated set of tools designed around modern productivity workflows.
             </p>
           </div>
 
@@ -316,7 +316,7 @@ export default function LandingPage() {
             {[
               {
                 icon: <FileText size={20} />,
-                title: 'Clean Assignments',
+                title: 'Clean Projects',
                 desc: 'Create detailed task requests with rich text, strict deadlines, and clear requirements without the clutter.'
               },
               {
@@ -327,7 +327,7 @@ export default function LandingPage() {
               {
                 icon: <LayoutDashboard size={20} />,
                 title: 'Centralized Dashboard',
-                desc: 'Track every assignment from a single, unified view. Know exactly what needs attention and when.'
+                desc: 'Track every project from a single, unified view. Know exactly what needs attention and when.'
               }
             ].map((feat, i) => (
               <div key={i} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 hover:shadow-lg dark:hover:shadow-none hover:-translate-y-1 transition-all duration-300 group">
@@ -353,14 +353,14 @@ export default function LandingPage() {
                   Simple, linear <br /> workflow.
                 </h2>
                 <p className="text-zinc-400 text-lg mb-8 max-w-md">
-                  Stop juggling emails and messy group chats. Move from assignment creation to completion in three clear steps.
+                  Stop juggling emails and messy group chats. Move from project creation to completion in three clear steps.
                 </p>
               </div>
               
               <div className="space-y-8">
                 {[
                   { step: '01', title: 'Create a Request', desc: 'Detail what you need done and set a deadline.' },
-                  { step: '02', title: 'Find a Match', desc: 'Peers review and accept your tasks seamlessly.' },
+                  { step: '02', title: 'Find a Match', desc: 'Collaborators review and accept your tasks seamlessly.' },
                   { step: '03', title: 'Track to Done', desc: 'Monitor progress visually on your dashboard.' }
                 ].map((item, i) => (
                   <div key={i} className="flex gap-5">
@@ -378,23 +378,23 @@ export default function LandingPage() {
 
         {/* 7. TESTIMONIALS */}
         <section className="max-w-6xl mx-auto px-6 mb-32 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white mb-12 transition-colors">Built for high-performing students.</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white mb-12 transition-colors">Built for high-performing teams.</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
             {[
               {
                 quote: "Finally, a platform that doesn't feel like a clunky enterprise tool from 2005. It's fast, minimal, and gets out of my way.",
                 author: "Alex Rivera",
-                role: "Computer Science, Junior"
+                role: "Senior Product Designer"
               },
               {
                 quote: "I use this to manage all collaborative engineering projects. The interface just makes sense. Very Stripe-esque.",
                 author: "Sarah Chen",
-                role: "Engineering, Senior"
+                role: "Software Engineer"
               },
               {
-                quote: "Instead of texting 5 different people for notes and assignments, I just post it here. The dashboard view is a lifesaver.",
+                quote: "Instead of chasing 5 different people for updates and deliverables, I just track it here. The unified view is a lifesaver.",
                 author: "Michael T.",
-                role: "Business Admin, Sophomore"
+                role: "Project Manager"
               }
             ].map((t, i) => (
                <div key={i} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm transition-colors">
@@ -422,7 +422,7 @@ export default function LandingPage() {
              {/* Free Tier */}
              <div className="bg-white dark:bg-zinc-900 border text-center md:text-left border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 transition-colors">
                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2 transition-colors">Basic</h3>
-               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 transition-colors">Perfect for individual students.</p>
+               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 transition-colors">Perfect for individuals.</p>
                <div className="mb-6 transition-colors">
                  <span className="text-4xl font-bold text-zinc-900 dark:text-white">$0</span>
                  <span className="text-zinc-500 dark:text-zinc-400">/ forever</span>
@@ -443,7 +443,7 @@ export default function LandingPage() {
                  RECOMMENDED
                </div>
                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2 transition-colors">Pro</h3>
-               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 transition-colors">For power users and study groups.</p>
+               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 transition-colors">For power users and professional teams.</p>
                <div className="mb-6 transition-colors">
                  <span className="text-4xl font-bold text-zinc-900 dark:text-white">FREE</span>
                  <br></br>
@@ -470,7 +470,7 @@ export default function LandingPage() {
                Start managing your tasks <span className="text-zinc-400 dark:text-zinc-600">smarter.</span>
              </h2>
              <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-xl mx-auto mb-10 relative z-10 transition-colors">
-               Join thousands of students who have already upgraded their academic workflow. Get started in less than 30 seconds.
+               Join thousands of users who have already upgraded their productivity workflow. Get started in less than 30 seconds.
              </p>
              <Link to="/signup" className="inline-flex items-center gap-2 px-8 py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-medium rounded-xl hover:opacity-90 transition-all shadow-lg hover:-translate-y-1 relative z-10">
                 Create Free Account <ArrowRight size={18} />
@@ -486,10 +486,10 @@ export default function LandingPage() {
             <div className="col-span-2">
               <div className="flex items-center gap-2 mb-4">
                  <Zap size={18} className="text-zinc-900 dark:text-white" fill="currentColor" />
-                 <span className="font-bold tracking-tight dark:text-white">StudentConnect</span>
+                 <span className="font-bold tracking-tight dark:text-white">TaskNest</span>
               </div>
               <p className="text-zinc-500 dark:text-zinc-400 text-sm max-w-sm transition-colors">
-                A modern platform to streamline student collaboration, assignment tracking, and productivity.
+                A modern platform to streamline collaboration, project tracking, and productivity.
               </p>
             </div>
             <div>
@@ -510,7 +510,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="flex flex-col md:flex-row justify-between items-center text-xs text-zinc-400 dark:text-zinc-500 transition-colors">
-            <p>© 2026 StudentConnect Inc. All rights reserved.</p>
+            <p>© 2026 TaskNest Inc. All rights reserved.</p>
             <div className="flex gap-4 mt-4 md:mt-0">
                <a href="#" className="hover:text-zinc-900 dark:hover:text-white transition-colors">Twitter</a>
                <a href="#" className="hover:text-zinc-900 dark:hover:text-white transition-colors">GitHub</a>

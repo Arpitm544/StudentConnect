@@ -5,6 +5,8 @@ import (
 	"backend/models"
 	"database/sql"
 	"strings"
+
+	"github.com/lib/pq"
 )
 
 func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
@@ -15,12 +17,14 @@ func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 	defer rows.Close()
 
 	tasks := make([]models.Task, 0)
+	taskIDs := make([]int64, 0)
+	taskMap := make(map[int64]*models.Task)
 
 	for rows.Next() {
 		var t models.Task
 		var assigneeName, assigneePhoto, creatorName, creatorPhoto, description, subject, attachmentURL, priority sql.NullString
 		var aiOptimized sql.NullBool
-		if err := rows.Scan(&t.ID, &t.Title, &description, &t.Status, &t.Accepted, &t.CreatorID, &t.AssigneeID, &t.Deadline, &t.Progress, &subject, &attachmentURL, &t.CreatedAt, &t.UpdatedAt, &assigneeName, &assigneePhoto, &creatorName, &creatorPhoto, &priority, &aiOptimized); err != nil {
+		if err := rows.Scan(&t.ID, &t.Title, &description, &t.Status, &t.Accepted, &t.CreatorID, &t.AssigneeID, &t.Deadline, &t.Progress, &subject, &attachmentURL, &t.CreatedAt, &t.UpdatedAt, &assigneeName, &assigneePhoto, &creatorName, &creatorPhoto, &priority, &aiOptimized, &t.Capacity); err != nil {
 			return nil, err
 		}
 		t.Priority = priority.String
@@ -34,49 +38,63 @@ func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 		if attachmentURL.Valid {
 			t.AttachmentURL = &attachmentURL.String
 		}
-
-		mRows, err := config.DB.Query(`SELECT id, task_id, title, status, submission_link, submission_note, created_at, updated_at FROM milestones WHERE task_id = $1 ORDER BY id ASC`, t.ID)
-		if err == nil {
-			t.Milestones = make([]models.Milestone, 0)
-			for mRows.Next() {
-				var m models.Milestone
-				if err := mRows.Scan(&m.ID, &m.TaskID, &m.Title, &m.Status, &m.SubmissionLink, &m.SubmissionNote, &m.CreatedAt, &m.UpdatedAt); err == nil {
-					t.Milestones = append(t.Milestones, m)
-				}
-			}
-			mRows.Close()
-		}
-
-		// Fetch assignees from join table
-		t.Assignees = make([]models.TaskAssignee, 0)
-		aRows, aErr := config.DB.Query(`
-			SELECT ta.task_id, ta.user_id, ta.status, ta.progress, ta.submission_link, ta.accepted_at,
-			       u.name, u.email, u.photo_url
-			FROM task_assignees ta JOIN users u ON ta.user_id = u.id
-			WHERE ta.task_id = $1`, t.ID)
-		if aErr == nil {
-			for aRows.Next() {
-				var a models.TaskAssignee
-				var sl sql.NullString
-				if err := aRows.Scan(&a.TaskID, &a.UserID, &a.Status, &a.Progress, &sl, &a.AcceptedAt, &a.Name, &a.Email, &a.PhotoURL); err == nil {
-					if sl.Valid {
-						a.SubmissionLink = &sl.String
-					}
-					t.Assignees = append(t.Assignees, a)
-				}
-			}
-			aRows.Close()
-		}
-		t.SlotsFilled = len(t.Assignees)
-
-		// Fetch capacity
-		config.DB.QueryRow(`SELECT COALESCE(capacity, 1) FROM tasks WHERE id = $1`, t.ID).Scan(&t.Capacity)
 		if t.Capacity < 1 {
 			t.Capacity = 1
 		}
 
+		t.Milestones = make([]models.Milestone, 0)
+		t.Assignees = make([]models.TaskAssignee, 0)
+		t.SlotsFilled = 0
+
 		tasks = append(tasks, t)
 	}
+
+	if len(tasks) == 0 {
+		return tasks, nil
+	}
+
+	for i := range tasks {
+		taskIDs = append(taskIDs, tasks[i].ID)
+		taskMap[tasks[i].ID] = &tasks[i]
+	}
+
+	// Bulk fetch milestones
+	mRows, err := config.DB.Query(`SELECT id, task_id, title, status, submission_link, submission_note, created_at, updated_at FROM milestones WHERE task_id = ANY($1) ORDER BY id ASC`, pq.Array(taskIDs))
+	if err == nil {
+		defer mRows.Close()
+		for mRows.Next() {
+			var m models.Milestone
+			if err := mRows.Scan(&m.ID, &m.TaskID, &m.Title, &m.Status, &m.SubmissionLink, &m.SubmissionNote, &m.CreatedAt, &m.UpdatedAt); err == nil {
+				if t, ok := taskMap[m.TaskID]; ok {
+					t.Milestones = append(t.Milestones, m)
+				}
+			}
+		}
+	}
+
+	// Bulk fetch assignees
+	aRows, aErr := config.DB.Query(`
+		SELECT ta.task_id, ta.user_id, ta.status, ta.progress, ta.submission_link, ta.accepted_at,
+		       u.name, u.email, u.photo_url
+		FROM task_assignees ta JOIN users u ON ta.user_id = u.id
+		WHERE ta.task_id = ANY($1)`, pq.Array(taskIDs))
+	if aErr == nil {
+		defer aRows.Close()
+		for aRows.Next() {
+			var a models.TaskAssignee
+			var sl sql.NullString
+			if err := aRows.Scan(&a.TaskID, &a.UserID, &a.Status, &a.Progress, &sl, &a.AcceptedAt, &a.Name, &a.Email, &a.PhotoURL); err == nil {
+				if sl.Valid {
+					a.SubmissionLink = &sl.String
+				}
+				if t, ok := taskMap[a.TaskID]; ok {
+					t.Assignees = append(t.Assignees, a)
+					t.SlotsFilled++
+				}
+			}
+		}
+	}
+
 	return tasks, nil
 }
 

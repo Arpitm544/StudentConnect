@@ -1,6 +1,6 @@
-# StudentConnect (TaskNest)
+# TaskNest
 
-StudentConnect is a full-stack web application designed to connect students for task sharing and completion. It features a modern user interface and a robust backend API to handle user authentication, task management, and communication.
+TaskNest is a full-stack web application designed to connect students for task sharing and completion. It features a modern user interface and a robust backend API to handle user authentication, task management, and communication.
 
 ## Tech Stack
 
@@ -38,7 +38,7 @@ Make sure you have the following installed:
 ### 1. Clone the Repository
 ```bash
 git clone <your-repo-url>
-cd StudentConnect-main
+cd TaskNest-main
 ```
 
 ### 2. Backend Setup

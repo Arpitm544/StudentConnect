@@ -306,8 +306,8 @@ export default function Profile({ onLogout }) {
   }, [navigate]);
 
   const handleView = useCallback((id) => {
-    navigate(`/dashboard/task/${id}`);
-  }, [navigate]);
+    navigate(`/dashboard/task/${id}`, { state: { from: currentPath } });
+  }, [navigate, currentPath]);
 
   const handleStatusChange = useCallback(async (id, status, progress = null) => {
     try {

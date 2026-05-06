@@ -96,7 +96,7 @@ func main() {
 
 	// API welcome message
 	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "Welcome to StudentConnect Backend"})
+		c.JSON(200, gin.H{"message": "Welcome to TaskNest Backend"})
 	})
 
 	// ✅ Serve Static Frontend (Production Only)
