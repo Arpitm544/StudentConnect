@@ -4,7 +4,7 @@ import {
   User, Trash2, Zap, LogOut, AlertCircle,
   Menu, X, Search, MoreVertical, Briefcase,
   TrendingUp, ArrowUpRight, Plus, Clock, Upload,
-  File, Camera, RefreshCw
+  File, Camera, RefreshCw, ChevronRight
 } from 'lucide-react';
 import { Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
@@ -34,7 +34,7 @@ export default function Profile({ onLogout }) {
   const [tasks, setTasks] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
-  const [newTask, setNewTask] = useState({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium' });
+  const [newTask, setNewTask] = useState({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium', assignee_email: '' });
   const [isPredictingPriority, setIsPredictingPriority] = useState(false);
   const [postLoading, setPostLoading] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
@@ -79,7 +79,13 @@ export default function Profile({ onLogout }) {
       if (!res.ok) throw new Error('Failed to load tasks');
       const data = await res.json();
       setTasks(data);
+      if (currentPath === 'invitations') {
+        setInvitations(data);
+      }
     } catch (err) {
+      console.error('Fetch tasks error:', err);
+      setTasks([]); 
+      if (currentPath === 'invitations') setInvitations([]);
       setError(err.message || 'Could not fetch tasks');
     } finally {
       setTasksLoading(false);
@@ -95,6 +101,7 @@ export default function Profile({ onLogout }) {
       setInvitations(data);
     } catch (err) {
       console.error(err);
+      setInvitations([]);
     } finally {
       setInvitationsLoading(false);
     }
@@ -431,12 +438,13 @@ export default function Profile({ onLogout }) {
           deadline: newTask.deadline ? new Date(newTask.deadline).toISOString() : null,
           max_assignees: parseInt(newTask.max_assignees, 10),
           priority: newTask.priority,
-          attachment_url: attachmentUrl
+          attachment_url: attachmentUrl,
+          assignee_email: newTask.assignee_email
         }),
       });
       if (!res.ok) throw new Error('Failed to post task');
       
-      setNewTask({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium' });
+      setNewTask({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium', assignee_email: '' });
       setShowPostForm(false);
       fetchTasks();
     } catch (err) {
@@ -706,9 +714,31 @@ export default function Profile({ onLogout }) {
                             <div className="flex-1">
                               <span className="px-2 py-0.5 bg-accent-soft text-accent text-[10px] font-bold uppercase tracking-wider rounded mb-4 inline-block">Invitation</span>
                               <h3 className="text-lg font-semibold text-text-primary mb-2 line-clamp-1">{invite.task_title}</h3>
-                              <p className="text-text-secondary text-sm mb-6 opacity-80">
+                              <p className="text-text-secondary text-sm mb-4 opacity-80">
                                 <strong>{invite.creator_name}</strong> has invited you to work on this assignment.
                               </p>
+                              
+                              <div className="space-y-3 mb-6">
+                                <div className="flex items-center gap-2 text-xs text-text-secondary">
+                                  <FileText size={14} className="text-accent" />
+                                  <span className="font-medium">{invite.task_subject}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-text-secondary">
+                                  <Clock size={14} className="text-accent" />
+                                  <span className="font-medium">{invite.task_deadline ? formatDate(invite.task_deadline) : 'No Deadline'}</span>
+                                </div>
+                              </div>
+                              
+                              <p className="text-xs text-text-secondary line-clamp-3 bg-bg-card/50 p-3 rounded-lg border border-border-subtle/50 mb-4">
+                                {invite.task_description || 'No description provided.'}
+                              </p>
+
+                              <button 
+                                onClick={() => handleView(invite.task_id)}
+                                className="w-full py-2 px-3 mb-2 bg-text-primary/5 text-text-secondary hover:text-text-primary text-[10px] font-bold uppercase tracking-widest rounded-lg border border-border-subtle hover:border-text-primary/20 transition-all flex items-center justify-center gap-2"
+                              >
+                                <ChevronRight size={14} /> View Task Details
+                              </button>
                             </div>
                             <div className="flex gap-3 pt-6 border-t border-border-subtle mt-auto">
                                <button 
@@ -882,6 +912,17 @@ export default function Profile({ onLogout }) {
                          </div>
                          
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                             <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Assign to (Email) - Optional</label>
+                               <input 
+                                  type="email" 
+                                  value={newTask.assignee_email}
+                                  onChange={(e) => setNewTask({...newTask, assignee_email: e.target.value})}
+                                  className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                                  placeholder="e.g. peer@university.edu"
+                               />
+                               <p className="text-[10px] text-text-secondary opacity-60">Specify a user to make this task private to them.</p>
+                            </div>
                             <div className="space-y-2">
                                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Deadline</label>
                                <input 

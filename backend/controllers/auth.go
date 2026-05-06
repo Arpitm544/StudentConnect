@@ -96,7 +96,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	tokenString, _ := utils.GenerateToken(int(user.ID))
+	tokenString, _ := utils.GenerateToken(user.ID)
 	setAuthCookie(c, tokenString)
 	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
 }
@@ -134,7 +134,7 @@ func GoogleAuth(c *gin.Context) {
 		}
 	}
 
-	tokenString, _ := utils.GenerateToken(int(userID))
+	tokenString, _ := utils.GenerateToken(userID)
 	setAuthCookie(c, tokenString)
 	c.JSON(http.StatusOK, gin.H{"id": strconv.FormatInt(userID, 10), "name": name, "email": email})
 }
@@ -154,7 +154,7 @@ func CheckAuth(c *gin.Context) {
 
 	var isVerified bool
 	config.DB.QueryRow("SELECT COALESCE(is_verified, FALSE) FROM users WHERE id = $1", userID).Scan(&isVerified)
-	c.JSON(http.StatusOK, gin.H{"authenticated": true, "user_id": strconv.Itoa(userID), "is_verified": isVerified})
+	c.JSON(http.StatusOK, gin.H{"authenticated": true, "user_id": strconv.FormatInt(userID, 10), "is_verified": isVerified})
 }
 
 func Logout(c *gin.Context) {
@@ -242,7 +242,7 @@ func VerifyEmail(c *gin.Context) {
 	}
 
 	config.DB.Exec("UPDATE users SET is_verified = TRUE, verification_token = NULL WHERE id = $1", userID)
-	tokenString, _ := utils.GenerateToken(int(userID))
+	tokenString, _ := utils.GenerateToken(userID)
 	setAuthCookie(c, tokenString)
 	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully"})
 }

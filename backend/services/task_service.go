@@ -80,7 +80,7 @@ func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 	return tasks, nil
 }
 
-func SyncTaskStatusWithMilestones(taskID uint) error {
+func SyncTaskStatusWithMilestones(taskID int64) error {
 	var isAccepted bool
 	err := config.DB.QueryRow(`SELECT accepted FROM tasks WHERE id = $1`, taskID).Scan(&isAccepted)
 	if err != nil {

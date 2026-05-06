@@ -17,9 +17,9 @@ func getSecretKey() []byte {
 	return []byte(secret)
 }
 
-func GenerateToken(userID int) (string, error) {
+func GenerateToken(userID int64) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": strconv.Itoa(userID),
+		"user_id": strconv.FormatInt(userID, 10),
 		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 		"iat":     time.Now().Unix(),
 	}
@@ -28,7 +28,7 @@ func GenerateToken(userID int) (string, error) {
 	return token.SignedString(getSecretKey())
 }
 
-func ValidateToken(tokenString string) (int, error) {
+func ValidateToken(tokenString string) (int64, error) {
 	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
@@ -45,7 +45,7 @@ func ValidateToken(tokenString string) (int, error) {
 		if !ok {
 			return 0, errors.New("invalid user_id in token")
 		}
-		userID, err := strconv.Atoi(userIDStr)
+		userID, err := strconv.ParseInt(userIDStr, 10, 64)
 		if err != nil {
 			return 0, errors.New("malformed user_id in token")
 		}

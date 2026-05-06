@@ -669,14 +669,7 @@ export default function TaskDetail() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {isCreator && (task.current_assignees === 0 || !task.accepted) && (
-              <button 
-                onClick={() => setIsInviting(true)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-text-primary/3 border border-border-subtle text-text-primary hover:bg-text-primary/6 rounded-xl text-[13px] font-semibold transition-colors"
-              >
-                <UserPlus size={16} /> Assign
-              </button>
-            )}
+
             {isCreator && (
               <button 
                 onClick={() => setIsEditing(true)}

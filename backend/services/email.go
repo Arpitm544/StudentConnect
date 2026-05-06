@@ -117,6 +117,23 @@ const assignmentAcceptedTemplate = `
 </html>
 `
 
+const invitationTemplate = `
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+	<div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+		<h2 style="color: #4A90E2;">You've Been Invited!</h2>
+		<p><strong>Assignment:</strong> {{.AssignmentTitle}}</p>
+		<p><strong>Posted By:</strong> {{.PostedBy}}</p>
+		<p>{{.Message}}</p>
+		<p>Check your "Task Requests" on StudentConnect to accept or reject this invitation.</p>
+		<hr style="border: 0; border-top: 1px solid #eee;" />
+		<p style="font-size: 12px; color: #777;">StudentConnect Notification</p>
+	</div>
+</body>
+</html>
+`
+
 const verifyEmailTemplate = `
 <!DOCTYPE html>
 <html>
@@ -208,6 +225,27 @@ func SendAssignmentAcceptedEmail(toEmail, title, msg string) {
 		}
 
 		_ = SendEmail([]string{toEmail}, "Assignment Accepted: "+title, body.String(), true)
+	}()
+}
+
+func SendInvitationEmail(toEmail, title, postedBy, msg string) {
+	go func() {
+		tmpl, err := template.New("invitation").Parse(invitationTemplate)
+		if err != nil {
+			return
+		}
+
+		var body bytes.Buffer
+		data := EmailData{
+			AssignmentTitle: title,
+			PostedBy:        postedBy,
+			Message:         msg,
+		}
+		if err := tmpl.Execute(&body, data); err != nil {
+			return
+		}
+
+		_ = SendEmail([]string{toEmail}, "You've Been Invited: "+title, body.String(), true)
 	}()
 }
 

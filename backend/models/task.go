@@ -5,15 +5,15 @@ import (
 )
 
 type UserBasic struct {
-	ID       uint   `json:"id,string"`
+	ID       int64  `json:"id,string"`
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	PhotoURL string `json:"photo_url"`
 }
 
 type Milestone struct {
-	ID             uint      `json:"id,string"`
-	TaskID         uint      `json:"task_id,string"`
+	ID             int64     `json:"id,string"`
+	TaskID         int64     `json:"task_id,string"`
 	Title          string    `json:"title"`
 	Status         string    `json:"status"`
 	SubmissionLink *string   `json:"submission_link"`
@@ -24,8 +24,8 @@ type Milestone struct {
 
 // TaskAssignee represents one user's slot on a multi-assignee task.
 type TaskAssignee struct {
-	TaskID         uint      `json:"task_id,string"`
-	UserID         uint      `json:"user_id,string"`
+	TaskID         int64     `json:"task_id,string"`
+	UserID         int64     `json:"user_id,string"`
 	Status         string    `json:"status"`
 	Progress       int       `json:"progress"`
 	SubmissionLink *string   `json:"submission_link"`
@@ -38,13 +38,13 @@ type TaskAssignee struct {
 }
 
 type Task struct {
-	ID            uint       `json:"id,string"`
+	ID            int64      `json:"id,string"`
 	Title         string     `json:"title"`
 	Description   string     `json:"description"`
 	Status        string     `json:"status"`
 	Accepted      bool       `json:"accepted"`
-	CreatorID     *uint      `json:"creator_id,string"`
-	AssigneeID    *uint      `json:"assignee_id,string"` // kept for backward compat
+	CreatorID     *int64     `json:"creator_id,string"`
+	AssigneeID    *int64     `json:"assignee_id,string"` // kept for backward compat
 	Deadline      *time.Time `json:"deadline"`
 	Progress      int        `json:"progress"`
 	Subject       string     `json:"subject"`
@@ -75,13 +75,16 @@ type Task struct {
 }
 
 type TaskInvitation struct {
-	ID           uint      `json:"id,string"`
-	TaskID       uint      `json:"task_id,string"`
+	ID           int64     `json:"id,string"`
+	TaskID       int64     `json:"task_id,string"`
 	InviteeEmail string    `json:"invitee_email"`
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	
 	// Join fields
-	TaskTitle    string    `json:"task_title"`
-	CreatorName  string    `json:"creator_name"`
+	TaskTitle       string     `json:"task_title"`
+	TaskDescription string     `json:"task_description"`
+	TaskSubject     string     `json:"task_subject"`
+	TaskDeadline    *time.Time `json:"task_deadline"`
+	CreatorName     string     `json:"creator_name"`
 }
