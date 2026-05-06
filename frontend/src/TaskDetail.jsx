@@ -33,20 +33,23 @@ const TimelineStep = memo(function TimelineStep({ step, isCompleted, isActive })
   return (
     <div className="relative flex flex-col items-center flex-1 z-10 w-full group cursor-default">
       <div
-        className={`w-4 h-4 rounded-full flex items-center justify-center mb-4 transition-all duration-200 border-2
+        className={`w-5 h-5 rounded-full flex items-center justify-center mb-4 transition-all duration-300 border-2 shadow-sm
           ${isCompleted
-            ? 'bg-accent border-accent text-white'
+            ? 'bg-accent border-accent text-white scale-110'
             : isActive
-              ? 'bg-bg-main border-accent'
-              : 'bg-bg-main border-text-primary/10 group-hover:border-text-primary/20'
+              ? 'bg-bg-main border-accent ring-4 ring-accent/10'
+              : 'bg-bg-main border-border-subtle group-hover:border-text-primary/20'
           }`}
       >
-        {isCompleted && <Check size={10} strokeWidth={4} />}
-        {isActive    && <div className="w-1.5 h-1.5 rounded-full bg-accent" />}
+        {isCompleted ? (
+          <Check size={12} strokeWidth={4} />
+        ) : (
+          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-accent animate-pulse' : 'bg-transparent'}`} />
+        )}
       </div>
       <span
-        className={`text-[11px] tracking-wide text-center whitespace-normal sm:whitespace-nowrap uppercase font-bold
-          ${isCompleted || isActive ? 'text-text-primary opacity-100' : 'text-text-secondary opacity-40'}`}
+        className={`text-[10px] tracking-widest text-center whitespace-normal sm:whitespace-nowrap uppercase font-bold transition-colors duration-300
+          ${isCompleted || isActive ? 'text-text-primary' : 'text-text-secondary opacity-40'}`}
       >
         {step.label}
       </span>
@@ -58,15 +61,18 @@ const TimelineStep = memo(function TimelineStep({ step, isCompleted, isActive })
 const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateLoading, onAccept, onAction, onLeave, hasMilestones, slotsFilled, capacity }) {
   if (status === 'pending') {
     return (
-      <div className="bg-accent-soft border border-accent/20 rounded-xl p-5 flex flex-col gap-4 w-full">
-        <div className="text-[13px] text-accent font-medium">This task is waiting to be accepted.</div>
+      <div className="bg-accent/5 border border-accent/20 rounded-2xl p-6 flex flex-col gap-5 w-full shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="flex flex-col gap-1">
+          <div className="text-[15px] text-text-primary font-bold">Open for Proposals</div>
+          <div className="text-[13px] text-text-secondary font-medium">This task is waiting to be accepted.</div>
+        </div>
         {!isCreator && !isAssignee && (
           <button
             onClick={onAccept}
             disabled={updateLoading}
-            className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-accent text-white rounded-lg text-[13px] font-semibold hover:opacity-90 transition-colors active:scale-[0.98]"
+            className="inline-flex items-center justify-center gap-2 w-full py-3 bg-accent text-white rounded-xl text-[14px] font-bold hover:opacity-90 transition-all active:scale-[0.98] shadow-lg shadow-accent/10"
           >
-            {updateLoading ? <RefreshCw size={14} className="animate-spin" /> : <ChevronRight size={14} />}
+            {updateLoading ? <RefreshCw size={16} className="animate-spin" /> : <ChevronRight size={16} />}
             Accept Task
           </button>
         )}
@@ -643,55 +649,26 @@ export default function TaskDetail() {
 
         {/* Breadcrumb */}
         <div className="mb-10">
-          <Link to="/dashboard" className="inline-flex items-center gap-2 text-[12px] font-semibold text-text-secondary hover:text-accent transition-colors uppercase tracking-widest">
-            <ArrowLeft size={14} strokeWidth={2.5} /> Back to Dashboard
+          <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-accent transition-colors group">
+            <div className="p-1.5 rounded-lg bg-text-primary/3 group-hover:bg-accent/10 group-hover:text-accent transition-all">
+              <ArrowLeft size={16} />
+            </div>
+            Back to Dashboard
           </Link>
         </div>
 
         {/* Floating Header */}
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-8 mb-12">
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-semibold text-text-primary tracking-tight leading-tight mb-6">
+          <div className="max-w-3xl">
+            <h1 className="text-3xl sm:text-4xl font-bold text-text-primary tracking-tight leading-tight mb-4">
               {task.title}
             </h1>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="bg-text-primary/3 border border-border-subtle text-text-secondary rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider">
-                {task.status?.replace('_', ' ') || 'Pending'}
-              </span>
-              <span className="bg-text-primary/3 border border-border-subtle text-text-secondary rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider">
-                {(task.capacity || 1) > 1 
-                  ? `${task.slots_filled || 0}/${task.capacity} Assignees`
-                  : `Assignee: ${task.assignees?.length > 0 ? task.assignees[0]?.name : 'Unassigned'}`
-                }
-              </span>
-              <span className="bg-text-primary/3 border border-border-subtle text-text-secondary rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider">
-                Posted {formatDate(task.created_at)}
-              </span>
-            </div>
+            <p className="text-text-secondary text-[15px] leading-relaxed opacity-80 line-clamp-2">
+              {task.description}
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {task.status === 'pending' && !isCreator && !isAssignee && (
-              <button
-                onClick={handleAcceptTask}
-                disabled={updateLoading}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-accent text-white rounded-xl text-[13px] font-semibold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-accent/10"
-              >
-                {updateLoading ? <RefreshCw size={14} className="animate-spin" /> : <ChevronRight size={14} />}
-                Accept Task
-              </button>
-            )}
-            {/* Also show accept for multi-slot tasks that are accepted but still have open slots */}
-            {task.status !== 'pending' && !isCreator && !isAssignee && (task.slots_filled || 0) < (task.capacity || 1) && (
-              <button
-                onClick={handleAcceptTask}
-                disabled={updateLoading}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-accent text-white rounded-xl text-[13px] font-semibold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-accent/10"
-              >
-                {updateLoading ? <RefreshCw size={14} className="animate-spin" /> : <ChevronRight size={14} />}
-                Join Task ({(task.capacity || 1) - (task.slots_filled || 0)} slots left)
-              </button>
-            )}
             {isCreator && (task.current_assignees === 0 || !task.accepted) && (
               <button 
                 onClick={() => setIsInviting(true)}
@@ -755,6 +732,7 @@ export default function TaskDetail() {
                 </div>
               </div>
               <div>
+                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-4 flex items-center gap-2 opacity-60"><Clock size={14} /> Deadline</p>
                 <p className={`text-[15px] font-semibold ${isPastDeadline ? 'text-red-400' : 'text-text-primary'}`}>{formatDate(task.deadline)}</p>
               </div>
               <div>
@@ -799,17 +777,20 @@ export default function TaskDetail() {
 
         {/* Timeline */}
         <div className="mb-24">
-          <div className="flex justify-between items-center mb-10">
-            <h3 className="text-xl font-semibold text-text-primary tracking-tight">Project Status</h3>
-            <span className="text-[11px] font-bold text-accent tracking-widest uppercase bg-accent-soft border border-accent/20 px-3 py-1 rounded-full">{percentage}% Complete</span>
+          <div className="flex justify-between items-center mb-12">
+            <div>
+              <h3 className="text-2xl font-bold text-text-primary tracking-tight">Project Status</h3>
+              <p className="text-text-secondary text-sm mt-1 opacity-60">Visual journey from start to completion</p>
+            </div>
+            <span className="text-[12px] font-bold text-accent tracking-widest uppercase bg-accent/5 border border-accent/20 px-4 py-1.5 rounded-full shadow-sm">{percentage}% Complete</span>
           </div>
 
           <div className="relative pt-6 pb-10 w-full px-4">
             {/* Track */}
-            <div className="absolute top-[31px] left-4 right-4 h-[1.5px] bg-text-primary/5 rounded-full -z-10" />
+            <div className="absolute top-[34px] left-4 right-4 h-[2px] bg-text-primary/20 rounded-full z-0" />
             {/* Fill */}
             <div
-              className="absolute top-[31px] left-4 h-[1.5px] rounded-full transition-[width] duration-1000 ease-in-out bg-accent -z-10"
+              className="absolute top-[34px] left-4 h-[2px] rounded-full transition-[width] duration-1000 ease-in-out bg-accent z-0 shadow-[0_0_12px_rgba(79,140,255,0.5)]"
               style={progressBarStyle}
             />
             {/* Steps */}
@@ -837,10 +818,10 @@ export default function TaskDetail() {
                  <button 
                     onClick={handleAiGenerateMilestones}
                     disabled={isGeneratingMilestones || (task?.ai_milestone_count >= 2)}
-                    className={`text-[11px] font-bold text-white px-4 py-1.5 rounded-lg transition-all flex items-center gap-2 uppercase tracking-widest shadow-lg ${
+                    className={`text-[11px] font-bold text-white px-4 py-1.5 rounded-lg transition-all flex items-center gap-2 uppercase tracking-widest shadow-sm ${
                       (task?.ai_milestone_count >= 2) 
-                        ? 'bg-gray-500/20 text-text-secondary cursor-not-allowed shadow-none border border-border-subtle' 
-                        : 'bg-gradient-to-r from-purple-600 to-accent hover:opacity-90 shadow-purple-500/10'
+                        ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed border border-zinc-200 dark:border-zinc-700' 
+                        : 'bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 active:scale-95'
                     }`}
                    >
                     {isGeneratingMilestones ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
@@ -895,17 +876,26 @@ export default function TaskDetail() {
                 const isLocked = index > 0 && task.milestones[index - 1].status !== 'done';
                 
                 return (
-                  <div key={m.id} className={`flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-bg-main/50 rounded-xl border border-border-subtle group transition-all ${isLocked ? 'opacity-40 grayscale' : 'hover:border-text-primary/10'}`}>
-                    <div className="flex items-center gap-5 mb-4 sm:mb-0">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${m.status === 'done' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : isLocked ? 'bg-bg-main border-border-subtle text-text-secondary/30' : 'bg-bg-main border-accent/20 text-accent'}`}>
-                        {isLocked ? <Lock size={16} /> : m.status === 'done' ? <Check size={18} strokeWidth={3} /> : <GitMerge size={18} />}
+                  <div key={m.id} className={`flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-bg-main/40 backdrop-blur-sm rounded-2xl border border-border-subtle group transition-all duration-300 ${isLocked ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5'}`}>
+                    <div className="flex items-center gap-6 mb-4 sm:mb-0">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all duration-300 ${m.status === 'done' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 shadow-lg shadow-emerald-500/10' : isLocked ? 'bg-bg-main border-border-subtle text-text-secondary/30' : 'bg-accent/5 border-accent/20 text-accent shadow-lg shadow-accent/5'}`}>
+                        {isLocked ? <Lock size={20} /> : m.status === 'done' ? <Check size={22} strokeWidth={3} /> : <GitMerge size={22} />}
                       </div>
                       <div>
                         <div className="flex items-center gap-3">
-                          <h4 className={`text-[15px] font-semibold ${m.status === 'done' ? 'text-text-secondary line-through' : 'text-text-primary'}`}>{m.title}</h4>
+                          <h4 className={`text-[16px] font-bold tracking-tight ${m.status === 'done' ? 'text-text-secondary line-through' : 'text-text-primary'}`}>{m.title}</h4>
                           {isLocked && <span className="text-[9px] font-bold text-text-secondary/40 bg-text-primary/3 border border-border-subtle px-2 py-0.5 rounded flex items-center gap-1 uppercase tracking-widest"><Lock size={8} /> Locked</span>}
                         </div>
-                        <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest opacity-60 mt-0.5">{m.status?.replace('_', ' ')}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${
+                            m.status === 'done' ? 'bg-emerald-500/10 text-emerald-500' :
+                            m.status === 'in_progress' ? 'bg-amber-500/10 text-amber-500' :
+                            m.status === 'submitted' ? 'bg-blue-500/10 text-blue-500' :
+                            'bg-text-primary/5 text-text-secondary'
+                          }`}>
+                            {m.status?.replace('_', ' ')}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   
@@ -916,17 +906,17 @@ export default function TaskDetail() {
                           e.stopPropagation();
                           setMilestoneToDelete(m.id);
                         }}
-                        className="p-2 text-text-secondary hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all border border-transparent hover:border-red-400/20"
+                        className="p-2.5 text-text-secondary hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all border border-transparent hover:border-red-400/20"
                         title="Delete Milestone"
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={18} />
                       </button>
                     )}
                     {isAssignee && m.status === 'pending' && (
                       <button 
                         onClick={() => handleMilestoneStatus(m.id, 'in_progress')} 
                         disabled={isLocked}
-                        className="px-4 py-1.5 bg-accent text-white text-[12px] font-semibold rounded-lg hover:opacity-90 disabled:opacity-50"
+                        className="px-5 py-2 bg-accent text-white text-[13px] font-bold rounded-xl hover:opacity-90 disabled:opacity-50 shadow-lg shadow-accent/10 transition-all active:scale-95"
                       >
                         Start
                       </button>
@@ -940,7 +930,7 @@ export default function TaskDetail() {
                           setMileNote('');
                         }} 
                         disabled={isLocked}
-                        className="px-4 py-1.5 bg-amber-500 text-white text-[12px] font-semibold rounded-lg hover:bg-amber-600 disabled:opacity-50"
+                        className="px-5 py-2 bg-amber-500 text-white text-[13px] font-bold rounded-xl hover:bg-amber-600 disabled:opacity-50 shadow-lg shadow-amber-500/10 transition-all active:scale-95"
                       >
                         Submit
                       </button>
@@ -950,15 +940,15 @@ export default function TaskDetail() {
                         href={m.submission_link} 
                         target="_blank" 
                         rel="noreferrer" 
-                        className="flex items-center gap-2 px-4 py-1.5 bg-text-primary/3 border border-border-subtle text-text-primary text-[12px] font-semibold rounded-lg hover:bg-text-primary/6 transition-all"
+                        className="flex items-center gap-2 px-5 py-2 bg-text-primary/3 border border-border-subtle text-text-primary text-[13px] font-bold rounded-xl hover:bg-text-primary/6 transition-all"
                       >
-                        <ExternalLink size={14} /> View Work
+                        <ExternalLink size={16} /> View Work
                       </a>
                     )}
                     {isCreator && m.status === 'submitted' && (
                       <div className="flex items-center gap-2">
-                        <button onClick={() => handleMilestoneStatus(m.id, 'done')} className="px-4 py-1.5 bg-emerald-500 text-white text-[12px] font-semibold rounded-lg hover:bg-emerald-600">Approve</button>
-                        <button onClick={() => handleMilestoneStatus(m.id, 'in_progress')} className="px-4 py-1.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] text-[#9AA4B2] text-[12px] font-semibold rounded-lg hover:bg-[rgba(255,255,255,0.06)]">Reject</button>
+                        <button onClick={() => handleMilestoneStatus(m.id, 'done')} className="px-5 py-2 bg-emerald-500 text-white text-[13px] font-bold rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-500/10 transition-all active:scale-95">Approve</button>
+                        <button onClick={() => handleMilestoneStatus(m.id, 'in_progress')} className="px-5 py-2 bg-text-primary/3 border border-border-subtle text-text-secondary text-[13px] font-bold rounded-xl hover:bg-text-primary/6 transition-all">Reject</button>
                       </div>
                     )}
                   </div>

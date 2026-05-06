@@ -125,8 +125,8 @@ export default function LandingPage() {
         <section className="px-6 max-w-6xl mx-auto mb-28">
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Feature 1: AI */}
-            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-900 transition-all group">
-              <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
+            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-300 transition-all group">
+              <div className="w-10 h-10 bg-zinc-50 text-zinc-900 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
                 <Zap size={20} fill="currentColor" />
               </div>
               <h4 className="font-bold text-zinc-900 mb-2">AI Roadmap</h4>
@@ -136,8 +136,8 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 2: Marketplace */}
-            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-900 transition-all group">
-              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
+            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-300 transition-all group">
+              <div className="w-10 h-10 bg-zinc-50 text-zinc-900 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
                 <LayoutDashboard size={20} />
               </div>
               <h4 className="font-bold text-zinc-900 mb-2">Marketplace</h4>
@@ -147,8 +147,8 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 3: Team */}
-            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-900 transition-all group">
-              <div className="w-10 h-10 bg-green-50 text-green-600 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
+            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-300 transition-all group">
+              <div className="w-10 h-10 bg-zinc-50 text-zinc-900 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
                 <Users size={20} />
               </div>
               <h4 className="font-bold text-zinc-900 mb-2">Team Sync</h4>
@@ -158,8 +158,8 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 4: Deadlines */}
-            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-900 transition-all group">
-              <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
+            <div className="bg-white border border-zinc-200 p-6 rounded-2xl shadow-sm hover:border-zinc-300 transition-all group">
+              <div className="w-10 h-10 bg-zinc-50 text-zinc-900 rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-all">
                 <CheckCircle2 size={20} />
               </div>
               <h4 className="font-bold text-zinc-900 mb-2">Tracking</h4>
