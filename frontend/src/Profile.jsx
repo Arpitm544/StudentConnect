@@ -61,13 +61,17 @@ export default function Profile({ onLogout }) {
   const currentPath = location.pathname.split('/').pop() || 'dashboard';
 
   const [userProfile, setUserProfile] = useState(null);
+  const [globalActivity, setGlobalActivity] = useState([]);
+  const [activityView, setActivityView] = useState('platform'); // 'platform' or 'personal'
+  const [globalStatsLoading, setGlobalStatsLoading] = useState(true);
   
-  const fetchTasks = useCallback(async () => {
+  const fetchTasks = useCallback(async (search = '') => {
     let endpoint = '/tasks/dashboard';
-    if (currentPath === 'my-tasks') endpoint = '/tasks/mine';
-    if (currentPath === 'posted-requests') endpoint = '/tasks/posted';
+    if (currentPath === 'my-tasks') endpoint = `/tasks/mine${search ? `?search=${encodeURIComponent(search)}` : ''}`;
+    if (currentPath === 'posted-requests') endpoint = `/tasks/posted${search ? `?search=${encodeURIComponent(search)}` : ''}`;
     if (currentPath === 'invitations') endpoint = '/tasks/invitations';
-    if (currentPath === 'market') endpoint = '/tasks';
+    if (currentPath === 'market') endpoint = `/tasks${search ? `?search=${encodeURIComponent(search)}` : ''}`;
+    if (currentPath === 'active-tasks') endpoint = `/tasks/active${search ? `?search=${encodeURIComponent(search)}` : ''}`;
 
     setTasksLoading(true);
     try {
@@ -115,6 +119,23 @@ export default function Profile({ onLogout }) {
   }, [userProfile, loadProfile]);
 
   useEffect(() => {
+    const fetchGlobalActivity = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/public/stats`);
+        if (res.ok) {
+          const data = await res.json();
+          setGlobalActivity(data.daily_activity || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setGlobalStatsLoading(false);
+      }
+    };
+    fetchGlobalActivity();
+  }, []);
+
+  useEffect(() => {
     if (userProfile) {
       setProfileFormData({
         name: userProfile.name || '',
@@ -128,7 +149,12 @@ export default function Profile({ onLogout }) {
   }, [userProfile]);
 
   useEffect(() => {
-    if (currentPath !== 'profile') fetchTasks();
+    if (currentPath !== 'profile') {
+      const handler = setTimeout(() => {
+        fetchTasks(searchTerm);
+      }, currentPath === 'dashboard' ? 0 : 300);
+      return () => clearTimeout(handler);
+    }
     if (currentPath === 'invitations') fetchInvitations();
     
     // Auto-open post form if redirected from dashboard with state
@@ -137,7 +163,7 @@ export default function Profile({ onLogout }) {
       // Clear state so it doesn't stay open on refresh
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [currentPath, location.state?.openForm, fetchTasks, navigate, location.pathname]);
+  }, [currentPath, searchTerm, location.state?.openForm, fetchTasks, fetchInvitations, navigate, location.pathname]);
 
   // ── Derived Data: Stats ──
   const { total, completed, inProgress, inReview, pending, dueSoonCount, completionRate, networkCount } = useMemo(() => {
@@ -163,21 +189,63 @@ export default function Profile({ onLogout }) {
 
   // ── Derived Data: Chart ──
   const chartData = useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const dataMap = months.reduce((acc, month) => {
-      acc[month] = { name: month, completed: 0 };
-      return acc;
-    }, {});
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const last7Days = [];
+    
+    // Initialize last 7 days with keys like "2026-05-06"
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      last7Days.push({
+        key,
+        day: days[d.getDay()],
+        postings: 0,
+        completions: 0,
+        inProgress: 0
+      });
+    }
 
-    tasks.forEach(task => {
-      if (task.status === 'completed' && task.updated_at) {
-        const date = new Date(task.updated_at);
-        const month = months[date.getMonth()];
-        dataMap[month].completed += 1;
-      }
+    // For each day in the 7-day window, calculate which tasks were "In-Progress" on THAT specific day
+    last7Days.forEach(dayInfo => {
+      const currentDayTimestamp = new Date(dayInfo.key).getTime();
+
+      tasks.forEach(task => {
+        if (!task.created_at) return;
+        const taskCreatedTime = new Date(task.created_at).getTime();
+        const taskUpdatedTime = task.updated_at ? new Date(task.updated_at).getTime() : Infinity;
+        
+        // Postings: only count on the day it was created
+        if (new Date(task.created_at).toISOString().split('T')[0] === dayInfo.key) {
+          dayInfo.postings += 1;
+        }
+
+        // Completions: only count on the day it was finished
+        if (task.status === 'completed' && task.updated_at && new Date(task.updated_at).toISOString().split('T')[0] === dayInfo.key) {
+          dayInfo.completions += 1;
+        }
+
+        // In-Progress: was the task accepted/active on this specific day?
+        // Logic: Created <= day AND Not Pending AND (Not Completed OR Completed After day) AND (No Deadline OR Deadline >= day)
+        const isCreatedBeforeOrOnDay = taskCreatedTime <= (currentDayTimestamp + 86400000);
+        const isNotPending = task.status !== 'pending';
+        const isNotCompletedYet = task.status !== 'completed' || taskUpdatedTime > currentDayTimestamp;
+        
+        const taskDeadlineTime = task.deadline ? new Date(task.deadline).getTime() : Infinity;
+        const isNotOverdue = taskDeadlineTime >= currentDayTimestamp;
+
+        if (isCreatedBeforeOrOnDay && isNotPending && isNotCompletedYet && isNotOverdue) {
+          dayInfo.inProgress += 1;
+        }
+      });
     });
 
-    return Object.values(dataMap);
+    return last7Days.map(d => ({
+      day: d.day,
+      postings: d.postings,
+      completions: d.completions,
+      inProgress: d.inProgress || 0
+    }));
   }, [tasks]);
 
   // ── Search Filtering ──
@@ -482,16 +550,31 @@ export default function Profile({ onLogout }) {
                     <div className="lg:col-span-2 premium-card">
                        <div className="flex items-center justify-between mb-10">
                           <div>
-                             <h3 className="text-lg font-bold text-text-primary tracking-tight">Performance Analytics</h3>
-                             <p className="text-xs text-text-secondary font-medium">Tracking postings, completions, and global activity</p>
+                             <h3 className="text-lg font-bold text-text-primary tracking-tight">Activity Insights</h3>
+                             <p className="text-xs text-text-secondary font-medium">
+                               {activityView === 'personal' ? 'Your individual productivity flow' : 'Real-time global platform activity'}
+                             </p>
                           </div>
-                          <div className="flex items-center gap-2 px-3 py-1.5 bg-text-primary/5 rounded-lg border border-border-subtle">
-                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                             <span className="text-[10px] font-bold text-text-secondary">Live Metrics</span>
+                          <div className="flex items-center gap-1 bg-background-secondary p-1 rounded-xl border border-border-subtle">
+                             <button 
+                                onClick={() => setActivityView('personal')}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${activityView === 'personal' ? 'bg-white text-zinc-900 shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+                             >
+                               Personal
+                             </button>
+                             <button 
+                                onClick={() => setActivityView('platform')}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${activityView === 'platform' ? 'bg-white text-zinc-900 shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+                             >
+                               Platform
+                             </button>
                           </div>
                        </div>
-                       <div className="h-[300px] w-full">
-                          <ActivityChart theme={theme} />
+                        <div className="h-[300px] w-full">
+                          <ActivityChart 
+                            theme={theme} 
+                            data={activityView === 'platform' ? globalActivity : chartData} 
+                          />
                        </div>
                     </div>
 
@@ -580,7 +663,7 @@ export default function Profile({ onLogout }) {
                                <p className="text-text-secondary font-medium">No tasks found matching your search.</p>
                              </div>
                            ) : (
-                             filteredTasks.map((task) => (
+                             filteredTasks.slice(0, 10).map((task) => (
                                <TaskRow 
                                  key={task.id} 
                                  task={task} 
@@ -650,10 +733,23 @@ export default function Profile({ onLogout }) {
 
             <Route path="market" element={
               <div className="space-y-8 animate-fade-up">
-                 <div className="flex items-center justify-between mb-8">
+                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                      <div>
                         <h2 className="text-3xl font-semibold text-text-primary tracking-tight">Task Market</h2>
                         <p className="text-text-secondary font-medium">Browse and accept tasks from across the community.</p>
+                     </div>
+                     <div className="relative w-full md:w-96 group">
+                        <Search 
+                          size={18} 
+                          className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary/50 group-focus-within:text-accent transition-colors" 
+                        />
+                        <input
+                          type="text"
+                          placeholder="Search market tasks..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full bg-bg-card border border-border-subtle rounded-2xl py-3 pl-12 pr-4 text-sm font-medium text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-accent/30 focus:ring-4 focus:ring-accent/5 transition-all shadow-sm"
+                        />
                      </div>
                   </div>
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
@@ -689,10 +785,28 @@ export default function Profile({ onLogout }) {
                        currentPath === 'invitations' ? 'Task Requests' : 
                        currentPath.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </h1>
-                    <p className="text-text-secondary font-medium mt-1">Your task records and details.</p>
+                    <p className="text-text-secondary font-medium mt-1">
+                      {currentPath === 'posted-requests' ? 'Manage and track your assigned tasks.' : 'Your task records and details.'}
+                    </p>
                   </div>
                   
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col md:flex-row items-center gap-4">
+                    {currentPath !== 'invitations' && (
+                      <div className="relative w-full md:w-64 group">
+                        <Search 
+                          size={16} 
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary/50 group-focus-within:text-accent transition-colors" 
+                        />
+                        <input
+                          type="text"
+                          placeholder="Search these tasks..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full bg-bg-card border border-border-subtle rounded-xl py-2 pl-9 pr-4 text-xs font-medium text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-accent/30 transition-all"
+                        />
+                      </div>
+                    )}
+                    
                     {currentPath !== 'posted-requests' && currentPath !== 'invitations' && (
                       <div className="hidden md:flex bg-bg-card p-1 rounded-xl border border-border-subtle">
                         {[

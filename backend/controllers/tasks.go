@@ -131,16 +131,26 @@ func UpdateTask(c *gin.Context) {
 
 func ListTasks(c *gin.Context) {
 	userID := c.GetInt("user_id")
+	search := c.Query("search")
 
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
 	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url, t.priority, t.ai_optimized
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE t.creator_id <> $1
 	            AND (SELECT COUNT(*) FROM task_assignees ta WHERE ta.task_id = t.id) < COALESCE(t.capacity, 1)
-	            AND NOT EXISTS (SELECT 1 FROM task_assignees ta2 WHERE ta2.task_id = t.id AND ta2.user_id = $2)
-	          ORDER BY t.id DESC`
+	            AND NOT EXISTS (SELECT 1 FROM task_assignees ta2 WHERE ta2.task_id = t.id AND ta2.user_id = $2)`
 
-	tasks, err := services.FetchTasksByQuery(query, userID, userID)
+	var tasks []models.Task
+	var err error
+
+	if search != "" {
+		query += ` AND (t.title ILIKE $3 OR t.description ILIKE $3 OR t.subject ILIKE $3)`
+		tasks, err = services.FetchTasksByQuery(query, userID, userID, "%"+search+"%")
+	} else {
+		query += ` ORDER BY t.id DESC`
+		tasks, err = services.FetchTasksByQuery(query, userID, userID)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list tasks"})
 		return
@@ -549,31 +559,76 @@ func LeaveTask(c *gin.Context) {
 
 func ListMyTasks(c *gin.Context) {
 	userID := c.GetInt("user_id")
+	search := c.Query("search")
+
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
 	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE EXISTS (SELECT 1 FROM task_assignees ta WHERE ta.task_id = t.id AND ta.user_id = $1)`
-	tasks, _ := services.FetchTasksByQuery(query, userID)
+	
+	var tasks []models.Task
+	var err error
+	if search != "" {
+		query += ` AND (t.title ILIKE $2 OR t.description ILIKE $2 OR t.subject ILIKE $2)`
+		tasks, err = services.FetchTasksByQuery(query, userID, "%"+search+"%")
+	} else {
+		tasks, err = services.FetchTasksByQuery(query, userID)
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tasks"})
+		return
+	}
 	c.JSON(http.StatusOK, tasks)
 }
 
 func ListPostedTasks(c *gin.Context) {
 	userID := c.GetInt("user_id")
+	search := c.Query("search")
+
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
 	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id WHERE t.creator_id = $1`
-	tasks, _ := services.FetchTasksByQuery(query, userID)
+	
+	var tasks []models.Task
+	var err error
+	if search != "" {
+		query += ` AND (t.title ILIKE $2 OR t.description ILIKE $2 OR t.subject ILIKE $2)`
+		tasks, err = services.FetchTasksByQuery(query, userID, "%"+search+"%")
+	} else {
+		tasks, err = services.FetchTasksByQuery(query, userID)
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tasks"})
+		return
+	}
 	c.JSON(http.StatusOK, tasks)
 }
 
 func ListActiveTasks(c *gin.Context) {
 	userID := c.GetInt("user_id")
+	search := c.Query("search")
+
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
 	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id 
 	          WHERE (t.creator_id = $1 OR EXISTS (SELECT 1 FROM task_assignees ta WHERE ta.task_id = t.id AND ta.user_id = $2)) 
 	          AND t.status IN ('accepted', 'in_progress', 'submitted')`
-	tasks, _ := services.FetchTasksByQuery(query, userID, userID)
+	
+	var tasks []models.Task
+	var err error
+	if search != "" {
+		query += ` AND (t.title ILIKE $3 OR t.description ILIKE $3 OR t.subject ILIKE $3)`
+		tasks, err = services.FetchTasksByQuery(query, userID, userID, "%"+search+"%")
+	} else {
+		tasks, err = services.FetchTasksByQuery(query, userID, userID)
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch active tasks"})
+		return
+	}
 	c.JSON(http.StatusOK, tasks)
 }
 

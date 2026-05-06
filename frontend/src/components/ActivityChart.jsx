@@ -10,18 +10,7 @@ import {
   ReferenceLine
 } from 'recharts';
 
-const ActivityChart = ({ theme }) => {
-  // Realistic sample data for academic productivity
-  const data = useMemo(() => [
-    { day: 'Mon', postings: 4, completions: 2, activity: 15 },
-    { day: 'Tue', postings: 7, completions: 3, activity: 25 },
-    { day: 'Wed', postings: 5, completions: 5, activity: 32 },
-    { day: 'Thu', postings: 8, completions: 4, activity: 28 },
-    { day: 'Fri', postings: 12, completions: 8, activity: 45 },
-    { day: 'Sat', postings: 6, completions: 9, activity: 50 },
-    { day: 'Sun', postings: 3, completions: 7, activity: 38 },
-  ], []);
-
+const ActivityChart = ({ theme, data }) => {
   const isDark = theme === 'dark';
 
   const CustomTooltip = ({ active, payload, label }) => {
@@ -57,9 +46,9 @@ const ActivityChart = ({ theme }) => {
               <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
               <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
             </linearGradient>
-            <linearGradient id="gradientActivity" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.2} />
-              <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
+            <linearGradient id="gradientInProgress" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.2} />
+              <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
             </linearGradient>
           </defs>
 
@@ -85,29 +74,17 @@ const ActivityChart = ({ theme }) => {
 
           <Tooltip content={<CustomTooltip />} />
 
-          {/* Analytics Lines */}
-          <ReferenceLine 
-            y={30} 
-            stroke="#8B5CF6" 
-            strokeDasharray="3 3" 
-            label={{ position: 'right', value: 'Avg. Activity', fill: '#8B5CF6', fontSize: 10, fontWeight: 'bold' }} 
-          />
-          <ReferenceLine 
-            y={10} 
-            stroke="#F59E0B" 
-            strokeDasharray="3 3" 
-            label={{ position: 'right', value: 'Target', fill: '#F59E0B', fontSize: 10, fontWeight: 'bold' }} 
-          />
+
 
           {/* Series */}
           <Area
             type="monotone"
-            name="Market Activity"
-            dataKey="activity"
-            stroke="#8B5CF6"
+            name="In-Progress Tasks"
+            dataKey="inProgress"
+            stroke="#F59E0B"
             strokeWidth={3}
             fillOpacity={1}
-            fill="url(#gradientActivity)"
+            fill="url(#gradientInProgress)"
           />
           <Area
             type="monotone"

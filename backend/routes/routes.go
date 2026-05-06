@@ -9,6 +9,9 @@ import (
 )
 
 func SetupRoutes(r *gin.Engine) {
+	// Public routes
+	r.GET("/api/public/stats", controllers.GetPublicStats)
+
 	auth := r.Group("/api/auth")
 	{
 		auth.POST("/signup", controllers.Signup)
