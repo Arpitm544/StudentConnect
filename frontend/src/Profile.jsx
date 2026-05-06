@@ -332,7 +332,7 @@ export default function Profile({ onLogout }) {
       });
       if (!res.ok) throw new Error('Failed to post task');
       
-      setNewTask({ title: '', description: '', subject: '', deadline: '', attachment: null });
+      setNewTask({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null });
       setShowPostForm(false);
       fetchTasks();
     } catch (err) {
@@ -760,14 +760,28 @@ export default function Profile({ onLogout }) {
                             />
                          </div>
                          
-                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Deadline</label>
-                            <input 
-                               type="date" 
-                               value={newTask.deadline}
-                               onChange={(e) => setNewTask({...newTask, deadline: e.target.value})}
-                               className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
-                            />
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Deadline</label>
+                               <input 
+                                  type="date" 
+                                  value={newTask.deadline}
+                                  onChange={(e) => setNewTask({...newTask, deadline: e.target.value})}
+                                  className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                               />
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Max Assignees</label>
+                               <input 
+                                  type="number" 
+                                  min="1"
+                                  max="20"
+                                  value={newTask.max_assignees || 1}
+                                  onChange={(e) => setNewTask({...newTask, max_assignees: Math.max(1, parseInt(e.target.value) || 1)})}
+                                  className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                               />
+                               <p className="text-[10px] text-text-secondary opacity-60">How many users can accept this simultaneously</p>
+                            </div>
                          </div>
                          <div className="space-y-2">
                             <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Attachment</label>

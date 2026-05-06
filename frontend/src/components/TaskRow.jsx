@@ -1,5 +1,5 @@
-import React, { memo, useCallback } from 'react';
-import { Eye, Trash2, Clock, CheckCircle, AlertCircle, FileText } from 'lucide-react';
+import React, { memo } from 'react';
+import { Eye, Trash2, Clock, CheckCircle, AlertCircle, FileText, Users, User } from 'lucide-react';
 import Avatar from './Avatar.jsx';
 
 const TaskRow = memo(function TaskRow({
@@ -7,10 +7,9 @@ const TaskRow = memo(function TaskRow({
   currentPath,
   userProfile,
   onAccept,
-  onStatusChange,
-  onDelete,
   onView,
   formatDate,
+  onDelete
 }) {
   const getComputedStatus = () => {
     const milestones = task.milestones || [];
@@ -38,27 +37,50 @@ const TaskRow = memo(function TaskRow({
   }[computedStatus] || { color: 'text-text-secondary bg-text-primary/3 border border-border-subtle', icon: <Clock size={12} /> };
 
   const isCreator = String(task.creator_id) === String(userProfile?.id);
-  const hasMilestones = task.milestones?.length > 0;
+  const slotsFilled = task.slots_filled || 0;
+  const capacity = task.capacity || 1;
+  const isMultiSlot = capacity > 1;
 
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between px-6 py-4 rounded-xl bg-bg-card/50 hover:bg-text-primary/2 transition-all duration-200 group border border-border-subtle gap-4 md:gap-0">
 
       <div className="flex items-center gap-4 min-w-0 pr-4">
-        {(currentPath === 'market' || currentPath === 'posted-requests') && (
+        {currentPath === 'market' ? (
           <Avatar
-            name={currentPath === 'market' ? task.creator_name : task.assignee_name}
-            photoUrl={currentPath === 'market' ? task.creator_photo_url : task.assignee_photo_url}
+            name={task.creator_name}
+            photoUrl={task.creator_photo_url}
             size="md"
             tooltip
           />
-        )}
+        ) : (currentPath === 'posted-requests' || currentPath === 'dashboard') ? (
+          <div className="flex -space-x-3 overflow-hidden p-1">
+            {task.assignees && task.assignees.length > 0 ? (
+               task.assignees.slice(0, 3).map((a, i) => (
+                 <div key={a.user_id || i} className="ring-2 ring-bg-card rounded-full">
+                   <Avatar name={a.name} photoUrl={a.photo_url} size="xs" />
+                 </div>
+               ))
+            ) : (
+               <div className="w-8 h-8 rounded-full bg-text-primary/5 flex items-center justify-center text-text-secondary border border-border-subtle">
+                 <User size={14} />
+               </div>
+            )}
+          </div>
+        ) : null}
+        
         <div className="flex flex-col min-w-0">
           <span className="font-semibold text-text-primary truncate text-[15px] tracking-tight group-hover:text-accent transition-colors">{task.title}</span>
           <div className="flex items-center gap-2 mt-1 text-[12px] text-text-secondary font-medium">
             {currentPath === 'market' ? (
               <span>{task.creator_name || 'Anonymous'}</span>
             ) : currentPath === 'posted-requests' ? (
-              <span>{task.assignee_name || 'Unassigned'}</span>
+              <span className="flex items-center gap-1">
+                {isMultiSlot ? (
+                  <><Users size={12} /> {slotsFilled}/{capacity} Assignees</>
+                ) : (
+                  task.assignees?.[0]?.name || 'Unassigned'
+                )}
+              </span>
             ) : (
               <span>Due {task.deadline ? formatDate(task.deadline) : '—'}</span>
             )}
@@ -90,12 +112,12 @@ const TaskRow = memo(function TaskRow({
           </span>
 
           <div className="flex items-center gap-1 border-l border-border-subtle pl-4">
-            {currentPath === 'market' && !task.accepted && !isCreator && (
+            {currentPath === 'market' && slotsFilled < capacity && !isCreator && !task.assignees?.some(a => String(a.user_id) === String(userProfile?.id)) && (
               <button
                 onClick={() => onAccept(task.id)}
                 className="px-4 py-1.5 bg-accent text-white rounded-lg text-[12px] font-semibold hover:opacity-90 transition-all active:scale-95"
               >
-                Accept
+                {slotsFilled > 0 ? 'Join' : 'Accept'}
               </button>
             )}
             <button

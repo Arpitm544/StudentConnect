@@ -219,7 +219,7 @@ func setAuthCookie(c *gin.Context, token string) {
 	c.SetCookie("token", token, maxAge, "/", "", isSecure, true)
 }
 
-// VerifyEmail and ResendVerification omitted for brevity in this example but would follow the same pattern
+
 func VerifyEmail(c *gin.Context) {
 	var input struct {
 		Email string `json:"email"`

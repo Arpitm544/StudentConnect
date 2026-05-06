@@ -1,14 +1,18 @@
 import React from 'react';
-import { Clock, Tag, User, ChevronRight } from 'lucide-react';
+import { Clock, Tag, User, ChevronRight, Users } from 'lucide-react';
 import Avatar from './Avatar.jsx';
 
 const TaskMarketCard = React.memo(({ task, onAccept, onView, formatDate }) => {
   const isHighPriority = task.deadline && new Date(task.deadline) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const capacity = task.capacity || 1;
+  const slotsFilled = task.slots_filled || 0;
+  const slotsAvailable = capacity - slotsFilled;
+  const isMultiSlot = capacity > 1;
 
   return (
     <div className="premium-card flex flex-col h-full">
       <div className="flex items-center justify-between mb-6">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {isHighPriority && (
             <span className="px-2 py-0.5 bg-red-400/5 text-red-400 text-[10px] font-semibold uppercase tracking-wider rounded border border-red-400/10">
               High Priority
@@ -17,6 +21,11 @@ const TaskMarketCard = React.memo(({ task, onAccept, onView, formatDate }) => {
            {task.subject && (
              <span className="px-2 py-0.5 bg-accent-soft text-accent text-[10px] font-semibold uppercase tracking-wider rounded border border-accent/10">
                {task.subject}
+             </span>
+           )}
+           {isMultiSlot && (
+             <span className="px-2 py-0.5 bg-emerald-500/5 text-emerald-500 text-[10px] font-semibold uppercase tracking-wider rounded border border-emerald-500/10 flex items-center gap-1">
+               <Users size={10} /> {slotsFilled}/{capacity} slots
              </span>
            )}
         </div>
@@ -30,6 +39,20 @@ const TaskMarketCard = React.memo(({ task, onAccept, onView, formatDate }) => {
           {task.description || "No description provided for this task."}
         </p>
       </div>
+
+      {/* Assignee avatars row for multi-slot tasks */}
+      {isMultiSlot && slotsFilled > 0 && task.assignees?.length > 0 && (
+        <div className="flex items-center gap-1.5 mb-4">
+          <div className="flex -space-x-2">
+            {task.assignees.slice(0, 4).map((a, i) => (
+              <Avatar key={a.user_id || i} name={a.name} photoUrl={a.photo_url} size="xs" />
+            ))}
+          </div>
+          <span className="text-[10px] text-text-secondary font-medium ml-1">
+            {slotsFilled} joined · {slotsAvailable} {slotsAvailable === 1 ? 'slot' : 'slots'} left
+          </span>
+        </div>
+      )}
 
       <div className="flex items-center justify-between pt-6 border-t border-border-subtle mt-auto">
         <div className="flex items-center gap-2.5">

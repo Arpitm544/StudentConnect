@@ -113,6 +113,8 @@ func ConnectDatabase() {
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS submission_notes TEXT",
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS extension_email_sent BOOLEAN DEFAULT FALSE",
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS max_assignees INT DEFAULT 1",
+		// Multi-assignee capacity column (replaces max_assignees semantically)
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS capacity INT NOT NULL DEFAULT 1",
 	}
 
 	for _, m := range tasksMigrations {
@@ -145,8 +147,11 @@ func ConnectDatabase() {
 
 	taskAssigneesTableQuery := `
 	CREATE TABLE IF NOT EXISTS task_assignees (
-		task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-		user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		task_id    BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+		user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		status     VARCHAR(50) NOT NULL DEFAULT 'accepted',
+		progress   INT NOT NULL DEFAULT 0,
+		submission_link TEXT,
 		accepted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		PRIMARY KEY (task_id, user_id)
 	);`
@@ -154,6 +159,26 @@ func ConnectDatabase() {
 	if _, err := DB.Exec(taskAssigneesTableQuery); err != nil {
 		log.Fatal("Failed to create task_assignees table:", err)
 	}
+
+	// Migrate existing task_assignees rows to add new columns if they don't exist
+	taskAssigneesMigrations := []string{
+		"ALTER TABLE task_assignees ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'accepted'",
+		"ALTER TABLE task_assignees ADD COLUMN IF NOT EXISTS progress INT NOT NULL DEFAULT 0",
+		"ALTER TABLE task_assignees ADD COLUMN IF NOT EXISTS submission_link TEXT",
+	}
+	for _, m := range taskAssigneesMigrations {
+		_, _ = DB.Exec(m)
+	}
+
+	// Migrate existing single-assignee tasks into the task_assignees table
+	_, _ = DB.Exec(`
+		INSERT INTO task_assignees (task_id, user_id, status, progress)
+		SELECT id, assignee_id, status, progress
+		FROM tasks
+		WHERE assignee_id IS NOT NULL
+		  AND status <> 'pending'
+		ON CONFLICT (task_id, user_id) DO NOTHING
+	`)
 
 	taskInvitationsTableQuery := `
 	CREATE TABLE IF NOT EXISTS task_invitations (

@@ -44,6 +44,34 @@ func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 			mRows.Close()
 		}
 
+		// Fetch assignees from join table
+		t.Assignees = make([]models.TaskAssignee, 0)
+		aRows, aErr := config.DB.Query(`
+			SELECT ta.task_id, ta.user_id, ta.status, ta.progress, ta.submission_link, ta.accepted_at,
+			       u.name, u.email, u.photo_url
+			FROM task_assignees ta JOIN users u ON ta.user_id = u.id
+			WHERE ta.task_id = $1`, t.ID)
+		if aErr == nil {
+			for aRows.Next() {
+				var a models.TaskAssignee
+				var sl sql.NullString
+				if err := aRows.Scan(&a.TaskID, &a.UserID, &a.Status, &a.Progress, &sl, &a.AcceptedAt, &a.Name, &a.Email, &a.PhotoURL); err == nil {
+					if sl.Valid {
+						a.SubmissionLink = &sl.String
+					}
+					t.Assignees = append(t.Assignees, a)
+				}
+			}
+			aRows.Close()
+		}
+		t.SlotsFilled = len(t.Assignees)
+
+		// Fetch capacity
+		config.DB.QueryRow(`SELECT COALESCE(capacity, 1) FROM tasks WHERE id = $1`, t.ID).Scan(&t.Capacity)
+		if t.Capacity < 1 {
+			t.Capacity = 1
+		}
+
 		tasks = append(tasks, t)
 	}
 	return tasks, nil
@@ -114,5 +142,9 @@ func SyncTaskStatusWithMilestones(taskID uint) error {
 	}
 
 	_, err = config.DB.Exec(`UPDATE tasks SET status = $1, progress = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, newStatus, progress, taskID)
+	if err == nil {
+		// Sync all assignees' progress with the global milestone state
+		_, _ = config.DB.Exec(`UPDATE task_assignees SET status = $1, progress = $2 WHERE task_id = $3`, newStatus, progress, taskID)
+	}
 	return err
 }

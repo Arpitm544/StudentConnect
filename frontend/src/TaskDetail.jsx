@@ -58,7 +58,7 @@ const TimelineStep = memo(function TimelineStep({ step, isCompleted, isActive })
 });
 
 /** CTA action strip — memoised so it doesn't flicker on unrelated state updates */
-const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateLoading, onAccept, onAction, onLeave, hasMilestones }) {
+const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateLoading, onAccept, onAction, onLeave, hasMilestones, slotsFilled, capacity }) {
   if (status === 'pending') {
     return (
       <div className="bg-accent-soft border border-accent/20 rounded-xl p-5 flex flex-col gap-4 w-full">
@@ -116,11 +116,30 @@ const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateL
     );
   }
 
+  if (!isCreator && !isAssignee && slotsFilled < capacity) {
+    return (
+      <div className="bg-accent-soft border border-accent/20 rounded-xl p-5 flex flex-col gap-4 w-full">
+        <div className="text-[13px] text-accent font-medium">Slots available! Join this collaboration.</div>
+        <button
+          onClick={onAccept}
+          disabled={updateLoading}
+          className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-accent text-white rounded-lg text-[13px] font-semibold hover:opacity-90 transition-colors active:scale-[0.98]"
+        >
+          {updateLoading ? <RefreshCw size={14} className="animate-spin" /> : <ChevronRight size={14} />}
+          Join Task ({capacity - slotsFilled} left)
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-text-primary/2 border border-border-subtle rounded-xl p-5 flex flex-col justify-center w-full">
       <div className="text-[12px] text-text-secondary font-medium text-center opacity-60 uppercase tracking-widest">
         Status: <span className="text-text-primary">{status?.replace('_', ' ')}</span>
       </div>
+      {slotsFilled >= capacity && !isAssignee && !isCreator && (
+        <div className="mt-2 text-[10px] text-red-400 font-bold text-center uppercase tracking-tighter">Assignment Full</div>
+      )}
     </div>
   );
 });
@@ -476,8 +495,8 @@ export default function TaskDetail() {
   );
 
   const isAssignee = useMemo(
-    () => !!(userProfile && task && String(task.assignee_id) === String(userProfile.id)),
-    [userProfile, task?.assignee_id]
+    () => !!(userProfile && task && task.assignees?.some(a => String(a.user_id) === String(userProfile.id))),
+    [userProfile, task?.assignees]
   );
 
   const currentStepIndex = useMemo(
@@ -575,7 +594,10 @@ export default function TaskDetail() {
                 {task.status?.replace('_', ' ') || 'Pending'}
               </span>
               <span className="bg-text-primary/3 border border-border-subtle text-text-secondary rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider">
-                Assignee: {task.assignee_name || 'Unassigned'}
+                {(task.capacity || 1) > 1 
+                  ? `${task.slots_filled || 0}/${task.capacity} Assignees`
+                  : `Assignee: ${task.assignees?.length > 0 ? task.assignees[0]?.name : 'Unassigned'}`
+                }
               </span>
               <span className="bg-text-primary/3 border border-border-subtle text-text-secondary rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider">
                 Posted {formatDate(task.created_at)}
@@ -584,7 +606,7 @@ export default function TaskDetail() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {task.status === 'pending' && !isCreator && (
+            {task.status === 'pending' && !isCreator && !isAssignee && (
               <button
                 onClick={handleAcceptTask}
                 disabled={updateLoading}
@@ -592,6 +614,17 @@ export default function TaskDetail() {
               >
                 {updateLoading ? <RefreshCw size={14} className="animate-spin" /> : <ChevronRight size={14} />}
                 Accept Task
+              </button>
+            )}
+            {/* Also show accept for multi-slot tasks that are accepted but still have open slots */}
+            {task.status !== 'pending' && !isCreator && !isAssignee && (task.slots_filled || 0) < (task.capacity || 1) && (
+              <button
+                onClick={handleAcceptTask}
+                disabled={updateLoading}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-accent text-white rounded-xl text-[13px] font-semibold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-accent/10"
+              >
+                {updateLoading ? <RefreshCw size={14} className="animate-spin" /> : <ChevronRight size={14} />}
+                Join Task ({(task.capacity || 1) - (task.slots_filled || 0)} slots left)
               </button>
             )}
             {isCreator && (task.current_assignees === 0 || !task.accepted) && (
@@ -624,13 +657,24 @@ export default function TaskDetail() {
                 <p className="text-[15px] font-semibold text-text-primary capitalize">{task.status?.replace('_', ' ') || 'Pending'}</p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-4 flex items-center gap-2 opacity-60"><User size={14} /> Assigned To</p>
+                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-4 flex items-center gap-2 opacity-60"><Users size={14} /> Assigned To</p>
                 {task.assignees && task.assignees.length > 0 ? (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-4">
                     {task.assignees.map((assignee) => (
-                      <div key={assignee.id} className="flex items-center gap-3">
-                        <Avatar name={assignee.name} photoUrl={assignee.photo_url} size="md" />
-                        <span className="text-[15px] font-semibold text-text-primary">{assignee.name}</span>
+                      <div key={assignee.user_id} className="flex items-center justify-between group">
+                        <div className="flex items-center gap-3">
+                          <Avatar name={assignee.name} photoUrl={assignee.photo_url} size="md" />
+                          <div className="flex flex-col">
+                            <span className="text-[14px] font-semibold text-text-primary">{assignee.name}</span>
+                            <span className="text-[10px] text-text-secondary font-medium uppercase tracking-tight opacity-60">{assignee.status?.replace('_', ' ')}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="text-[10px] font-bold text-accent mb-1">{assignee.progress}%</span>
+                          <div className="w-20 h-1 bg-text-primary/5 rounded-full overflow-hidden">
+                            <div className="h-full bg-accent transition-all duration-500" style={{ width: `${assignee.progress}%` }} />
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -662,6 +706,8 @@ export default function TaskDetail() {
                 onAction={handleAction}
                 onLeave={handleLeaveTask}
                 hasMilestones={task.milestones?.length > 0}
+                slotsFilled={task.slots_filled || 0}
+                capacity={task.capacity || 1}
               />
             </div>
           </div>
