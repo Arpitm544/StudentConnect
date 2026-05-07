@@ -433,6 +433,34 @@ export default function Profile({ onLogout }) {
   };
 
   const [isSuggestingLabels, setIsSuggestingLabels] = useState(false);
+  const [isImprovingWriting, setIsImprovingWriting] = useState(false);
+
+  const handleAiImproveWriting = async () => {
+    if (!newTask.title || !newTask.description) {
+      alert('Please enter a title and description first');
+      return;
+    }
+    setIsImprovingWriting(true);
+    try {
+      const response = await api.post('/api/tasks/ai/improve-writing', {
+        title: newTask.title,
+        description: newTask.description,
+        subject: newTask.subject
+      });
+      const { title, description, subject } = response.data;
+      setNewTask(prev => ({ 
+        ...prev, 
+        title: title || prev.title, 
+        description: description || prev.description, 
+        subject: subject || prev.subject 
+      }));
+    } catch (err) {
+      console.error('AI Improvement failed:', err);
+      alert('AI Writing improvement failed. Please try again.');
+    } finally {
+      setIsImprovingWriting(false);
+    }
+  };
 
   const handleAiSuggestLabels = async () => {
     if (!newTask.title || !newTask.description) {
@@ -1029,7 +1057,18 @@ export default function Profile({ onLogout }) {
                          </div>
  
                          <div className="md:col-span-2 space-y-2">
-                            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Description</label>
+                            <div className="flex items-center justify-between">
+                               <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Description</label>
+                               <button 
+                                 type="button"
+                                 onClick={handleAiImproveWriting}
+                                 disabled={isImprovingWriting || !newTask.title || !newTask.description}
+                                 className="text-[10px] font-bold text-accent hover:opacity-80 transition-all flex items-center gap-1 disabled:opacity-30"
+                               >
+                                 {isImprovingWriting ? <RefreshCw size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                                 ✨ Improve Writing
+                               </button>
+                            </div>
                             <textarea 
                                required
                                value={newTask.description}

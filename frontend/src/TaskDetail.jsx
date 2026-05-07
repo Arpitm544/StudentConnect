@@ -199,6 +199,34 @@ export default function TaskDetail() {
 
   const [isPredictingPriority, setIsPredictingPriority] = useState(false);
   const [isSuggestingLabels, setIsSuggestingLabels] = useState(false);
+  const [isImprovingWriting, setIsImprovingWriting] = useState(false);
+
+  const handleAiImproveWriting = async () => {
+    if (!editForm.title || !editForm.description) {
+      alert('Please enter title and description first');
+      return;
+    }
+    setIsImprovingWriting(true);
+    try {
+      const response = await api.post('/api/tasks/ai/improve-writing', {
+        title: editForm.title,
+        description: editForm.description,
+        subject: editForm.subject
+      });
+      const { title, description, subject } = response.data;
+      setEditForm(prev => ({ 
+        ...prev, 
+        title: title || prev.title, 
+        description: description || prev.description, 
+        subject: subject || prev.subject 
+      }));
+    } catch (err) {
+      console.error('AI Improvement failed:', err);
+      alert('AI Writing improvement failed. Please try again.');
+    } finally {
+      setIsImprovingWriting(false);
+    }
+  };
 
   const handleAiPredictPriority = async () => {
     if (!editForm.title || !editForm.description) {
@@ -1315,7 +1343,17 @@ export default function TaskDetail() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2 opacity-60">Description</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2 opacity-60">Description</label>
+                    <button 
+                      onClick={handleAiImproveWriting}
+                      disabled={isImprovingWriting || !editForm.title || !editForm.description}
+                      className="text-[10px] font-bold text-accent hover:opacity-80 transition-all flex items-center gap-1 disabled:opacity-30"
+                    >
+                      {isImprovingWriting ? <RefreshCw size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                      ✨ Improve Writing
+                    </button>
+                  </div>
                   <textarea 
                     value={editForm.description} 
                     onChange={e => setEditForm({...editForm, description: e.target.value})} 

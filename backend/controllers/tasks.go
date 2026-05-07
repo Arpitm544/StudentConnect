@@ -980,3 +980,24 @@ func AddComment(c *gin.Context) {
 	services.LogActivity(taskID, userID, "comment", input.Content)
 	c.JSON(http.StatusCreated, gin.H{"message": "Comment added"})
 }
+
+func ImproveWriting(c *gin.Context) {
+	var input struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Subject     string `json:"subject"`
+	}
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	fmt.Printf("[AI] Improving Writing for: %s\n", input.Title)
+	improved, err := services.ImproveTaskWriting(input.Title, input.Description, input.Subject)
+	if err != nil {
+		fmt.Printf("[AI] Writing Improvement FAILED: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, improved)
+}

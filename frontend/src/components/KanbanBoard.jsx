@@ -69,6 +69,34 @@ export default function KanbanBoard({ tasks, onStatusChange, onView, formatDate 
     if (taskId) {
       const task = tasks.find(t => String(t.id) === String(taskId));
       
+      // Validation: Strict Workflow Transitions (No skipping steps)
+      if (task) {
+        const currentStatus = task.status || 'pending';
+        
+        // 1. Prevent moving backward or skipping forward
+        const workflow = ['pending', 'in_progress', 'submitted', 'completed'];
+        const currentIndex = workflow.indexOf(currentStatus);
+        const nextIndex = workflow.indexOf(status);
+
+        if (nextIndex > currentIndex + 1) {
+          setNotification({
+            title: 'Sequence Error',
+            message: `You cannot skip steps. Please move this task to ${workflow[currentIndex + 1].replace('_', ' ')} first.`,
+            type: 'error'
+          });
+          return;
+        }
+
+        if (nextIndex < currentIndex) {
+          setNotification({
+            title: 'Sequence Error',
+            message: 'Tasks cannot be moved backward once they have progressed.',
+            type: 'error'
+          });
+          return;
+        }
+      }
+
       // Validation: If moving to "In Review" (submitted), check milestones
       if (status === 'submitted' && task) {
         const incompleteMilestones = task.milestones?.filter(m => 

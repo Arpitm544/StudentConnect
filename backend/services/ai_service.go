@@ -129,11 +129,18 @@ func SuggestLabels(title, description string) ([]string, error) {
 func cleanJSONResponse(resp string) string {
 	fmt.Printf("[AI] RAW Response: %s\n", resp)
 	
-	// 1. Try finding brackets
-	start := strings.Index(resp, "[")
-	end := strings.LastIndex(resp, "]")
-	if start != -1 && end != -1 && end > start {
-		return strings.TrimSpace(resp[start : end+1])
+	// 1. Try finding brackets or braces
+	startIdx := strings.IndexAny(resp, "[{")
+	if startIdx != -1 {
+		char := resp[startIdx]
+		endChar := "]"
+		if char == '{' {
+			endChar = "}"
+		}
+		endIdx := strings.LastIndex(resp, endChar)
+		if endIdx != -1 && endIdx > startIdx {
+			return strings.TrimSpace(resp[startIdx : endIdx+1])
+		}
 	}
 
 	// 2. Try finding code blocks
@@ -154,4 +161,48 @@ func RecommendAssignees(taskSubject string, candidates []map[string]interface{})
 	candidatesJSON, _ := json.Marshal(candidates)
 	prompt := fmt.Sprintf("Given a task about '%s' and these candidates: %s, who is the best fit? Consider their 'field' and current 'active_tasks'. Return a concise explanation of why the top candidate is chosen.", taskSubject, string(candidatesJSON))
 	return CallGroq(prompt)
+}
+
+func ImproveTaskWriting(title, description, subject string) (map[string]string, error) {
+	prompt := fmt.Sprintf(`Improve the following task details for a student collaboration platform. 
+Title: %s
+Subject: %s
+Description: %s
+
+Please:
+1. Rewrite the title to be professional and concise.
+2. Improve grammar and clarity in the description.
+3. Structure requirements clearly using bullet points within the description string.
+4. Ensure the subject is accurately represented.
+
+CRITICAL: Return ONLY a raw JSON object with keys "title", "subject", and "description". 
+The "description" MUST be a single string (use \n for newlines), NOT a nested object or array.`, title, subject, description)
+
+	resp, err := CallGroq(prompt)
+	if err != nil {
+		return nil, err
+	}
+
+	cleanedResp := cleanJSONResponse(resp)
+	
+	// Use map[string]interface{} first to handle cases where AI might still return an object for description
+	var rawResult map[string]interface{}
+	if err := json.Unmarshal([]byte(cleanedResp), &rawResult); err != nil {
+		return nil, fmt.Errorf("failed to parse improved text: %v", err)
+	}
+
+	// Convert everything back to strings for the frontend
+	result := make(map[string]string)
+	for k, v := range rawResult {
+		switch val := v.(type) {
+		case string:
+			result[k] = val
+		default:
+			// If it's an object or array, convert it to a JSON string or a readable string
+			jsonBytes, _ := json.MarshalIndent(val, "", "  ")
+			result[k] = string(jsonBytes)
+		}
+	}
+
+	return result, nil
 }

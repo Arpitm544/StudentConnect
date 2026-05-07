@@ -230,9 +230,6 @@ export default function LandingPage() {
                 Get Started <ArrowRight size={18} />
               </Link>
             )}
-            <a href="#how-it-works" className="w-full sm:w-auto px-6 py-3 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all flex items-center justify-center gap-2 shadow-sm">
-              <ChevronRight size={18} /> Explore Workflow
-            </a>
           </div>
 
         </section>

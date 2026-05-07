@@ -49,6 +49,7 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/api/tasks/ai/predict-labels", requireAuth, controllers.PredictLabels)
 	r.POST("/api/tasks/ai/generate-milestones", requireAuth, controllers.GenerateMilestones)
 	r.POST("/api/tasks/ai/recommend-users", requireAuth, controllers.RecommendUsers)
+	r.POST("/api/tasks/ai/improve-writing", requireAuth, controllers.ImproveWriting)
 
 	tasks := r.Group("/tasks")
 	tasks.Use(requireAuth)
