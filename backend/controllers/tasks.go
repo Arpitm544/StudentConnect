@@ -10,6 +10,7 @@ import (
 	"backend/config"
 	"backend/models"
 	"backend/services"
+	"github.com/lib/pq"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,9 +24,11 @@ func CreateTask(c *gin.Context) {
 		AttachmentURL *string `json:"attachment_url"`
 		Capacity      int     `json:"capacity"`
 		MaxAssignees  int     `json:"max_assignees"`
-		Priority      string  `json:"priority"`
-		AiOptimized   bool    `json:"ai_optimized"`
-		AssigneeEmail string  `json:"assignee_email"`
+		Priority      string   `json:"priority"`
+		IssueType     string   `json:"issue_type"`
+		Labels        []string `json:"labels"`
+		AiOptimized   bool     `json:"ai_optimized"`
+		AssigneeEmail string   `json:"assignee_email"`
 	}
 
 	if c.BindJSON(&input) != nil || strings.TrimSpace(input.Title) == "" {
@@ -53,9 +56,9 @@ func CreateTask(c *gin.Context) {
 
 	var id int64
 	err = tx.QueryRow(
-		`INSERT INTO tasks (title, description, status, accepted, creator_id, deadline, progress, subject, attachment_url, capacity, priority, ai_optimized)
-		 VALUES ($1,$2,'pending',FALSE,$3,$4,0,$5,$6,$7,$8,$9) RETURNING id`,
-		input.Title, input.Description, userID, input.Deadline, input.Subject, input.AttachmentURL, cap, input.Priority, input.AiOptimized,
+		`INSERT INTO tasks (title, description, status, accepted, creator_id, deadline, progress, subject, attachment_url, capacity, priority, ai_optimized, issue_type, labels)
+		 VALUES ($1,$2,'pending',FALSE,$3,$4,0,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+		input.Title, input.Description, userID, input.Deadline, input.Subject, input.AttachmentURL, cap, input.Priority, input.AiOptimized, input.IssueType, pq.Array(input.Labels),
 	).Scan(&id)
 
 	if err != nil {
@@ -136,8 +139,10 @@ func UpdateTask(c *gin.Context) {
 		AttachmentURL *string `json:"attachment_url"`
 		Capacity      int     `json:"capacity"`
 		MaxAssignees  int     `json:"max_assignees"`
-		Priority      string  `json:"priority"`
-		AiOptimized   bool    `json:"ai_optimized"`
+		Priority      string   `json:"priority"`
+		IssueType     string   `json:"issue_type"`
+		Labels        []string `json:"labels"`
+		AiOptimized   bool     `json:"ai_optimized"`
 	}
 
 	if c.BindJSON(&input) != nil {
@@ -156,9 +161,9 @@ func UpdateTask(c *gin.Context) {
 	_, err = config.DB.Exec(
 		`UPDATE tasks 
 		 SET title = $1, description = $2, subject = $3, deadline = $4, attachment_url = $5, 
-		     capacity = $6, priority = $7, ai_optimized = $8, extension_email_sent = FALSE, updated_at = CURRENT_TIMESTAMP 
-		 WHERE id = $9`,
-		input.Title, input.Description, input.Subject, input.Deadline, input.AttachmentURL, cap, input.Priority, input.AiOptimized, taskID,
+		     capacity = $6, priority = $7, ai_optimized = $8, issue_type = $9, labels = $10, extension_email_sent = FALSE, updated_at = CURRENT_TIMESTAMP 
+		 WHERE id = $11`,
+		input.Title, input.Description, input.Subject, input.Deadline, input.AttachmentURL, cap, input.Priority, input.AiOptimized, input.IssueType, pq.Array(input.Labels), taskID,
 	)
 
 	if err != nil {
@@ -175,7 +180,8 @@ func ListTasks(c *gin.Context) {
 	search := c.Query("search")
 
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity
+	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity,
+	          t.issue_type, t.labels
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE t.creator_id <> $1
 	            AND (SELECT COUNT(*) FROM task_assignees ta WHERE ta.task_id = t.id) < COALESCE(t.capacity, 1)
@@ -204,7 +210,8 @@ func ListTasks(c *gin.Context) {
 func ListDashboardTasks(c *gin.Context) {
 	userID := c.MustGet("user_id").(int64)
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity
+	          u_a.name as assignee_name, u_a.photo_url as assignee_photo_url, u_c.name as creator_name, u_c.photo_url as creator_photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity,
+	          t.issue_type, t.labels
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE t.creator_id = $1
 	             OR EXISTS (SELECT 1 FROM task_assignees ta WHERE ta.task_id = t.id AND ta.user_id = $2)
@@ -295,7 +302,8 @@ func GetTask(c *gin.Context) {
 
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, 
 	          t.submission_github as submission_link, COALESCE(t.capacity, 1), t.created_at, t.updated_at,
-	          u_c.name, u_c.email, u_c.photo_url, u_a.name, u_a.email, u_a.photo_url, t.priority, t.ai_optimized, t.ai_milestone_count
+	          u_c.name, u_c.email, u_c.photo_url, u_a.name, u_a.email, u_a.photo_url, t.priority, t.ai_optimized, t.ai_milestone_count,
+	          t.issue_type, t.labels
 	          FROM tasks t LEFT JOIN users u_c ON t.creator_id = u_c.id LEFT JOIN users u_a ON t.assignee_id = u_a.id WHERE t.id = $1`
 
 	var t models.Task
@@ -305,10 +313,14 @@ func GetTask(c *gin.Context) {
 	var aiOptimized sql.NullBool
 	var aiMilestoneCount sql.NullInt64
 
+	var issueType sql.NullString
+	var labels []string
+
 	err = config.DB.QueryRow(query, id).Scan(
 		&t.ID, &t.Title, &desc, &t.Status, &t.Accepted, &cid, &aid, &t.Deadline, &t.Progress, &subj, &attach,
 		&subL, &t.Capacity, &t.CreatedAt, &t.UpdatedAt,
 		&cn, &ce, &cp, &an, &ae, &ap, &priority, &aiOptimized, &aiMilestoneCount,
+		&issueType, pq.Array(&labels),
 	)
 
 	if err != nil {
@@ -336,6 +348,14 @@ func GetTask(c *gin.Context) {
 	}
 
 	t.Priority = priority.String
+	t.IssueType = issueType.String
+	t.Labels = labels
+	if t.IssueType == "" {
+		t.IssueType = "Task"
+	}
+	if t.Labels == nil {
+		t.Labels = []string{}
+	}
 	t.AiOptimized = aiOptimized.Bool
 
 	t.Description = desc.String
@@ -409,6 +429,11 @@ func GetTask(c *gin.Context) {
 	t.Activities, _ = services.FetchActivities(id)
 	if t.Activities == nil {
 		t.Activities = make([]models.Activity, 0)
+	}
+
+	t.Links, _ = services.FetchTaskLinks(id)
+	if t.Links == nil {
+		t.Links = make([]models.TaskLink, 0)
 	}
 
 	c.JSON(http.StatusOK, t)
@@ -530,7 +555,7 @@ func RespondToInvitation(c *gin.Context) {
 		return
 	}
 
-	if strings.ToLower(strings.TrimSpace(inviteeEmail)) != strings.ToLower(strings.TrimSpace(userEmail)) {
+	if !strings.EqualFold(strings.TrimSpace(inviteeEmail), strings.TrimSpace(userEmail)) {
 		fmt.Printf("Unauthorized response attempt: invitee=%s, loggedIn=%s\n", inviteeEmail, userEmail)
 		c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized"})
 		return
@@ -675,7 +700,8 @@ func ListMyTasks(c *gin.Context) {
 	search := c.Query("search")
 
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity
+	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity,
+	          t.issue_type, t.labels
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id
 	          WHERE EXISTS (SELECT 1 FROM task_assignees ta WHERE ta.task_id = t.id AND ta.user_id = $1)`
 	
@@ -700,7 +726,8 @@ func ListPostedTasks(c *gin.Context) {
 	search := c.Query("search")
 
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity
+	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity,
+	          t.issue_type, t.labels
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id WHERE t.creator_id = $1`
 	
 	var tasks []models.Task
@@ -724,7 +751,8 @@ func ListActiveTasks(c *gin.Context) {
 	search := c.Query("search")
 
 	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, t.created_at, t.updated_at,
-	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity
+	          u_a.name, u_a.photo_url, u_c.name, u_c.photo_url, t.priority, t.ai_optimized, COALESCE(t.capacity, 1) as capacity,
+	          t.issue_type, t.labels
 	          FROM tasks t LEFT JOIN users u_a ON t.assignee_id = u_a.id LEFT JOIN users u_c ON t.creator_id = u_c.id 
 	          WHERE (t.creator_id = $1 OR EXISTS (SELECT 1 FROM task_assignees ta WHERE ta.task_id = t.id AND ta.user_id = $2)) 
 	          AND t.status IN ('accepted', 'in_progress', 'submitted')`
@@ -755,13 +783,36 @@ func PredictPriority(c *gin.Context) {
 		return
 	}
 
+	fmt.Printf("[AI] Predicting Priority for: %s\n", input.Title)
 	priority, err := services.PredictTaskPriority(input.Title, input.Description)
 	if err != nil {
+		fmt.Printf("[AI] Priority Prediction FAILED: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
+	fmt.Printf("[AI] Priority Predicted: %s\n", priority)
 	c.JSON(http.StatusOK, gin.H{"priority": priority})
+}
+
+func PredictLabels(c *gin.Context) {
+	var input struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+	}
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	fmt.Printf("[AI] Suggesting Labels for: %s\n", input.Title)
+	labels, err := services.SuggestLabels(input.Title, input.Description)
+	if err != nil {
+		fmt.Printf("[AI] Label Suggestion FAILED: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	fmt.Printf("[AI] Labels Suggested: %v\n", labels)
+	c.JSON(http.StatusOK, gin.H{"labels": labels})
 }
 
 func GenerateMilestones(c *gin.Context) {

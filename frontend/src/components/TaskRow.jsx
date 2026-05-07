@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Eye, Trash2, Clock, CheckCircle, AlertCircle, FileText, Users, User } from 'lucide-react';
+import { Eye, Trash2, Clock, CheckCircle, AlertCircle, FileText, Users, User, TrendingUp, Layers, CheckSquare } from 'lucide-react';
 import Avatar from './Avatar.jsx';
 
 const TaskRow = memo(function TaskRow({
@@ -35,6 +35,30 @@ const TaskRow = memo(function TaskRow({
     completed:   { color: 'text-emerald-400 bg-emerald-400/5 border border-emerald-400/10', icon: <CheckCircle size={12} /> },
     cancelled:   { color: 'text-text-secondary bg-text-primary/3 border border-border-subtle', icon: <AlertCircle size={12} /> },
   }[computedStatus] || { color: 'text-text-secondary bg-text-primary/3 border border-border-subtle', icon: <Clock size={12} /> };
+  
+  const issueTypeConfig = {
+    Task:        { icon: <Layers size={16} className="text-blue-400" /> },
+    Bug:         { icon: <AlertCircle size={16} className="text-red-400" /> },
+    Story:       { icon: <FileText size={16} className="text-emerald-400" /> },
+    Improvement: { icon: <TrendingUp size={16} className="text-purple-400" /> },
+  }[task.issue_type || 'Task'] || { icon: <Layers size={16} className="text-text-secondary" /> };
+
+  const getLabelColor = (label) => {
+    const colors = [
+      'bg-blue-500/10 text-blue-400 border-blue-500/20',
+      'bg-purple-500/10 text-purple-400 border-purple-500/20',
+      'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      'bg-rose-500/10 text-rose-400 border-rose-500/20',
+      'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+      'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+    ];
+    let hash = 0;
+    for (let i = 0; i < label.length; i++) {
+      hash = label.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
 
   const isCreator = String(task.creator_id) === String(userProfile?.id);
   const slotsFilled = task.slots_filled || 0;
@@ -69,7 +93,10 @@ const TaskRow = memo(function TaskRow({
         ) : null}
         
         <div className="flex flex-col min-w-0">
-          <span className="font-semibold text-text-primary truncate text-[15px] tracking-tight group-hover:text-accent transition-colors">{task.title}</span>
+          <div className="flex items-center gap-2">
+            <span title={task.issue_type || 'Task'}>{issueTypeConfig.icon}</span>
+            <span className="font-semibold text-text-primary truncate text-[15px] tracking-tight group-hover:text-accent transition-colors">{task.title}</span>
+          </div>
           <div className="flex items-center gap-2 mt-1 text-[12px] text-text-secondary font-medium">
             {currentPath === 'market' ? (
               <span>{task.creator_name || 'Anonymous'}</span>
@@ -91,6 +118,15 @@ const TaskRow = memo(function TaskRow({
               </>
             )}
           </div>
+          {task.labels && task.labels.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {task.labels.map((label, idx) => (
+                <span key={idx} className={`px-1.5 py-0.5 border text-[9px] font-bold rounded uppercase tracking-wider ${getLabelColor(label)}`}>
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

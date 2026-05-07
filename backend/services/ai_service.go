@@ -109,26 +109,44 @@ func SuggestMilestones(title, description, subject string) ([]string, error) {
 	return milestones, nil
 }
 
+func SuggestLabels(title, description string) ([]string, error) {
+	prompt := fmt.Sprintf("Analyze this task: Title: '%s', Description: '%s'. Suggest 3-5 relevant, short, one-word tags/labels (e.g., frontend, bug, api, research, design). Return ONLY a raw JSON array of strings. No extra text.", title, description)
+	resp, err := CallGroq(prompt)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("[AI] Label Suggestion for '%s': %s", title, resp)
+
+	var labels []string
+	cleanedResp := cleanJSONResponse(resp)
+
+	if err := json.Unmarshal([]byte(cleanedResp), &labels); err != nil {
+		return nil, fmt.Errorf("failed to parse labels: %v", err)
+	}
+	return labels, nil
+}
+
 func cleanJSONResponse(resp string) string {
+	fmt.Printf("[AI] RAW Response: %s\n", resp)
+	
+	// 1. Try finding brackets
 	start := strings.Index(resp, "[")
 	end := strings.LastIndex(resp, "]")
-	
 	if start != -1 && end != -1 && end > start {
 		return strings.TrimSpace(resp[start : end+1])
 	}
 
+	// 2. Try finding code blocks
 	if start := strings.Index(resp, "```"); start != -1 {
-		contentStart := strings.Index(resp[start+3:], "\n")
-		if contentStart == -1 {
-			contentStart = start + 3
-		} else {
-			contentStart = start + 3 + contentStart + 1
+		content := resp[start+3:]
+		if nl := strings.Index(content, "\n"); nl != -1 {
+			content = content[nl+1:]
 		}
-		
-		if end := strings.LastIndex(resp, "```"); end != -1 && end > contentStart {
-			return strings.TrimSpace(resp[contentStart:end])
+		if end := strings.LastIndex(content, "```"); end != -1 {
+			return strings.TrimSpace(content[:end])
 		}
 	}
+
 	return strings.TrimSpace(resp)
 }
 

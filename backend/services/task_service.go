@@ -23,12 +23,21 @@ func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 
 	for rows.Next() {
 		var t models.Task
-		var assigneeName, assigneePhoto, creatorName, creatorPhoto, description, subject, attachmentURL, priority sql.NullString
+		var assigneeName, assigneePhoto, creatorName, creatorPhoto, description, subject, attachmentURL, priority, issueType sql.NullString
+		var labels []string
 		var aiOptimized sql.NullBool
-		if err := rows.Scan(&t.ID, &t.Title, &description, &t.Status, &t.Accepted, &t.CreatorID, &t.AssigneeID, &t.Deadline, &t.Progress, &subject, &attachmentURL, &t.CreatedAt, &t.UpdatedAt, &assigneeName, &assigneePhoto, &creatorName, &creatorPhoto, &priority, &aiOptimized, &t.Capacity); err != nil {
+		if err := rows.Scan(&t.ID, &t.Title, &description, &t.Status, &t.Accepted, &t.CreatorID, &t.AssigneeID, &t.Deadline, &t.Progress, &subject, &attachmentURL, &t.CreatedAt, &t.UpdatedAt, &assigneeName, &assigneePhoto, &creatorName, &creatorPhoto, &priority, &aiOptimized, &t.Capacity, &issueType, pq.Array(&labels)); err != nil {
 			return nil, err
 		}
 		t.Priority = priority.String
+		t.IssueType = issueType.String
+		t.Labels = labels
+		if t.IssueType == "" {
+			t.IssueType = "Task"
+		}
+		if t.Labels == nil {
+			t.Labels = []string{}
+		}
 		t.AiOptimized = aiOptimized.Bool
 		t.AssigneeName = assigneeName.String
 		t.AssigneePhotoURL = assigneePhoto.String
@@ -207,4 +216,26 @@ func FetchActivities(taskID int64) ([]models.Activity, error) {
 		}
 	}
 	return activities, nil
+}
+
+func FetchTaskLinks(taskID int64) ([]models.TaskLink, error) {
+	rows, err := config.DB.Query(`
+		SELECT tl.id, tl.source_task_id, tl.target_task_id, tl.link_type, tl.created_at,
+		       t.title as target_title, t.status as target_status
+		FROM task_links tl
+		JOIN tasks t ON tl.target_task_id = t.id
+		WHERE tl.source_task_id = $1`, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var links []models.TaskLink
+	for rows.Next() {
+		var l models.TaskLink
+		if err := rows.Scan(&l.ID, &l.SourceTaskID, &l.TargetTaskID, &l.LinkType, &l.CreatedAt, &l.TargetTitle, &l.TargetStatus); err == nil {
+			links = append(links, l)
+		}
+	}
+	return links, nil
 }

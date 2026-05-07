@@ -5,7 +5,7 @@ import {
   User, Trash2, LogOut, AlertCircle,
   Menu, X, Search, MoreVertical, Briefcase,
   TrendingUp, ArrowUpRight, Plus, Clock, Upload,
-  File, Camera, RefreshCw, ChevronRight, CheckCircle2, Target, Layers
+  File, Camera, RefreshCw, ChevronRight, CheckCircle2, Target, Layers, Sparkles
 } from 'lucide-react';
 import { Routes, Route, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
@@ -39,7 +39,7 @@ export default function Profile({ onLogout }) {
   const [tasks, setTasks] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
-  const [newTask, setNewTask] = useState({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium', assignee_email: '' });
+  const [newTask, setNewTask] = useState({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium', issue_type: 'Task', labels: '', assignee_email: '' });
   const [isPredictingPriority, setIsPredictingPriority] = useState(false);
   const [postLoading, setPostLoading] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
@@ -390,13 +390,14 @@ export default function Profile({ onLogout }) {
     }
     setIsPredictingPriority(true);
     try {
-      const res = await api.post('/tasks/ai/predict-priority', { 
+      const res = await api.post('/api/tasks/ai/predict-priority', { 
         title: newTask.title, 
         description: newTask.description 
       });
       setNewTask(prev => ({ ...prev, priority: res.data.priority }));
     } catch (err) {
       console.error(err);
+      alert('AI Priority prediction failed. Please try again.');
     } finally {
       setIsPredictingPriority(false);
     }
@@ -431,6 +432,35 @@ export default function Profile({ onLogout }) {
     }
   };
 
+  const [isSuggestingLabels, setIsSuggestingLabels] = useState(false);
+
+  const handleAiSuggestLabels = async () => {
+    if (!newTask.title || !newTask.description) {
+      alert('Please enter title and description first');
+      return;
+    }
+    setIsSuggestingLabels(true);
+    try {
+      const response = await api.post('/api/tasks/ai/predict-labels', {
+        title: newTask.title,
+        description: newTask.description
+      });
+      const suggested = response.data.labels;
+      if (suggested && suggested.length > 0) {
+        const currentLabels = newTask.labels.split(',').map(s => s.trim()).filter(s => s !== '');
+        const merged = Array.from(new Set([...currentLabels, ...suggested]));
+        setNewTask(prev => ({ ...prev, labels: merged.join(', ') }));
+      } else {
+        alert('AI could not suggest any labels. Try a more descriptive title.');
+      }
+    } catch (err) {
+      console.error('AI Labels failed:', err);
+      alert('AI Label suggestion failed. Please try again.');
+    } finally {
+      setIsSuggestingLabels(false);
+    }
+  };
+
   const handlePostTask = async (e) => {
     e.preventDefault();
     if (!newTask.title || !newTask.subject) return;
@@ -451,11 +481,13 @@ export default function Profile({ onLogout }) {
         deadline: newTask.deadline ? new Date(newTask.deadline).toISOString() : null,
         max_assignees: parseInt(newTask.max_assignees, 10),
         priority: newTask.priority,
+        issue_type: newTask.issue_type,
+        labels: newTask.labels.split(',').map(s => s.trim()).filter(s => s !== ''),
         attachment_url: attachmentUrl,
         assignee_email: newTask.assignee_email
       });
       
-      setNewTask({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium', assignee_email: '' });
+      setNewTask({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium', issue_type: 'Task', labels: '', assignee_email: '' });
       setShowPostForm(false);
       fetchTasks();
     } catch (err) {
@@ -940,6 +972,40 @@ export default function Profile({ onLogout }) {
                                   className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
                                />
                                <p className="text-[10px] text-text-secondary opacity-60">How many users can accept this simultaneously</p>
+                            </div>
+                            <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Issue Type</label>
+                               <select 
+                                  value={newTask.issue_type}
+                                  onChange={(e) => setNewTask({...newTask, issue_type: e.target.value})}
+                                  className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                               >
+                                  <option value="Task">Task</option>
+                                  <option value="Bug">Bug</option>
+                                  <option value="Story">Story</option>
+                                  <option value="Improvement">Improvement</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                               <div className="flex items-center justify-between">
+                                 <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Labels (comma separated)</label>
+                                 <button 
+                                   type="button"
+                                   onClick={handleAiSuggestLabels}
+                                   disabled={isSuggestingLabels || !newTask.title || !newTask.description}
+                                   className="text-[10px] font-bold text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
+                                 >
+                                   {isSuggestingLabels ? <RefreshCw size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                                   AI Suggest
+                                 </button>
+                               </div>
+                               <input 
+                                  type="text" 
+                                  value={newTask.labels}
+                                  onChange={(e) => setNewTask({...newTask, labels: e.target.value})}
+                                  className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                                  placeholder="e.g. frontend, bug, api"
+                               />
                             </div>
                          </div>
                          <div className="space-y-2">

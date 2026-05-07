@@ -12,7 +12,7 @@ import {
   UserPlus, Edit3, Check, ChevronRight,
   LayoutDashboard, Users, CheckSquare, GitMerge,
   LogOut, Menu, X, Code, ExternalLink, Link2, Lock,
-  Plus, Send, Trash2, Activity, Layers
+  Plus, Send, Trash2, Activity, Layers, TrendingUp, Zap
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_URL_SECONDARY || '';
@@ -184,6 +184,8 @@ export default function TaskDetail() {
     deadline: '',
     max_assignees: 1,
     priority: 'Medium',
+    issue_type: 'Task',
+    labels: '',
     ai_optimized: false,
   });
 
@@ -194,6 +196,58 @@ export default function TaskDetail() {
   const [isRecommendingUsers, setIsRecommendingUsers] = useState(false);
   const [commentText, setCommentText] = useState('');
 
+
+  const [isPredictingPriority, setIsPredictingPriority] = useState(false);
+  const [isSuggestingLabels, setIsSuggestingLabels] = useState(false);
+
+  const handleAiPredictPriority = async () => {
+    if (!editForm.title || !editForm.description) {
+      alert('Please enter title and description first');
+      return;
+    }
+    setIsPredictingPriority(true);
+    try {
+      const response = await api.post('/api/tasks/ai/predict-priority', {
+        title: editForm.title,
+        description: editForm.description
+      });
+      if (response.data.priority) {
+        setEditForm(prev => ({ ...prev, priority: response.data.priority }));
+      }
+    } catch (err) {
+      console.error('AI Prediction failed:', err);
+      alert('AI Prediction failed. Please try again.');
+    } finally {
+      setIsPredictingPriority(false);
+    }
+  };
+
+  const handleAiSuggestLabels = async () => {
+    if (!editForm.title || !editForm.description) {
+      alert('Please enter title and description first');
+      return;
+    }
+    setIsSuggestingLabels(true);
+    try {
+      const response = await api.post('/api/tasks/ai/predict-labels', {
+        title: editForm.title,
+        description: editForm.description
+      });
+      const suggested = response.data.labels;
+      if (suggested && suggested.length > 0) {
+        const currentLabels = editForm.labels.split(',').map(s => s.trim()).filter(s => s !== '');
+        const merged = Array.from(new Set([...currentLabels, ...suggested]));
+        setEditForm(prev => ({ ...prev, labels: merged.join(', ') }));
+      } else {
+        alert('AI could not suggest any labels for this task. Try adding more detail.');
+      }
+    } catch (err) {
+      console.error('AI Labels failed:', err);
+      alert('AI suggestion failed. Please try again.');
+    } finally {
+      setIsSuggestingLabels(false);
+    }
+  };
 
   const fetchTask = useCallback(async () => {
     try {
@@ -207,6 +261,8 @@ export default function TaskDetail() {
         deadline: data.deadline ? new Date(data.deadline).toISOString().slice(0, 16) : '',
         max_assignees: data.max_assignees || 1,
         priority: data.priority || 'Medium',
+        issue_type: data.issue_type || 'Task',
+        labels: data.labels ? data.labels.join(', ') : '',
         ai_optimized: data.ai_optimized || false,
       });
     } catch (err) {
@@ -458,7 +514,10 @@ export default function TaskDetail() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({
+          ...editForm,
+          labels: editForm.labels.split(',').map(s => s.trim()).filter(s => s !== '')
+        }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -517,25 +576,16 @@ export default function TaskDetail() {
     setIsGeneratingMilestones(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/tasks/ai/generate-milestones`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          task_id: id, 
-          title: task.title, 
-          description: task.description,
-          subject: task.subject
-        }),
+      const res = await api.post('/api/tasks/ai/generate-milestones', { 
+        task_id: id, 
+        title: task.title, 
+        description: task.description,
+        subject: task.subject
       });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to generate milestones');
-      }
-      
       fetchTask();
     } catch (err) {
-      setError(err.message);
+      console.error(err);
+      alert(err.response?.data?.error || 'Failed to generate milestones.');
     } finally {
       setIsGeneratingMilestones(false);
     }
@@ -545,17 +595,11 @@ export default function TaskDetail() {
     setIsRecommendingUsers(true);
     setAiRecommendation('');
     try {
-      const res = await fetch(`${API_BASE}/tasks/ai/recommend-users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ subject: task.subject }),
-      });
-      if (!res.ok) throw new Error('Failed to get recommendation');
-      const data = await res.json();
-      setAiRecommendation(data.recommendation);
+      const res = await api.post('/api/tasks/ai/recommend-users', { subject: task.subject });
+      setAiRecommendation(res.data.recommendation);
     } catch (err) {
       console.error(err);
+      alert('Failed to get recommendation.');
     } finally {
       setIsRecommendingUsers(false);
     }
@@ -618,6 +662,23 @@ export default function TaskDetail() {
     const map = { completed: 100, submitted: 75, in_progress: 50, accepted: 25 };
     return map[task.status] ?? 0;
   }, [task?.progress, task?.status, task?.milestones]);
+
+  const getLabelColor = useCallback((label) => {
+    const colors = [
+      'bg-blue-500/10 text-blue-400 border-blue-500/20',
+      'bg-purple-500/10 text-purple-400 border-purple-500/20',
+      'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      'bg-rose-500/10 text-rose-400 border-rose-500/20',
+      'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+      'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+    ];
+    let hash = 0;
+    for (let i = 0; i < label.length; i++) {
+      hash = label.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }, []);
 
 
   const progressBarStyle = useMemo(
@@ -695,6 +756,18 @@ export default function TaskDetail() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-10 border-b border-border-subtle">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-4">
+              <span className={`flex items-center gap-2 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                task.issue_type === 'Bug' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
+                task.issue_type === 'Story' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                task.issue_type === 'Improvement' ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' :
+                'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+              }`}>
+                {task.issue_type === 'Bug' ? <AlertCircle size={12} /> :
+                 task.issue_type === 'Story' ? <FileText size={12} /> :
+                 task.issue_type === 'Improvement' ? <TrendingUp size={12} /> :
+                 <CheckSquare size={12} />}
+                {task.issue_type || 'Task'}
+              </span>
               <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
                 task.priority === 'Critical' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
                 task.priority === 'High' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' :
@@ -705,9 +778,20 @@ export default function TaskDetail() {
               </span>
               <span className="text-text-secondary/40 text-[10px] font-bold uppercase tracking-widest">Task ID: {id?.slice(-6)}</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-text-primary tracking-tight leading-tight">
-              {task.title}
-            </h1>
+            <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4">
+              <h1 className="text-3xl md:text-4xl font-bold text-text-primary tracking-tight leading-tight">
+                {task.title}
+              </h1>
+              {task.labels && task.labels.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {task.labels.map((label, idx) => (
+                    <span key={idx} className={`px-2 py-0.5 border text-[10px] font-bold rounded uppercase tracking-widest ${getLabelColor(label)}`}>
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -1170,6 +1254,64 @@ export default function TaskDetail() {
                     value={editForm.deadline} 
                     onChange={e => setEditForm({...editForm, deadline: e.target.value})} 
                     className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2 opacity-60">Issue Type</label>
+                    <select 
+                      value={editForm.issue_type} 
+                      onChange={e => setEditForm({...editForm, issue_type: e.target.value})} 
+                      className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary"
+                    >
+                      <option value="Task">Task</option>
+                      <option value="Bug">Bug</option>
+                      <option value="Story">Story</option>
+                      <option value="Improvement">Improvement</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2 opacity-60">Priority</label>
+                      <button 
+                        onClick={handleAiPredictPriority}
+                        disabled={isPredictingPriority || !editForm.title || !editForm.description}
+                        className="text-[10px] font-bold text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 disabled:opacity-30"
+                      >
+                        {isPredictingPriority ? <RefreshCw size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                        AI Predict
+                      </button>
+                    </div>
+                    <select 
+                      value={editForm.priority} 
+                      onChange={e => setEditForm({...editForm, priority: e.target.value})} 
+                      className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary"
+                    >
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                      <option value="Critical">Critical</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2 opacity-60">Labels (comma separated)</label>
+                    <button 
+                      onClick={handleAiSuggestLabels}
+                      disabled={isSuggestingLabels || !editForm.title || !editForm.description}
+                      className="text-[10px] font-bold text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 disabled:opacity-30"
+                    >
+                      {isSuggestingLabels ? <RefreshCw size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                      AI Suggest
+                    </button>
+                  </div>
+                  <input 
+                    type="text" 
+                    value={editForm.labels} 
+                    onChange={e => setEditForm({...editForm, labels: e.target.value})} 
+                    className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                    placeholder="e.g. frontend, bug, api"
                   />
                 </div>
                 <div className="space-y-2">

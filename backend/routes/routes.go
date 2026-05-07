@@ -4,7 +4,7 @@ import (
 	"backend/controllers"
 	"backend/utils"
 	"net/http"
-
+    "fmt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,12 +27,14 @@ func SetupRoutes(r *gin.Engine) {
 	requireAuth := func(c *gin.Context) {
 		token, err := c.Cookie("token")
 		if err != nil || token == "" {
+			fmt.Printf("[AUTH] No token found in cookie for request %s\n", c.Request.URL.Path)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
 
 		userID, err := utils.ValidateToken(token)
 		if err != nil {
+			fmt.Printf("[AUTH] Invalid token for request %s: %v\n", c.Request.URL.Path, err)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
@@ -43,6 +45,7 @@ func SetupRoutes(r *gin.Engine) {
 
 	// ✅ EMERGENCY FIX: Direct AI Routes
 	r.POST("/api/tasks/ai/predict-priority", requireAuth, controllers.PredictPriority)
+	r.POST("/api/tasks/ai/predict-labels", requireAuth, controllers.PredictLabels)
 	r.POST("/api/tasks/ai/generate-milestones", requireAuth, controllers.GenerateMilestones)
 	r.POST("/api/tasks/ai/recommend-users", requireAuth, controllers.RecommendUsers)
 

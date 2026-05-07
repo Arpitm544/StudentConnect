@@ -120,6 +120,8 @@ func ConnectDatabase() {
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority VARCHAR(20) DEFAULT 'Medium'",
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ai_optimized BOOLEAN DEFAULT FALSE",
 		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ai_milestone_count INT DEFAULT 0",
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS issue_type VARCHAR(50) DEFAULT 'Task'",
+		"ALTER TABLE tasks ADD COLUMN IF NOT EXISTS labels TEXT[] DEFAULT '{}'",
 	}
 
 	for _, m := range tasksMigrations {
@@ -209,6 +211,19 @@ func ConnectDatabase() {
 
 	if _, err := DB.Exec(activitiesTableQuery); err != nil {
 		log.Fatal("Failed to create activities table:", err)
+	}
+
+	taskLinksTableQuery := `
+	CREATE TABLE IF NOT EXISTS task_links (
+		id BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+		source_task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+		target_task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+		link_type VARCHAR(50) NOT NULL,
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	if _, err := DB.Exec(taskLinksTableQuery); err != nil {
+		log.Fatal("Failed to create task_links table:", err)
 	}
 }
 

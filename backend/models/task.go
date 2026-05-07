@@ -47,6 +47,18 @@ type Activity struct {
 	UserName  string    `json:"user_name"` // Join field
 }
 
+type TaskLink struct {
+	ID           int64     `json:"id,string"`
+	SourceTaskID int64     `json:"source_task_id,string"`
+	TargetTaskID int64     `json:"target_task_id,string"`
+	LinkType     string    `json:"link_type"`
+	CreatedAt    time.Time `json:"created_at"`
+
+	// Join fields
+	TargetTitle  string `json:"target_title"`
+	TargetStatus string `json:"target_status"`
+}
+
 type Task struct {
 	ID            int64      `json:"id,string"`
 	Title         string     `json:"title"`
@@ -69,7 +81,10 @@ type Task struct {
 
 	Milestones []Milestone `json:"milestones"`
 	Activities []Activity  `json:"activities"`
+	Links      []TaskLink  `json:"links"`
 	Priority          string      `json:"priority"`
+	IssueType         string      `json:"issue_type"`
+	Labels            []string    `json:"labels"`
 	AiOptimized       bool        `json:"ai_optimized"`
 	AiMilestoneCount int         `json:"ai_milestone_count"`
 

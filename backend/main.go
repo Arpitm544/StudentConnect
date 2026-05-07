@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
+	"fmt"
 	"backend/config"
 	"backend/routes"
 	"backend/services"
@@ -86,6 +86,7 @@ func main() {
 
 	// ✅ Support Firebase Popup Authentication
 	r.Use(func(c *gin.Context) {
+		fmt.Printf("DEBUG: Incoming %s %s\n", c.Request.Method, c.Request.URL.Path)
 		c.Header("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
 		c.Header("Cross-Origin-Embedder-Policy", "unsafe-none")
 		c.Next()
