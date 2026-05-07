@@ -216,13 +216,13 @@ export default function LandingPage() {
           </div>
           
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-zinc-900 dark:text-white mb-6 leading-[1.05] transition-colors">
-            Master your projects <br className="hidden md:block" />
-            <span className="text-zinc-400 dark:text-zinc-600">with absolute clarity.</span>
+            TaskNest – Smart <br className="hidden md:block" />
+            <span className="text-zinc-400 dark:text-zinc-600">Task Management.</span>
           </h1>
           
-          <p className="text-lg md:text-xl text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            TaskNest is the sophisticated workspace where ideas turn into achievements. Organize, track, and collaborate with precision. Built for speed, designed for focus.
-          </p>
+          <h2 className="text-lg md:text-xl text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+            Organize projects and collaborate efficiently with absolute clarity. TaskNest is the sophisticated workspace where ideas turn into achievements.
+          </h2>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-20">
             {user ? (
@@ -244,7 +244,7 @@ export default function LandingPage() {
               <div className="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-zinc-950 transition-all">
                 <Zap size={20} fill="currentColor" />
               </div>
-              <h4 className="font-bold text-zinc-900 dark:text-white mb-2">AI Roadmap</h4>
+              <h3 className="font-bold text-zinc-900 dark:text-white mb-2">AI Roadmap</h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 Automatically generate subject-specific milestones using Llama-3 AI for project clarity.
               </p>
@@ -254,7 +254,7 @@ export default function LandingPage() {
               <div className="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-zinc-950 transition-all">
                 <LayoutDashboard size={20} />
               </div>
-              <h4 className="font-bold text-zinc-900 dark:text-white mb-2">Marketplace</h4>
+              <h3 className="font-bold text-zinc-900 dark:text-white mb-2">Marketplace</h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 Post and accept tasks in a secure, professional collaborative environment.
               </p>
@@ -264,7 +264,7 @@ export default function LandingPage() {
               <div className="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-zinc-950 transition-all">
                 <Users size={20} />
               </div>
-              <h4 className="font-bold text-zinc-900 dark:text-white mb-2">Team Sync</h4>
+              <h3 className="font-bold text-zinc-900 dark:text-white mb-2">Team Sync</h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 Invite peers to your tasks and manage team capacity with built-in permission controls.
               </p>
@@ -274,7 +274,7 @@ export default function LandingPage() {
               <div className="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-zinc-950 transition-all">
                 <CheckCircle2 size={20} />
               </div>
-              <h4 className="font-bold text-zinc-900 dark:text-white mb-2">Tracking</h4>
+              <h3 className="font-bold text-zinc-900 dark:text-white mb-2">Tracking</h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 Never miss a deadline with automated status updates and visual milestone tracking.
               </p>
