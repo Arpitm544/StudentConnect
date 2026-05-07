@@ -225,6 +225,17 @@ func ConnectDatabase() {
 	if _, err := DB.Exec(taskLinksTableQuery); err != nil {
 		log.Fatal("Failed to create task_links table:", err)
 	}
+
+	waitlistTableQuery := `
+	CREATE TABLE IF NOT EXISTS waitlist (
+		id BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+		email VARCHAR(255) NOT NULL UNIQUE,
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	if _, err := DB.Exec(waitlistTableQuery); err != nil {
+		log.Fatal("Failed to create waitlist table:", err)
+	}
 }
 
 func retry(attempts int, sleep time.Duration, fn func() error) error {

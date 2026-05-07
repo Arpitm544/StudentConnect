@@ -19,7 +19,6 @@ import (
 )
 
 func main() {
-	// Load env
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
 		log.Fatal("Failed to resolve backend source directory")

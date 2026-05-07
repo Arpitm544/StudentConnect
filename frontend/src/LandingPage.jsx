@@ -29,6 +29,36 @@ export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
   const [stats, setStats] = useState({ total_tasks: 0, completed_tasks: 0, active_tasks: 0, days_live: 30 });
   const [statsLoading, setStatsLoading] = useState(true);
+  const [showWaitlistModal, setShowWaitlistModal] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistSuccess, setWaitlistSuccess] = useState(false);
+
+  const handleWaitlistSubmit = async (e) => {
+    e.preventDefault();
+    if (!waitlistEmail) return;
+    setWaitlistLoading(true);
+    try {
+      const API_BASE = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_BASE}/api/waitlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: waitlistEmail })
+      });
+      if (res.ok) {
+        setWaitlistSuccess(true);
+        setWaitlistEmail('');
+        setTimeout(() => {
+          setShowWaitlistModal(false);
+          setWaitlistSuccess(false);
+        }, 2500);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setWaitlistLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -412,59 +442,66 @@ export default function LandingPage() {
         </section>
 
         {/* 8. PRICING SECTION */}
-        <section id="pricing" className="max-w-4xl mx-auto px-6 mb-32">
+        <section id="pricing" className="max-w-4xl mx-auto px-6 py-24 mb-16">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white mb-4 transition-colors">Simple pricing. No surprises.</h2>
-            <p className="text-zinc-500 dark:text-zinc-400 transition-colors">Start for free. Upgrade when you need more power.</p>
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-zinc-900 dark:text-white mb-4 transition-colors">
+              Scale from personal tasks <br className="hidden md:block" /> to team workflows
+            </h2>
+            <p className="text-zinc-600 dark:text-zinc-400 max-w-lg mx-auto transition-colors">Start for free. Upgrade when you need more power.</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6 items-start">
              {/* Free Tier */}
-             <div className="bg-white dark:bg-zinc-900 border text-center md:text-left border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 transition-colors">
+             <div className="bg-white dark:bg-zinc-900 border text-center md:text-left border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 hover:shadow-lg transition-all duration-300">
                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2 transition-colors">Basic</h3>
-               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 transition-colors">Perfect for individuals.</p>
+               <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 transition-colors">Perfect for individuals.</p>
                <div className="mb-6 transition-colors">
                  <span className="text-4xl font-bold text-zinc-900 dark:text-white">$0</span>
                  <span className="text-zinc-500 dark:text-zinc-400">/ forever</span>
                </div>
-               <Link to="/signup" className="block w-full py-3 px-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-center font-medium hover:bg-zinc-50 dark:hover:bg-zinc-700 dark:text-white transition-colors mb-8">
+               <Link to="/signup" className="block w-full py-3 px-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-center font-medium hover:bg-zinc-50 dark:hover:bg-zinc-700 dark:text-white transition-all duration-300 shadow-sm mb-8">
                  Get Started
                </Link>
-               <ul className="space-y-3 text-sm text-zinc-600 dark:text-zinc-400 text-left transition-colors">
-                 <li className="flex items-center gap-3"><CheckCircle2 size={16} className="text-zinc-400 dark:text-zinc-600" /> Up to 5 active tasks</li>
-                 <li className="flex items-center gap-3"><CheckCircle2 size={16} className="text-zinc-400 dark:text-zinc-600" /> Basic workflow tracking</li>
-                 <li className="flex items-center gap-3"><CheckCircle2 size={16} className="text-zinc-400 dark:text-zinc-600" /> Community support</li>
+               <ul className="space-y-4 text-sm text-zinc-600 dark:text-zinc-400 text-left transition-colors">
+                 <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-400 dark:text-zinc-600" /> Up to 5 active tasks</li>
+                 <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-400 dark:text-zinc-600" /> Basic workflow tracking</li>
+                 <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-400 dark:text-zinc-600" /> Community support</li>
                </ul>
              </div>
 
              {/* Pro Tier */}
-             <div className="bg-white dark:bg-zinc-900 border-2 border-zinc-900 dark:border-white text-center md:text-left rounded-3xl p-8 relative shadow-xl shadow-zinc-200/50 dark:shadow-none transform md:-translate-y-4 transition-all">
-               <div className="absolute top-0 right-8 -translate-y-1/2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[10px] font-bold px-3 py-1 rounded-full tracking-wide">
-                 RECOMMENDED
+             <div className="bg-zinc-50/50 dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 text-center md:text-left rounded-3xl p-8 relative shadow-2xl shadow-zinc-200/60 dark:shadow-none transform md:-translate-y-4 hover:scale-[1.02] transition-all duration-300">
+               <div className="absolute -top-3 right-8 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[9px] font-black px-3 py-1 rounded-full tracking-widest uppercase">
+                 COMING SOON
                </div>
                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2 transition-colors">Pro</h3>
-               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 transition-colors">For power users and professional teams.</p>
+               <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 transition-colors">For teams and advanced workflows</p>
                <div className="mb-6 transition-colors">
-                 <span className="text-4xl font-bold text-zinc-900 dark:text-white">FREE</span>
-                 <br></br>
-                 <span className="text-2xl text-zinc-900 dark:text-zinc-100 line-through opacity-50">$5</span>
+                 <span className="text-4xl font-bold text-zinc-900 dark:text-white">$12</span>
                  <span className="text-zinc-500 dark:text-zinc-400">/ month</span>
                </div>
-               <Link to="/signup" className="block w-full py-3 px-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 rounded-xl text-center font-medium hover:opacity-90 transition-all mb-8 shadow-sm">
-                 Try Pro
-               </Link>
-               <ul className="space-y-3 text-sm text-zinc-600 dark:text-zinc-400 text-left transition-colors">
-                 <li className="flex items-center gap-3"><CheckCircle2 size={16} className="text-zinc-900 dark:text-white" /> Unlimited active tasks</li>
-                 <li className="flex items-center gap-3"><CheckCircle2 size={16} className="text-zinc-900 dark:text-white" /> Advanced analytics</li>
-                 <li className="flex items-center gap-3"><CheckCircle2 size={16} className="text-zinc-900 dark:text-white" /> Priority matching</li>
-                 <li className="flex items-center gap-3"><CheckCircle2 size={16} className="text-zinc-900 dark:text-white" /> Verified profile badge</li>
+               <div className="space-y-3 mb-8">
+                 <button onClick={() => setShowWaitlistModal(true)} className="block w-full py-3 px-4 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700 rounded-xl text-center font-medium hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all duration-300 shadow-sm cursor-pointer">
+                   Join Waitlist
+                 </button>
+                 <p className="text-[10px] text-center text-zinc-400 font-medium tracking-tight">
+                   Launching soon
+                 </p>
+               </div>
+               <ul className="space-y-4 text-sm text-zinc-600 dark:text-zinc-400 text-left transition-colors">
+                 <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-900 dark:text-white" /> Unlimited projects</li>
+                 <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-900 dark:text-white" /> AI prioritization</li>
+                 <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-900 dark:text-white" /> GitHub sync</li>
+                 <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-900 dark:text-white" /> Sprint analytics</li>
+                 <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-900 dark:text-white" /> Team collaboration</li>
+                 <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-900 dark:text-white" /> Workload balancing</li>
                </ul>
              </div>
           </div>
         </section>
 
         {/* 9. CTA SECTION */}
-        <section className="max-w-5xl mx-auto px-6 mb-10">
+        <section className="max-w-5xl mx-auto px-6 mt-24 mb-10">
           <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-12 md:p-20 text-center relative overflow-hidden transition-colors">
              <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-zinc-900 dark:text-white mb-6 relative z-10 transition-colors">
                Start managing your tasks <span className="text-zinc-400 dark:text-zinc-600">smarter.</span>
@@ -472,7 +509,7 @@ export default function LandingPage() {
              <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-xl mx-auto mb-10 relative z-10 transition-colors">
                Join thousands of users who have already upgraded their productivity workflow. Get started in less than 30 seconds.
              </p>
-             <Link to="/signup" className="inline-flex items-center gap-2 px-8 py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-medium rounded-xl hover:opacity-90 transition-all shadow-lg hover:-translate-y-1 relative z-10">
+             <Link to="/signup" className="inline-flex items-center gap-2 px-8 py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-medium rounded-xl hover:bg-black/90 dark:hover:opacity-90 transition-all shadow-lg hover:-translate-y-1 relative z-10">
                 Create Free Account <ArrowRight size={18} />
              </Link>
           </div>
@@ -519,6 +556,62 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Waitlist Modal */}
+      {showWaitlistModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-zinc-950/20 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-8 md:p-12 max-w-md w-full shadow-2xl relative animate-scale-in">
+            <button 
+              onClick={() => setShowWaitlistModal(false)}
+              className="absolute top-6 right-6 p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            {waitlistSuccess ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle2 size={32} />
+                </div>
+                <h3 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">You're on the list!</h3>
+                <p className="text-zinc-500 dark:text-zinc-400">We'll notify you as soon as Pro is ready for launch.</p>
+              </div>
+            ) : (
+              <>
+                <div className="mb-8 text-center md:text-left">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-[10px] font-bold uppercase tracking-widest mb-4">
+                    Pro Access
+                  </div>
+                  <h3 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">Join the Waitlist</h3>
+                  <p className="text-zinc-500 dark:text-zinc-400">Get early access and launch-day discounts for TaskNest Pro.</p>
+                </div>
+                
+                <form onSubmit={handleWaitlistSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest px-1">Email Address</label>
+                    <input 
+                      type="email"
+                      required
+                      value={waitlistEmail}
+                      onChange={(e) => setWaitlistEmail(e.target.value)}
+                      placeholder="name@company.com"
+                      className="w-full bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 text-sm focus:border-zinc-900 dark:focus:border-white outline-none transition-all dark:text-white"
+                    />
+                  </div>
+                  <button 
+                    disabled={waitlistLoading}
+                    className="w-full py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-bold rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-zinc-200 dark:shadow-none"
+                  >
+                    {waitlistLoading ? "Joining..." : "Reserve My Spot"}
+                    {!waitlistLoading && <ArrowRight size={18} />}
+                  </button>
+                  <p className="text-[10px] text-center text-zinc-400">No spam. Just product updates and launch info.</p>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

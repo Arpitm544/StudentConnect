@@ -11,6 +11,7 @@ import (
 func SetupRoutes(r *gin.Engine) {
 	// Public routes
 	r.GET("/api/public/stats", controllers.GetPublicStats)
+	r.POST("/api/waitlist", controllers.JoinWaitlist)
 
 	auth := r.Group("/api/auth")
 	{
