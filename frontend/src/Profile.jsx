@@ -30,7 +30,11 @@ import {
   Tooltip,
   ResponsiveContainer,
   AreaChart,
-  Area
+  Area,
+  PieChart,
+  Pie,
+  Cell,
+  Label
 } from 'recharts';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_URL_SECONDARY || '';
@@ -190,12 +194,11 @@ export default function Profile({ onLogout }) {
     }
   }, [currentPath, searchTerm, location.state?.openForm, fetchTasks, fetchInvitations, navigate, location.pathname]);
 
-  const { total, completed, inProgress, inReview, pending, dueSoonCount, completionRate, networkCount } = useMemo(() => {
+  const { total, completed, active, pending, dueSoonCount, completionRate, networkCount } = useMemo(() => {
     const total = tasks.length;
     const completed = tasks.filter((t) => t.status === 'completed').length;
-    const inProgress = tasks.filter((t) => t.status === 'in_progress').length;
-    const inReview   = tasks.filter((t) => t.status === 'submitted').length;
-    const pending = tasks.filter((t) => !t.status || t.status === 'pending').length;
+    const active = tasks.filter((t) => t.status === 'in_progress' || t.status === 'submitted').length;
+    const pending = total - (completed + active);
     const now = new Date();
     const dueSoonCount = tasks.filter(t => t.deadline && new Date(t.deadline) > now && new Date(t.deadline) < new Date(now.getTime() + 48 * 60 * 60 * 1000)).length;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -207,7 +210,7 @@ export default function Profile({ onLogout }) {
     });
     const networkCount = connections.size;
     
-    return { total, completed, inProgress, inReview, pending, dueSoonCount, completionRate, networkCount };
+    return { total, completed, active, pending, dueSoonCount, completionRate, networkCount };
   }, [tasks, userProfile]);
 
   const chartData = useMemo(() => {
@@ -581,7 +584,7 @@ export default function Profile({ onLogout }) {
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 md:gap-8">
                     <div className="space-y-2">
                        <h2 className="text-2xl md:text-3xl font-semibold text-text-primary tracking-tight">Welcome back, {userProfile?.name?.split(' ')[0]}</h2>
-                       <p className="text-text-secondary font-medium">You have <span className="text-accent font-semibold">{inProgress + pending} active tasks</span> to focus on this week.</p>
+                       <p className="text-text-secondary font-medium">You have <span className="text-accent font-semibold">{active + pending} tasks</span> to focus on this week.</p>
                        
 
                     </div>
@@ -592,79 +595,150 @@ export default function Profile({ onLogout }) {
                    </div>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                  {tasksLoading
-                    ? [...Array(4)].map((_, i) => <StatCardSkeleton key={i} />)
-                    : [
-                    { label: 'Completion', value: `${completionRate}%`, sub: 'Overall efficiency', icon: <CheckSquare className="text-accent" /> },
-                    { label: 'Due Soon', value: dueSoonCount, sub: 'Next 48 hours', icon: <Clock className="text-accent" /> },
-                    { label: 'Active', value: inProgress, sub: 'Currently working', icon: <TrendingUp className="text-accent" /> },
-                    { label: 'Network', value: networkCount, sub: 'Peer connections', icon: <Users className="text-accent" /> },
-                  ].map((stat, i) => (
-                    <div key={i} className="premium-card">
-                       <div className="flex items-center justify-between mb-6">
-                          <div className="p-2.5 rounded-xl bg-accent-soft">
-                             {stat.icon}
-                          </div>
-                          <MoreVertical size={16} className="text-text-secondary/30" />
-                       </div>
-                       <p className="text-[10px] font-bold text-text-secondary/50 uppercase tracking-widest mb-1">{stat.label}</p>
-                       <h4 className="text-2xl font-semibold text-text-primary">{stat.value}</h4>
-                       <p className="text-[11px] text-text-secondary/60 font-medium mt-1">{stat.sub}</p>
-                    </div>
-                  ))}
-                </div>
-
-
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
-                    <div className="lg:col-span-2 premium-card">
-                       <div className="flex items-center justify-between mb-10">
-                          <div>
-                             <h3 className="text-lg font-bold text-text-primary tracking-tight">Activity Insights</h3>
-                             <p className="text-xs text-text-secondary font-medium">
-                               {activityView === 'personal' ? 'Your individual productivity flow' : 'Real-time global platform activity'}
-                             </p>
-                          </div>
-                          <div className="flex items-center gap-1 bg-background-secondary p-1 rounded-xl border border-border-subtle">
+                    <div className="lg:col-span-2 space-y-8">
+                       <div className="premium-card p-6 min-h-[450px] animate-fade-in">
+                          <div className="flex items-center justify-between mb-8">
+                             <div>
+                                <h3 className="text-xl font-bold text-text-primary tracking-tight">Workflow Overview</h3>
+                                <p className="text-[10px] text-text-secondary font-bold uppercase tracking-widest mt-1">Live Kanban View • Top 5 Priority</p>
+                             </div>
                              <button 
-                                onClick={() => setActivityView('personal')}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${activityView === 'personal' ? 'bg-white text-zinc-900 shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+                                onClick={() => navigate('/dashboard/board')}
+                                className="px-4 py-2 bg-accent/10 text-accent rounded-xl text-xs font-bold hover:bg-accent/20 transition-all flex items-center gap-2"
                              >
-                               Personal
-                             </button>
-                             <button 
-                                onClick={() => setActivityView('platform')}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${activityView === 'platform' ? 'bg-white text-zinc-900 shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
-                             >
-                               Platform
+                                <LayoutDashboard size={14} />
+                                Full Board
                              </button>
                           </div>
-                       </div>
-                        <div className="h-[300px] w-full">
-                          <ActivityChart 
-                            theme={theme} 
-                            data={activityView === 'platform' ? globalActivity : chartData} 
-                          />
+                          
+                          <div className="h-[750px] overflow-y-auto rounded-2xl border border-border-subtle/50 custom-scrollbar">
+                             <div className="h-full scale-[0.9] origin-top-left w-[111%] -ml-[0.5%]">
+                                <KanbanBoard 
+                                   tasks={tasks.slice(0, 5)}
+                                   onStatusChange={handleStatusChange}
+                                   onView={handleView}
+                                   formatDate={formatDate}
+                                />
+                             </div>
+                          </div>
                        </div>
                     </div>
-                   <div className="bg-bg-card border border-border-subtle rounded-3xl p-8 relative overflow-hidden group hover:border-accent/30 transition-all duration-300 shadow-premium animate-fade-in">
-                      <div className="relative z-10 h-full flex flex-col">
-                         <div className="w-12 h-12 bg-accent-soft rounded-2xl flex items-center justify-center mb-8 border border-accent/10 group-hover:bg-accent group-hover:text-white transition-all duration-300">
-                            <Users size={24} className="group-hover:text-white text-accent" />
-                         </div>
-                         <h3 className="text-2xl font-bold tracking-tight mb-3 text-text-primary leading-tight">Grow your network.</h3>
-                         <p className="text-text-secondary text-sm font-medium leading-relaxed mb-12 max-w-[260px]">
-                            Collaborate on assignments and share resources with peers across the platform.
-                         </p>
-                         <button 
-                            onClick={() => navigate('/dashboard/market')} 
-                            className="mt-auto w-full py-4 bg-text-primary text-bg-main font-bold rounded-2xl hover:opacity-90 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 shadow-sm"
-                         >
-                            Browse Market
-                            <ArrowUpRight size={18} />
-                         </button>
-                      </div>
-                   </div>
+
+                    <div className="space-y-8">
+                       <div className="bg-bg-card border border-border-subtle rounded-3xl p-6 relative overflow-hidden group hover:border-accent/30 transition-all duration-300 shadow-premium animate-fade-in flex flex-col">
+                          <div className="flex items-center justify-between mb-4">
+                             <h3 className="text-lg font-bold text-text-primary tracking-tight">Project Progress</h3>
+                             <button className="text-text-secondary hover:text-text-primary p-1">
+                                <MoreVertical size={16} />
+                             </button>
+                          </div>
+
+                          <div className="flex-1 flex flex-col items-center justify-center relative min-h-[180px]">
+                             <ResponsiveContainer width="100%" height={200}>
+                                <PieChart>
+                                   <Pie
+                                      data={[
+                                         { name: 'Completed', value: completed || 0, color: '#3b82f6' },
+                                         { name: 'In-Progress', value: active || 0, color: '#f59e0b' },
+                                         { name: 'Pending', value: pending || 0, color: '#8b5cf6' }
+                                      ]}
+                                      cx="50%"
+                                      cy="50%"
+                                      innerRadius={60}
+                                      outerRadius={80}
+                                      paddingAngle={5}
+                                      dataKey="value"
+                                      stroke="none"
+                                   >
+                                      <Cell fill="#3b82f6" />
+                                      <Cell fill="#f59e0b" />
+                                      <Cell fill="#8b5cf6" />
+                                      <Label 
+                                         content={({ viewBox }) => {
+                                            const { cx, cy } = viewBox;
+                                            return (
+                                               <g>
+                                                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" className="fill-text-primary text-2xl font-bold">
+                                                     {completionRate}%
+                                                  </text>
+                                                  <text x={cx} y={cy + 20} textAnchor="middle" dominantBaseline="middle" className="fill-text-secondary text-[10px] font-medium uppercase tracking-widest">
+                                                     Total
+                                                  </text>
+                                               </g>
+                                            );
+                                         }}
+                                      />
+                                   </Pie>
+                                   <Tooltip 
+                                      contentStyle={{ 
+                                         backgroundColor: theme === 'dark' ? '#18181b' : '#ffffff', 
+                                         borderColor: theme === 'dark' ? '#27272a' : '#e4e4e7',
+                                         borderRadius: '12px',
+                                         fontSize: '12px',
+                                         color: theme === 'dark' ? '#f4f4f5' : '#18181b'
+                                      }}
+                                   />
+                                </PieChart>
+                             </ResponsiveContainer>
+                       </div>
+
+                       <div className="grid grid-cols-3 gap-2 mt-4">
+                          <div className="flex flex-col gap-1">
+                             <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                <span className="text-[10px] font-semibold text-text-secondary">Completed</span>
+                             </div>
+                             <span className="text-sm font-bold text-text-primary ml-3.5">{total > 0 ? Math.round((completed / total) * 100) : 0}%</span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                             <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                                <span className="text-[10px] font-semibold text-text-secondary">In-Progress</span>
+                             </div>
+                             <span className="text-sm font-bold text-text-primary ml-3.5">{total > 0 ? Math.round((active / total) * 100) : 0}%</span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                             <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                                <span className="text-[10px] font-semibold text-text-secondary">Pending</span>
+                             </div>
+                             <span className="text-sm font-bold text-text-primary ml-3.5">{total > 0 ? Math.round((pending / total) * 100) : 0}%</span>
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="premium-card overflow-hidden">
+                          <div className="flex items-center justify-between mb-8">
+                             <div>
+                                <h3 className="text-lg font-bold text-text-primary tracking-tight">Activity</h3>
+                                <p className="text-[10px] text-text-secondary font-medium">
+                                  {activityView === 'personal' ? 'Your flow' : 'Platform activity'}
+                                </p>
+                             </div>
+                             <div className="flex items-center gap-1 bg-background-secondary p-1 rounded-lg border border-border-subtle scale-75 origin-right">
+                                <button 
+                                   onClick={() => setActivityView('personal')}
+                                   className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${activityView === 'personal' ? 'bg-white text-zinc-900 shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+                                >
+                                   Me
+                                </button>
+                                <button 
+                                   onClick={() => setActivityView('platform')}
+                                   className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${activityView === 'platform' ? 'bg-white text-zinc-900 shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+                                >
+                                   All
+                                </button>
+                             </div>
+                          </div>
+                           <div className="h-[280px] w-full">
+                             <ActivityChart 
+                               theme={theme} 
+                               data={activityView === 'platform' ? globalActivity : chartData} 
+                             />
+                          </div>
+                       </div>
+                    </div>
                 </div>
 
                 <div className="space-y-8 pt-4">
