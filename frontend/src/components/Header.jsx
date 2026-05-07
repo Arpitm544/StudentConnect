@@ -31,7 +31,7 @@ const Header = React.memo(({
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-background-secondary border border-border-subtle rounded-xl py-2.5 pl-10 pr-12 text-sm font-medium text-text-primary placeholder:text-text-secondary/40 focus:outline-none focus:border-accent/30 focus:ring-4 focus:ring-accent/5 transition-all"
           />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-1 bg-bg-main border border-border-subtle rounded-md pointer-events-none group-focus-within:opacity-0 transition-opacity">
+          <div className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 items-center gap-1 px-1.5 py-1 bg-bg-main border border-border-subtle rounded-md pointer-events-none group-focus-within:opacity-0 transition-opacity">
             <span className="text-[10px] font-bold text-text-secondary opacity-60">⌘</span>
             <span className="text-[10px] font-bold text-text-secondary opacity-60">K</span>
           </div>

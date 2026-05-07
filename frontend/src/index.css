@@ -68,7 +68,13 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-premium);
-  padding: 1.5rem;
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .premium-card {
+    padding: 1.5rem;
+  }
 }
 
 /* ── Animations ─────────────────────────────────────── */

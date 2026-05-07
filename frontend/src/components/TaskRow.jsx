@@ -66,7 +66,7 @@ const TaskRow = memo(function TaskRow({
   const isMultiSlot = capacity > 1;
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between px-6 py-4 rounded-xl bg-bg-card/50 hover:bg-text-primary/2 transition-all duration-200 group border border-border-subtle gap-4 md:gap-0">
+    <div className="flex flex-col md:flex-row md:items-center justify-between px-4 md:px-6 py-4 rounded-xl bg-bg-card/50 hover:bg-text-primary/2 transition-all duration-200 group border border-border-subtle gap-4 md:gap-0">
 
       <div className="flex items-center gap-4 min-w-0 pr-4">
         {currentPath === 'market' ? (
@@ -130,7 +130,7 @@ const TaskRow = memo(function TaskRow({
         </div>
       </div>
 
-      <div className="flex items-center gap-6 shrink-0">
+      <div className="flex items-center justify-between md:justify-end gap-3 md:gap-6 shrink-0 w-full md:w-auto border-t md:border-t-0 border-border-subtle/50 pt-3 md:pt-0">
         
         {currentPath === 'my-tasks' && (
           <div className="hidden md:flex items-center gap-3 w-32">
@@ -141,7 +141,7 @@ const TaskRow = memo(function TaskRow({
           </div>
         )}
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between md:justify-end gap-2 md:gap-4 w-full md:w-auto">
           {task.priority && (
             <span className={`px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded border ${
               task.priority === 'Critical' ? 'bg-red-500/20 text-red-400 border-red-500/20' :
@@ -157,7 +157,7 @@ const TaskRow = memo(function TaskRow({
             {computedStatus === 'submitted' ? 'In Review' : computedStatus?.replace('_', ' ')}
           </span>
 
-          <div className="flex items-center gap-1 border-l border-border-subtle pl-4">
+          <div className="flex items-center gap-1 md:border-l border-border-subtle md:pl-4">
             {currentPath === 'market' && slotsFilled < capacity && !isCreator && !task.assignees?.some(a => String(a.user_id) === String(userProfile?.id)) && (
               <button
                 onClick={() => onAccept(task.id)}
