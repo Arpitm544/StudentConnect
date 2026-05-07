@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { 
   X, User, Shield, Palette, 
-  Camera, LogOut, Trash2, Moon, Sun
+  Camera, LogOut, Trash2, Moon, Sun, Key, AlertTriangle, CheckCircle2
 } from 'lucide-react';
 import Avatar from './Avatar.jsx';
+import api from '../api/axios.js';
 
 const SettingsModal = ({ 
   isOpen, 
@@ -19,6 +20,19 @@ const SettingsModal = ({
 }) => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+
+  // Security States
+  const [securityData, setSecurityData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    otp: ''
+  });
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const [securityError, setSecurityError] = useState('');
+  const [securitySuccess, setSecuritySuccess] = useState('');
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [securityAction, setSecurityAction] = useState(null); // 'password' or 'delete'
+  const [deleteOtp, setDeleteOtp] = useState('');
 
   if (!isOpen) return null;
 
@@ -190,25 +204,210 @@ const SettingsModal = ({
     </div>
   );
 
+  const handleRequestPasswordOtp = async () => {
+    if (!securityData.currentPassword || !securityData.newPassword) {
+      setSecurityError('Please enter both current and new passwords');
+      return;
+    }
+    setSecurityLoading(true);
+    setSecurityError('');
+    try {
+      await api.post('/api/user/request-password-otp');
+      setIsOtpSent(true);
+      setSecurityAction('password');
+      setSecuritySuccess('Verification code sent to your email');
+    } catch (err) {
+      setSecurityError(err.response?.data?.error || 'Failed to send verification code');
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!securityData.otp) {
+      setSecurityError('Please enter the 6-digit code');
+      return;
+    }
+    setSecurityLoading(true);
+    setSecurityError('');
+    try {
+      await api.post('/api/user/change-password', {
+        current_password: securityData.currentPassword,
+        new_password: securityData.newPassword,
+        otp: securityData.otp
+      });
+      setSecuritySuccess('Password changed successfully!');
+      setSecurityData({ currentPassword: '', newPassword: '', otp: '' });
+      setIsOtpSent(false);
+      setSecurityAction(null);
+    } catch (err) {
+      setSecurityError(err.response?.data?.error || 'Failed to change password');
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const handleRequestDeleteOtp = async () => {
+    setSecurityLoading(true);
+    setSecurityError('');
+    try {
+      await api.post('/api/user/request-delete-otp');
+      setIsOtpSent(true);
+      setSecurityAction('delete');
+      setSecuritySuccess('Account deletion code sent to your email');
+    } catch (err) {
+      setSecurityError(err.response?.data?.error || 'Failed to send deletion code');
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deleteOtp) {
+      setSecurityError('Please enter the deletion code');
+      return;
+    }
+    setSecurityLoading(true);
+    setSecurityError('');
+    try {
+      await api.post('/api/user/delete-account', { otp: deleteOtp });
+      onLogout(); // This will redirect to landing page
+    } catch (err) {
+      setSecurityError(err.response?.data?.error || 'Failed to delete account');
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
   const renderSecurityTab = () => (
     <div className="space-y-6 animate-fade-in">
-      <div className="space-y-4">
-        <h4 className="text-sm font-medium text-text-primary">Password</h4>
-        <div className="grid gap-3">
-           <input type="password" placeholder="Current password" className="w-full bg-bg-card border border-border-subtle rounded-lg px-3 py-2 text-sm outline-none focus:border-accent" />
-           <input type="password" placeholder="New password" className="w-full bg-bg-card border border-border-subtle rounded-lg px-3 py-2 text-sm outline-none focus:border-accent" />
-           <button className="w-full py-2 bg-bg-main border border-border-subtle text-text-primary text-sm font-medium rounded-lg hover:bg-bg-card transition-colors">Change Password</button>
+      {/* Feedback Messages */}
+      {securityError && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-500 text-xs font-medium">
+          <AlertTriangle size={14} /> {securityError}
         </div>
+      )}
+      {securitySuccess && (
+        <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2 text-green-500 text-xs font-medium">
+          <CheckCircle2 size={14} /> {securitySuccess}
+        </div>
+      )}
+
+      {/* Password Change Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Key size={16} className="text-text-secondary" />
+          <h4 className="text-sm font-medium text-text-primary">Change Password</h4>
+        </div>
+        
+        {!isOtpSent || securityAction !== 'password' ? (
+          <div className="grid gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest ml-1">Current Password</label>
+              <input 
+                type="password" 
+                value={securityData.currentPassword}
+                onChange={(e) => setSecurityData({...securityData, currentPassword: e.target.value})}
+                placeholder="••••••••" 
+                className="w-full bg-bg-card border border-border-subtle rounded-lg px-3 py-2.5 text-sm outline-none focus:border-accent transition-all" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest ml-1">New Password</label>
+              <input 
+                type="password" 
+                value={securityData.newPassword}
+                onChange={(e) => setSecurityData({...securityData, newPassword: e.target.value})}
+                placeholder="Minimum 6 characters" 
+                className="w-full bg-bg-card border border-border-subtle rounded-lg px-3 py-2.5 text-sm outline-none focus:border-accent transition-all" 
+              />
+            </div>
+            <button 
+              onClick={handleRequestPasswordOtp}
+              disabled={securityLoading}
+              className="w-full py-2.5 bg-text-primary text-bg-main text-sm font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
+            >
+              {securityLoading ? 'Sending Code...' : 'Request Verification Code'}
+            </button>
+          </div>
+        ) : (
+          <div className="p-4 bg-bg-main/50 rounded-xl border border-dashed border-accent/30 space-y-4">
+            <p className="text-xs text-text-secondary text-center">Enter the 6-digit code sent to your email to confirm password change.</p>
+            <input 
+              type="text" 
+              maxLength="6"
+              value={securityData.otp}
+              onChange={(e) => setSecurityData({...securityData, otp: e.target.value})}
+              placeholder="000000" 
+              className="w-full bg-bg-card border border-accent rounded-lg px-3 py-3 text-center text-lg font-bold tracking-[1em] outline-none" 
+            />
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setIsOtpSent(false)}
+                className="flex-1 py-2 text-text-secondary text-xs font-medium hover:text-text-primary transition-colors"
+              >
+                Back
+              </button>
+              <button 
+                onClick={handleChangePassword}
+                disabled={securityLoading}
+                className="flex-[2] py-2 bg-accent text-white text-xs font-bold rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
+              >
+                {securityLoading ? 'Updating...' : 'Confirm Change'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* Delete Account Section */}
       <div className="pt-6 border-t border-border-subtle">
-         <h4 className="text-sm font-medium text-red-500 mb-1">Delete Account</h4>
-         <p className="text-xs text-text-secondary mb-4">
-            This will permanently remove all your data.
-         </p>
-         <button className="text-xs font-medium text-red-500 hover:underline">
-            Delete my account
-         </button>
+        <div className="flex items-center gap-2 mb-2 text-red-500">
+          <Trash2 size={16} />
+          <h4 className="text-sm font-medium">Danger Zone</h4>
+        </div>
+        
+        {(!isOtpSent || securityAction !== 'delete') ? (
+          <div className="p-4 rounded-xl border border-red-500/10 bg-red-500/5">
+            <p className="text-xs text-text-secondary mb-4 leading-relaxed">
+              Once you delete your account, there is no going back. All your tasks, contributions, and profile data will be permanently wiped.
+            </p>
+            <button 
+              onClick={handleRequestDeleteOtp}
+              disabled={securityLoading}
+              className="text-xs font-bold text-red-500 hover:text-red-600 flex items-center gap-1 transition-colors"
+            >
+              {securityLoading ? 'Sending...' : 'Request deletion code'}
+            </button>
+          </div>
+        ) : (
+          <div className="p-4 bg-red-500/5 rounded-xl border border-dashed border-red-500/30 space-y-4">
+            <p className="text-xs text-red-500 font-medium text-center">Confirm Deletion</p>
+            <input 
+              type="text" 
+              maxLength="6"
+              value={deleteOtp}
+              onChange={(e) => setDeleteOtp(e.target.value)}
+              placeholder="000000" 
+              className="w-full bg-bg-card border border-red-500/30 rounded-lg px-3 py-3 text-center text-lg font-bold tracking-[1em] outline-none text-red-500" 
+            />
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setIsOtpSent(false)}
+                className="flex-1 py-2 text-text-secondary text-xs font-medium hover:text-text-primary transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleDeleteAccount}
+                disabled={securityLoading}
+                className="flex-[2] py-2 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 transition-all disabled:opacity-50"
+              >
+                {securityLoading ? 'Deleting...' : 'Delete Permanently'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -85,6 +85,7 @@ func CreateTask(c *gin.Context) {
 	}
 
 	fmt.Printf("EXPOSED NEW TASK ID: %d\n", id)
+	services.LogActivity(id, userID, "created", "Task created")
 	c.JSON(http.StatusCreated, gin.H{"id": strconv.FormatInt(id, 10)})
 
 	go func() {
@@ -165,6 +166,7 @@ func UpdateTask(c *gin.Context) {
 		return
 	}
 
+	services.LogActivity(taskID, userID, "task_updated", "Task details updated")
 	c.JSON(http.StatusOK, gin.H{"message": "Task updated successfully"})
 }
 
@@ -267,6 +269,7 @@ func AcceptTask(c *gin.Context) {
 		userID, taskID,
 	)
 
+	services.LogActivity(taskID, userID, "accepted", "Member joined the task")
 	c.JSON(http.StatusOK, gin.H{"message": "Assignment accepted"})
 
 	go func() {
@@ -401,6 +404,11 @@ func GetTask(c *gin.Context) {
 			m.SubmissionNote = &sn.String
 		}
 		t.Milestones = append(t.Milestones, m)
+	}
+
+	t.Activities, _ = services.FetchActivities(id)
+	if t.Activities == nil {
+		t.Activities = make([]models.Activity, 0)
 	}
 
 	c.JSON(http.StatusOK, t)
@@ -547,6 +555,7 @@ func RespondToInvitation(c *gin.Context) {
 
 func AddMilestone(c *gin.Context) {
 	taskID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	userID := c.MustGet("user_id").(int64)
 	var input struct {
 		Title string `json:"title"`
 	}
@@ -554,11 +563,13 @@ func AddMilestone(c *gin.Context) {
 
 	config.DB.Exec(`INSERT INTO milestones (task_id, title, status) VALUES ($1, $2, 'pending')`, taskID, input.Title)
 	services.SyncTaskStatusWithMilestones(int64(taskID))
+	services.LogActivity(int64(taskID), userID, "milestone_added", fmt.Sprintf("Added milestone: %s", input.Title))
 	c.JSON(http.StatusCreated, gin.H{"message": "Milestone added"})
 }
 
 func UpdateMilestoneStatus(c *gin.Context) {
 	taskID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	userID := c.MustGet("user_id").(int64)
 	mid, _ := strconv.Atoi(c.Param("mid"))
 	var input struct {
 		Status string `json:"status"`
@@ -567,12 +578,14 @@ func UpdateMilestoneStatus(c *gin.Context) {
 
 	config.DB.Exec(`UPDATE milestones SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND task_id = $3`, strings.ToLower(input.Status), mid, taskID)
 	services.SyncTaskStatusWithMilestones(int64(taskID))
+	services.LogActivity(int64(taskID), userID, "milestone_updated", fmt.Sprintf("Milestone status updated to %s", input.Status))
 	c.JSON(http.StatusOK, gin.H{"message": "Milestone updated"})
 }
 
 // SubmitMilestoneForReview handles the submission of a specific milestone
 func SubmitMilestoneForReview(c *gin.Context) {
 	taskID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	userID := c.MustGet("user_id").(int64)
 	mid, _ := strconv.Atoi(c.Param("mid"))
 	var input struct {
 		Link string `json:"link"`
@@ -582,6 +595,7 @@ func SubmitMilestoneForReview(c *gin.Context) {
 
 	config.DB.Exec(`UPDATE milestones SET status = 'submitted', submission_link = $1, submission_note = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 AND task_id = $4`, input.Link, input.Note, mid, taskID)
 	services.SyncTaskStatusWithMilestones(int64(taskID))
+	services.LogActivity(taskID, userID, "milestone_submitted", "Milestone work submitted for review")
 	c.JSON(http.StatusOK, gin.H{"message": "Milestone submitted"})
 }
 
@@ -619,7 +633,8 @@ func UpdateTaskStatus(c *gin.Context) {
 			strings.ToLower(input.Status), input.Progress, taskID, userID)
 		
 
-		c.JSON(http.StatusOK, gin.H{"message": "Your progress updated"})
+	services.LogActivity(taskID, userID, "status_updated", fmt.Sprintf("Task status updated to %s", input.Status))
+	c.JSON(http.StatusOK, gin.H{"message": "Your progress updated"})
 		return
 	}
 
@@ -897,4 +912,20 @@ func DeleteMilestone(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Milestone deleted successfully"})
+}
+
+func AddComment(c *gin.Context) {
+	taskID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	userID := c.MustGet("user_id").(int64)
+
+	var input struct {
+		Content string `json:"content"`
+	}
+	if err := c.BindJSON(&input); err != nil || strings.TrimSpace(input.Content) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Comment content is required"})
+		return
+	}
+
+	services.LogActivity(taskID, userID, "comment", input.Content)
+	c.JSON(http.StatusCreated, gin.H{"message": "Comment added"})
 }

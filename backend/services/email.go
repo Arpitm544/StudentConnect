@@ -149,6 +149,37 @@ const verifyEmailTemplate = `
 </html>
 `
 
+const passwordChangeOTPTemplate = `
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+	<div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+		<h2 style="color: #4A90E2;">Password Change Verification</h2>
+		<p>Hi {{.UserName}},</p>
+		<p>You requested to change your password. Use the following code to verify this action:</p>
+		<p style="margin: 24px 0; font-size: 28px; letter-spacing: 6px; font-weight: 700; color: #111827;">{{.VerificationOTP}}</p>
+		<p style="font-size:12px;color:#666;">If you didn't request this, please secure your account immediately.</p>
+	</div>
+</body>
+</html>
+`
+
+const deleteAccountOTPTemplate = `
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+	<div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; border-top: 4px solid #EF4444;">
+		<h2 style="color: #EF4444;">Account Deletion Request</h2>
+		<p>Hi {{.UserName}},</p>
+		<p>We received a request to permanently delete your TaskNest account. This action cannot be undone.</p>
+		<p>To proceed, please use the following verification code:</p>
+		<p style="margin: 24px 0; font-size: 28px; letter-spacing: 6px; font-weight: 700; color: #EF4444;">{{.VerificationOTP}}</p>
+		<p style="font-size:12px;color:#666;">If you did not request this, please ignore this email.</p>
+	</div>
+</body>
+</html>
+`
+
 const deadlineExtensionTemplate = `
 <!DOCTYPE html>
 <html>
@@ -283,5 +314,29 @@ func SendDeadlineExtensionEmail(toEmail, userName, title string) {
 		}
 
 		_ = SendEmail([]string{toEmail}, "Action Required: Deadline Approaching for "+title, body.String(), true)
+	}()
+}
+
+func SendPasswordChangeOTP(toEmail, userName, otp string) {
+	go func() {
+		tmpl, err := template.New("pwd_otp").Parse(passwordChangeOTPTemplate)
+		if err != nil {
+			return
+		}
+		var body bytes.Buffer
+		_ = tmpl.Execute(&body, EmailData{UserName: userName, VerificationOTP: otp})
+		_ = SendEmail([]string{toEmail}, "Verification Code: Change Password", body.String(), true)
+	}()
+}
+
+func SendDeleteAccountOTP(toEmail, userName, otp string) {
+	go func() {
+		tmpl, err := template.New("del_otp").Parse(deleteAccountOTPTemplate)
+		if err != nil {
+			return
+		}
+		var body bytes.Buffer
+		_ = tmpl.Execute(&body, EmailData{UserName: userName, VerificationOTP: otp})
+		_ = SendEmail([]string{toEmail}, "Verification Code: Delete Account", body.String(), true)
 	}()
 }

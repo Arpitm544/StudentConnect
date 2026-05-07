@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { useParams, useNavigate, Link, NavLink, useLocation } from 'react-router-dom';
 import Avatar from './components/Avatar.jsx';
 import Sidebar from './components/Sidebar.jsx';
+import api from './api/axios.js'; // Use the configured axios instance
 import Header from './components/Header.jsx';
 import { useTheme } from './context/ThemeContext.jsx';
 import { TaskDetailSkeleton } from './components/Skeleton.jsx';
@@ -37,14 +38,14 @@ const TimelineStep = memo(function TimelineStep({ step, isCompleted, isActive })
           ${isCompleted
             ? 'bg-accent border-accent text-white scale-110'
             : isActive
-              ? 'bg-bg-main border-accent ring-4 ring-accent/10'
+              ? 'bg-bg-main border-accent'
               : 'bg-bg-main border-border-subtle group-hover:border-text-primary/20'
           }`}
       >
         {isCompleted ? (
           <Check size={12} strokeWidth={4} />
         ) : (
-          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-accent animate-pulse' : 'bg-transparent'}`} />
+          <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-accent' : 'bg-transparent'}`} />
         )}
       </div>
       <span
@@ -108,7 +109,6 @@ const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateL
 
 
   if (status === 'completed') {
-    if (hasMilestones) return null; 
     return (
       <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-6 flex flex-col gap-4 w-full justify-center items-center">
         <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center">
@@ -187,19 +187,18 @@ export default function TaskDetail() {
     ai_optimized: false,
   });
 
+  const [showAllActivities, setShowAllActivities] = useState(false);
+
   const [aiRecommendation, setAiRecommendation] = useState('');
   const [isGeneratingMilestones, setIsGeneratingMilestones] = useState(false);
   const [isRecommendingUsers, setIsRecommendingUsers] = useState(false);
+  const [commentText, setCommentText] = useState('');
 
 
   const fetchTask = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/tasks/detail/${id}`, { credentials: 'include' });
-      if (!res.ok) {
-        if (res.status === 404) throw new Error('Task not found.');
-        throw new Error(`Failed to load task (${res.status})`);
-      }
-      const data = await res.json();
+      const res = await api.get(`/tasks/detail/${id}`);
+      const data = res.data;
       setTask(data);
       setEditForm({
         title: data.title || '',
@@ -211,14 +210,14 @@ export default function TaskDetail() {
         ai_optimized: data.ai_optimized || false,
       });
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message);
     }
   }, [id]);
 
   const loadProfile = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/user/profile`, { credentials: 'include' });
-      if (res.ok) setUserProfile(await res.json());
+      const res = await api.get('/api/user/profile');
+      setUserProfile(res.data);
     } catch (err) {
       console.error('Failed to load profile:', err);
     }
@@ -291,6 +290,23 @@ export default function TaskDetail() {
       setUpdateLoading(false);
     }
   }, [id, fetchTask]);
+
+  const handleAddComment = async (e) => {
+    if (e) e.preventDefault();
+    if (!commentText.trim() || updateLoading) return;
+    
+    setUpdateLoading(true);
+    try {
+      await api.post(`/tasks/${id}/comments`, { content: commentText });
+      setCommentText('');
+      await fetchTask(); // Refresh to show new activity
+    } catch (err) {
+      console.error('Failed to add comment:', err);
+      alert('Failed to add comment. Please try again.');
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
 
   const handleAction = useCallback(async (action) => {
     if (action === 'submit') {
@@ -556,6 +572,19 @@ export default function TaskDetail() {
     return new Date(dateStr).toLocaleDateString('en-US', DATE_FMT);
   }, []);
 
+  const formatTimeAgo = useCallback((dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000); // seconds
+
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }, []);
+
   const isPastDeadline = useMemo(
     () => task?.deadline && new Date(task.deadline) < new Date(),
     [task?.deadline]
@@ -650,7 +679,7 @@ export default function TaskDetail() {
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
 
         {/* Breadcrumb */}
-        <div className="mb-10">
+        <div className="mb-8">
           <Link 
             to={fromPath === 'dashboard' ? '/dashboard' : `/dashboard/${fromPath}`} 
             className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-accent transition-colors group"
@@ -662,367 +691,371 @@ export default function TaskDetail() {
           </Link>
         </div>
 
-        {/* Floating Header */}
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-8 mb-12">
-          <div className="max-w-3xl">
-            <h1 className="text-3xl sm:text-4xl font-bold text-text-primary tracking-tight leading-tight mb-4">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-10 border-b border-border-subtle">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-4">
+              <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                task.priority === 'Critical' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
+                task.priority === 'High' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' :
+                task.priority === 'Medium' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+              }`}>
+                {task.priority || 'Medium'} Priority
+              </span>
+              <span className="text-text-secondary/40 text-[10px] font-bold uppercase tracking-widest">Task ID: {id?.slice(-6)}</span>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold text-text-primary tracking-tight leading-tight">
               {task.title}
             </h1>
-            <p className="text-text-secondary text-[15px] leading-relaxed opacity-80 line-clamp-2">
-              {task.description}
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-
+          <div className="flex items-center gap-3">
             {isCreator && (
               <button 
                 onClick={() => setIsEditing(true)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-text-primary/3 border border-border-subtle text-text-primary hover:bg-text-primary/6 rounded-xl text-[13px] font-semibold transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-text-primary/3 border border-border-subtle text-text-primary hover:bg-text-primary/6 rounded-lg text-[13px] font-semibold transition-colors"
               >
-                <Edit3 size={16} /> Edit
+                <Edit3 size={16} /> Edit Details
               </button>
             )}
+            <div className="w-[1px] h-8 bg-border-subtle mx-1 hidden sm:block" />
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] font-bold text-accent tracking-widest uppercase mb-1">{percentage}% COMPLETE</span>
+              <div className="w-32 h-1.5 bg-text-primary/5 rounded-full overflow-hidden">
+                <div className="h-full bg-accent transition-all duration-1000" style={{ width: `${percentage}%` }} />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Glass Panel */}
-        <div className="premium-card mb-16">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-12">
-
-            {/* Properties grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-10 gap-x-12">
-              <div>
-                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-3 flex items-center gap-2 opacity-60"><Activity size={14} /> Status</p>
-                <p className="text-[15px] font-semibold text-text-primary capitalize">{task.status?.replace('_', ' ') || 'Pending'}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-4 flex items-center gap-2 opacity-60"><Users size={14} /> Assigned To</p>
-                {task.assignees && task.assignees.length > 0 ? (
-                  <div className="flex flex-col gap-4">
-                    {task.assignees.map((assignee) => (
-                      <div key={assignee.user_id} className="flex items-center justify-between group">
-                        <div className="flex items-center gap-3">
-                          <Avatar name={assignee.name} photoUrl={assignee.photo_url} size="md" />
-                          <div className="flex flex-col">
-                            <span className="text-[14px] font-semibold text-text-primary">{assignee.name}</span>
-                            <span className="text-[10px] text-text-secondary font-medium uppercase tracking-tight opacity-60">{assignee.status?.replace('_', ' ')}</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <span className="text-[10px] font-bold text-accent mb-1">{assignee.progress}%</span>
-                          <div className="w-20 h-1 bg-text-primary/5 rounded-full overflow-hidden">
-                            <div className="h-full bg-accent transition-all duration-500" style={{ width: `${assignee.progress}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[15px] font-medium text-text-secondary italic">Unassigned</p>
-                )}
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-4 flex items-center gap-2 opacity-60"><Briefcase size={14} /> Posted By</p>
-                <div className="flex items-center gap-3">
-                  <Avatar name={task.creator_name} photoUrl={task.creator_photo_url} size="md" />
-                  <span className="text-[15px] font-semibold text-text-primary">{task.creator_name || 'Unknown'}</span>
-                </div>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-4 flex items-center gap-2 opacity-60"><Clock size={14} /> Deadline</p>
-                <p className={`text-[15px] font-semibold ${isPastDeadline ? 'text-red-400' : 'text-text-primary'}`}>{formatDate(task.deadline)}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-3 flex items-center gap-2 opacity-60"><AlertCircle size={14} /> Priority</p>
-                <div className="flex items-center gap-2">
-                  <span className={`px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-tighter ${
-                    task.priority === 'Critical' ? 'bg-red-500/10 text-red-500' :
-                    task.priority === 'High' ? 'bg-orange-500/10 text-orange-500' :
-                    task.priority === 'Medium' ? 'bg-blue-500/10 text-blue-500' :
-                    'bg-emerald-500/10 text-emerald-500'
-                  }`}>
-                    {task.priority || 'Medium'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-             {/* CTA Strip — passes stable callbacks to memoised child */}
-            <div className="flex flex-col justify-center border-t md:border-t-0 md:border-l border-border-subtle pt-10 md:pt-0 md:pl-12">
-              <CTAStrip
-                status={task.status}
-                isCreator={isCreator}
-                isAssignee={isAssignee}
-                updateLoading={updateLoading}
-                onAccept={handleAcceptTask}
-                onAction={handleAction}
-                onLeave={handleLeaveTask}
-                hasMilestones={task.milestones?.length > 0}
-                slotsFilled={task.slots_filled || 0}
-                capacity={task.capacity || 1}
-              />
-            </div>
+        {/* Workflow / Timeline */}
+        <div className="mb-16 animate-fade-in" style={{ animationDelay: '100ms' }}>
+          <div className="flex items-center gap-2 mb-8 opacity-60">
+             <GitMerge size={16} className="text-accent" />
+             <span className="text-[11px] font-bold uppercase tracking-widest text-text-primary">Task Lifecycle</span>
           </div>
-
-          {/* Error alert */}
-          {error && (
-            <div className="mt-8 p-4 bg-red-50 text-red-600 text-[14px] font-medium rounded-xl flex items-center gap-2 shadow-sm border border-red-100">
-              <AlertCircle size={18} /> {error}
-            </div>
-          )}
-        </div>
-
-        {/* Timeline */}
-        <div className="mb-24">
-          <div className="flex justify-between items-center mb-12">
-            <div>
-              <h3 className="text-2xl font-bold text-text-primary tracking-tight">Project Status</h3>
-              <p className="text-text-secondary text-sm mt-1 opacity-60">Visual journey from start to completion</p>
-            </div>
-            <span className="text-[12px] font-bold text-accent tracking-widest uppercase bg-accent/5 border border-accent/20 px-4 py-1.5 rounded-full shadow-sm">{percentage}% Complete</span>
-          </div>
-
-          <div className="relative pt-6 pb-10 w-full px-4">
-            {/* Track */}
-            <div className="absolute top-[34px] left-4 right-4 h-[2px] bg-text-primary/20 rounded-full z-0" />
-            {/* Fill */}
+          <div className="relative flex items-start w-full px-4 sm:px-12">
+            <div className="absolute top-2.5 left-12 right-12 h-0.5 bg-border-subtle z-0" />
             <div
-              className="absolute top-[34px] left-4 h-[2px] rounded-full transition-[width] duration-1000 ease-in-out bg-accent z-0 shadow-[0_0_12px_rgba(79,140,255,0.5)]"
+              className="absolute top-2.5 left-12 h-0.5 bg-accent transition-all duration-1000 z-0"
               style={progressBarStyle}
             />
-            {/* Steps */}
-            <div className="flex justify-between relative w-full">
-              {STEPS.map((step, index) => (
-                <TimelineStep
-                  key={step.id}
-                  step={step}
-                  isCompleted={index < currentStepIndex || task.status === 'completed'}
-                  isActive={index === currentStepIndex && task.status !== 'completed'}
-                />
-              ))}
-            </div>
+            {STEPS.map((step, idx) => (
+              <TimelineStep
+                key={step.id}
+                step={step}
+                isCompleted={idx < currentStepIndex || task.status === 'completed'}
+                isActive={idx === currentStepIndex && task.status !== 'completed'}
+              />
+            ))}
           </div>
         </div>
 
-        {/* Milestones Section */}
-        <div className="mb-16 premium-card">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-               <GitMerge size={20} className="text-accent" /> Milestones
-            </h3>
-            {isCreator && !isAddingMilestone && (
-               <div className="flex items-center gap-2">
-                 <button 
-                    onClick={handleAiGenerateMilestones}
-                    disabled={isGeneratingMilestones || (task?.ai_milestone_count >= 2)}
-                    className={`text-[11px] font-bold text-white px-4 py-1.5 rounded-lg transition-all flex items-center gap-2 uppercase tracking-widest shadow-sm ${
-                      (task?.ai_milestone_count >= 2) 
-                        ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed border border-zinc-200 dark:border-zinc-700' 
-                        : 'bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 active:scale-95'
-                    }`}
-                   >
-                    {isGeneratingMilestones ? <RefreshCw size={14} className="animate-spin" /> : <Layers size={14} />}
-                    {task?.ai_milestone_count >= 2 ? 'Roadmap Finalized' : `Smart Roadmap (${2 - (task?.ai_milestone_count || 0)} left)`}
-                  </button>
-                 <button 
-                   onClick={() => setIsAddingMilestone(true)}
-                   className="text-[11px] font-bold text-accent hover:text-white bg-accent/10 border border-accent/20 px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 uppercase tracking-widest"
-                  >
-                   <Plus size={14} /> Add
-                 </button>
-               </div>
-            )}
-          </div>
-
-          {isAddingMilestone && (
-             <form onSubmit={handleAddMilestone} className="mb-8 p-6 bg-bg-main border border-border-subtle rounded-xl animate-fade-in">
-                <div className="flex items-center gap-4">
-                   <input 
-                      type="text" 
-                      autoFocus
-                      placeholder="Enter milestone title..." 
-                      value={newMilestoneTitle}
-                      onChange={(e) => setNewMilestoneTitle(e.target.value)}
-                      className="flex-1 bg-transparent border border-text-primary/10 rounded-lg px-4 py-2.5 text-sm focus:border-accent/40 outline-none text-text-primary"
-                   />
-                   <button 
-                      type="submit" 
-                      disabled={updateLoading || !newMilestoneTitle.trim()}
-                      className="px-6 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-                   >
-                      {updateLoading ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
-                      Add
-                   </button>
-                   <button 
-                      type="button" 
-                      onClick={() => {
-                        setIsAddingMilestone(false);
-                        setNewMilestoneTitle('');
-                      }}
-                      className="p-2 text-text-secondary hover:text-text-primary"
-                   >
-                      <X size={20} />
-                   </button>
-                </div>
-             </form>
-          )}
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-10">
           
-          <div className="space-y-4">
-            {task.milestones?.length > 0 ? (
-              task.milestones.map((m, index) => {
-                const isLocked = index > 0 && task.milestones[index - 1].status !== 'done';
-                
-                return (
-                  <div key={m.id} className={`flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-bg-main/40 backdrop-blur-sm rounded-2xl border border-border-subtle group transition-all duration-300 ${isLocked ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5'}`}>
-                    <div className="flex items-center gap-6 mb-4 sm:mb-0">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all duration-300 ${m.status === 'done' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 shadow-lg shadow-emerald-500/10' : isLocked ? 'bg-bg-main border-border-subtle text-text-secondary/30' : 'bg-accent/5 border-accent/20 text-accent shadow-lg shadow-accent/5'}`}>
-                        {isLocked ? <Lock size={20} /> : m.status === 'done' ? <Check size={22} strokeWidth={3} /> : <GitMerge size={22} />}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <h4 className={`text-[16px] font-bold tracking-tight ${m.status === 'done' ? 'text-text-secondary line-through' : 'text-text-primary'}`}>{m.title}</h4>
-                          {isLocked && <span className="text-[9px] font-bold text-text-secondary/40 bg-text-primary/3 border border-border-subtle px-2 py-0.5 rounded flex items-center gap-1 uppercase tracking-widest"><Lock size={8} /> Locked</span>}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${
-                            m.status === 'done' ? 'bg-emerald-500/10 text-emerald-500' :
-                            m.status === 'in_progress' ? 'bg-amber-500/10 text-amber-500' :
-                            m.status === 'submitted' ? 'bg-blue-500/10 text-blue-500' :
-                            'bg-text-primary/5 text-text-secondary'
-                          }`}>
-                            {m.status?.replace('_', ' ')}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  
-                  <div className="flex items-center gap-3">
-                    {isCreator && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMilestoneToDelete(m.id);
-                        }}
-                        className="p-2.5 text-text-secondary hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all border border-transparent hover:border-red-400/20"
-                        title="Delete Milestone"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
-                    {isAssignee && m.status === 'pending' && (
-                      <button 
-                        onClick={() => handleMilestoneStatus(m.id, 'in_progress')} 
-                        disabled={isLocked}
-                        className="px-5 py-2 bg-accent text-white text-[13px] font-bold rounded-xl hover:opacity-90 disabled:opacity-50 shadow-lg shadow-accent/10 transition-all active:scale-95"
-                      >
-                        Start
-                      </button>
-                    )}
-                    {isAssignee && m.status === 'in_progress' && (
-                      <button 
-                        onClick={() => {
-                          if (isLocked) return;
-                          setSubmittingMilestone(m);
-                          setMileLink('');
-                          setMileNote('');
-                        }} 
-                        disabled={isLocked}
-                        className="px-5 py-2 bg-amber-500 text-white text-[13px] font-bold rounded-xl hover:bg-amber-600 disabled:opacity-50 shadow-lg shadow-amber-500/10 transition-all active:scale-95"
-                      >
-                        Submit
-                      </button>
-                    )}
-                    {(m.status === 'submitted' || m.status === 'done') && m.submission_link && (
-                      <a 
-                        href={m.submission_link} 
-                        target="_blank" 
-                        rel="noreferrer" 
-                        className="flex items-center gap-2 px-5 py-2 bg-text-primary/3 border border-border-subtle text-text-primary text-[13px] font-bold rounded-xl hover:bg-text-primary/6 transition-all"
-                      >
-                        <ExternalLink size={16} /> View Work
-                      </a>
-                    )}
-                    {isCreator && m.status === 'submitted' && (
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => handleMilestoneStatus(m.id, 'done')} className="px-5 py-2 bg-emerald-500 text-white text-[13px] font-bold rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-500/10 transition-all active:scale-95">Approve</button>
-                        <button onClick={() => handleMilestoneStatus(m.id, 'in_progress')} className="px-5 py-2 bg-text-primary/3 border border-border-subtle text-text-secondary text-[13px] font-bold rounded-xl hover:bg-text-primary/6 transition-all">Reject</button>
-                      </div>
-                    )}
+          {/* Main Content Area */}
+          <div className="space-y-12">
+            
+            {/* Description Section */}
+            <section className="animate-fade-in">
+              <div className="flex items-center gap-2 mb-6 text-text-primary">
+                <FileText size={18} className="text-accent" />
+                <h3 className="text-sm font-bold uppercase tracking-widest opacity-60">Description</h3>
+              </div>
+              <div className="bg-bg-card border border-border-subtle rounded-2xl p-8">
+                <p className="text-[16px] text-text-primary/90 leading-relaxed whitespace-pre-wrap">
+                  {task.description || "No description provided for this task."}
+                </p>
+                {task.attachment_url && (
+                  <div className="mt-8 pt-8 border-t border-border-subtle">
+                    <a 
+                      href={task.attachment_url} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="inline-flex items-center gap-3 px-4 py-2.5 bg-accent/5 border border-accent/20 rounded-xl text-accent text-sm font-semibold hover:bg-accent/10 transition-all"
+                    >
+                      <Link2 size={16} /> View Attachment
+                    </a>
                   </div>
-                </div>
-                );
-              })
-            ) : (
-              <p className="text-center py-10 text-text-secondary text-sm italic border border-dashed border-border-subtle rounded-xl opacity-60">No milestones added yet.</p>
-            )}
-          </div>
-        </div>
+                )}
+              </div>
+            </section>
 
-        {/* Proof of Work Section (Only shown if submitted/completed) */}
-        {(task.status === 'submitted' || task.status === 'completed') && (
-          <div className="mb-16 animate-fade-up">
-            <h3 className="text-[13px] font-bold text-text-secondary mb-6 tracking-widest uppercase opacity-60">Proof of Work</h3>
+            {/* Milestones / Sub-tasks */}
+            <section className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2 text-text-primary">
+                  <Layers size={18} className="text-accent" />
+                  <h3 className="text-sm font-bold uppercase tracking-widest opacity-60">Roadmap & Milestones</h3>
+                </div>
+                {isCreator && !isAddingMilestone && (
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={handleAiGenerateMilestones}
+                      disabled={isGeneratingMilestones || (task?.ai_milestone_count >= 2)}
+                      className={`text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 uppercase tracking-widest ${
+                        (task?.ai_milestone_count >= 2) 
+                          ? 'bg-text-primary/5 text-text-secondary/40 cursor-not-allowed' 
+                          : 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90'
+                      }`}
+                    >
+                      {isGeneratingMilestones ? <RefreshCw size={12} className="animate-spin" /> : <Layers size={12} />}
+                      {task?.ai_milestone_count >= 2 ? 'Roadmap Done' : 'AI Generate'}
+                    </button>
+                    <button 
+                      onClick={() => setIsAddingMilestone(true)}
+                      className="text-[10px] font-bold text-accent hover:text-white bg-accent/10 border border-accent/20 px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 uppercase tracking-widest"
+                    >
+                      <Plus size={12} /> Add
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Existing Milestones UI Logic stays but wrapped in this new section */}
+              {isAddingMilestone && (
+                 <form onSubmit={handleAddMilestone} className="mb-6 p-4 bg-bg-card border border-border-subtle rounded-xl">
+                    <div className="flex items-center gap-3">
+                       <input 
+                          type="text" 
+                          autoFocus
+                          placeholder="New milestone..." 
+                          value={newMilestoneTitle}
+                          onChange={(e) => setNewMilestoneTitle(e.target.value)}
+                          className="flex-1 bg-transparent border border-border-subtle rounded-lg px-4 py-2 text-sm outline-none text-text-primary focus:border-accent"
+                       />
+                       <button type="submit" disabled={updateLoading || !newMilestoneTitle.trim()} className="px-4 py-2 bg-accent text-white rounded-lg text-xs font-bold hover:opacity-90">Add</button>
+                       <button type="button" onClick={() => setIsAddingMilestone(false)} className="text-text-secondary"><X size={18} /></button>
+                    </div>
+                 </form>
+              )}
+
+              <div className="space-y-4">
+                {task.milestones?.length > 0 ? (
+                  task.milestones.map((m, index) => {
+                    const isLocked = index > 0 && task.milestones[index - 1].status !== 'done';
+                    return (
+                      <div key={m.id} className={`group flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-bg-card/40 border border-border-subtle rounded-2xl transition-all ${isLocked ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-accent/30 hover:shadow-lg shadow-accent/5'}`}>
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${m.status === 'done' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : isLocked ? 'bg-bg-main border-border-subtle text-text-secondary/30' : 'bg-accent/5 border-accent/20 text-accent'}`}>
+                            {isLocked ? <Lock size={16} /> : m.status === 'done' ? <Check size={18} strokeWidth={3} /> : <GitMerge size={18} />}
+                          </div>
+                          <div>
+                            <h4 className={`text-sm font-bold ${m.status === 'done' ? 'text-text-secondary line-through' : 'text-text-primary'}`}>{m.title}</h4>
+                            <span className={`text-[9px] font-bold uppercase tracking-widest ${
+                              m.status === 'done' ? 'text-emerald-500' :
+                              m.status === 'in_progress' ? 'text-amber-500' :
+                              'text-text-secondary/60'
+                            }`}>{m.status?.replace('_', ' ')}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-4 sm:mt-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {isCreator && <button onClick={() => setMilestoneToDelete(m.id)} className="p-2 text-text-secondary hover:text-red-400 rounded-lg"><Trash2 size={16} /></button>}
+                          {isAssignee && m.status === 'pending' && <button onClick={() => handleMilestoneStatus(m.id, 'in_progress')} className="px-4 py-1.5 bg-accent text-white text-[11px] font-bold rounded-lg">Start</button>}
+                          {isAssignee && m.status === 'in_progress' && <button onClick={() => { setSubmittingMilestone(m); setMileLink(''); setMileNote(''); }} className="px-4 py-1.5 bg-amber-500 text-white text-[11px] font-bold rounded-lg">Submit</button>}
+                          {(m.status === 'submitted' || m.status === 'done') && m.submission_link && <a href={m.submission_link} target="_blank" rel="noreferrer" className="p-2 text-accent hover:bg-accent/10 rounded-lg"><ExternalLink size={16} /></a>}
+                          {isCreator && m.status === 'submitted' && (
+                            <div className="flex gap-2">
+                              <button onClick={() => handleMilestoneStatus(m.id, 'done')} className="px-3 py-1.5 bg-emerald-500 text-white text-[11px] font-bold rounded-lg">Approve</button>
+                              <button onClick={() => handleMilestoneStatus(m.id, 'in_progress')} className="px-3 py-1.5 bg-text-primary/10 text-text-primary text-[11px] font-bold rounded-lg">Reject</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="py-12 border-2 border-dashed border-border-subtle rounded-3xl flex flex-col items-center justify-center text-text-secondary/40">
+                    <Layers size={32} className="mb-4 opacity-20" />
+                    <p className="text-sm font-medium italic">No milestones defined yet.</p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Task Activity / Comments Section */}
+            <section className="animate-fade-in" style={{ animationDelay: '200ms' }}>
+              <div className="flex items-center gap-2 mb-6 text-text-primary">
+                <Activity size={18} className="text-accent" />
+                <h3 className="text-sm font-bold uppercase tracking-widest opacity-60">Activity & Comments</h3>
+              </div>
+              <div className="bg-bg-card border border-border-subtle rounded-2xl overflow-hidden">
+                <div className="p-6 border-b border-border-subtle bg-text-primary/2 flex items-center justify-between">
+                  <span className="text-[12px] font-bold text-text-secondary uppercase tracking-wider opacity-60">
+                    {task.activities?.length || 0} Total Activities
+                  </span>
+                  {task.activities?.length > 3 && (
+                    <button 
+                      onClick={() => setShowAllActivities(!showAllActivities)}
+                      className="text-[11px] font-bold text-accent hover:underline uppercase tracking-widest"
+                    >
+                      {showAllActivities ? 'Show Less' : 'View All'}
+                    </button>
+                  )}
+                </div>
+                
+                <div className="divide-y divide-border-subtle max-h-[500px] overflow-y-auto custom-scrollbar">
+                  {task.activities?.length > 0 ? (
+                    (showAllActivities ? task.activities : task.activities.slice(0, 3)).map((activity) => (
+                      <div key={activity.id} className="p-6 flex gap-4 border-b border-border-subtle last:border-b-0">
+                        <Avatar name={activity.user_name} size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-bold text-text-primary">{activity.user_name}</span>
+                            <span className="text-[10px] text-text-secondary opacity-40">{formatTimeAgo(activity.created_at)}</span>
+                          </div>
+                          <p className="text-sm text-text-secondary/80">
+                            {activity.details}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-12 text-center text-text-secondary/40 italic text-sm">
+                      No activity logged for this task yet.
+                    </div>
+                  )}
+                </div>
+
+                {/* Comment Input */}
+                <div className="p-6 bg-text-primary/2 border-t border-border-subtle">
+                  <form onSubmit={handleAddComment} className="flex gap-3">
+                    <Avatar name={userProfile?.name} photoUrl={userProfile?.photo_url} size="sm" />
+                    <div className="flex-1 relative">
+                      <input 
+                        type="text" 
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        placeholder="Add a comment or update..." 
+                        className="w-full bg-bg-main border border-border-subtle rounded-xl px-4 py-2.5 text-sm outline-none focus:border-accent/40 transition-all text-text-primary"
+                        disabled={updateLoading}
+                      />
+                      <button 
+                        type="submit"
+                        disabled={!commentText.trim() || updateLoading}
+                        className="absolute right-2 top-1.5 p-1.5 text-text-secondary hover:text-accent transition-colors disabled:opacity-30"
+                      >
+                        {updateLoading ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          {/* Sidebar / Info Panel */}
+          <aside className="space-y-8 animate-fade-in" style={{ animationDelay: '200ms' }}>
+            
+            {/* Status & Actions Card */}
             <div className="bg-bg-card border border-border-subtle rounded-2xl p-6 shadow-sm">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <h4 className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-6 opacity-60">Status & Lifecycle</h4>
+               <CTAStrip
+                  status={task.status}
+                  isCreator={isCreator}
+                  isAssignee={isAssignee}
+                  updateLoading={updateLoading}
+                  onAccept={handleAcceptTask}
+                  onAction={handleAction}
+                  onLeave={handleLeaveTask}
+                  hasMilestones={task.milestones?.length > 0}
+                  slotsFilled={task.slots_filled || 0}
+                  capacity={task.capacity || 1}
+               />
+            </div>
+
+            {/* Properties Card */}
+            <div className="bg-bg-card border border-border-subtle rounded-2xl p-6 shadow-sm space-y-6">
+              <h4 className="text-[10px] font-bold text-text-secondary uppercase tracking-widest opacity-60">Task Details</h4>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-text-secondary text-[13px]">
+                    <Clock size={14} /> <span>Deadline</span>
+                  </div>
+                  <span className={`text-[13px] font-semibold ${isPastDeadline ? 'text-red-400' : 'text-text-primary'}`}>
+                    {formatDate(task.deadline)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-text-secondary text-[13px]">
+                    <Briefcase size={14} /> <span>Category</span>
+                  </div>
+                  <span className="text-[13px] font-semibold text-text-primary">{task.subject || 'General'}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-text-secondary text-[13px]">
+                    <Activity size={14} /> <span>Status</span>
+                  </div>
+                  <span className="text-[13px] font-bold text-accent uppercase tracking-tighter">{task.status?.replace('_', ' ')}</span>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-border-subtle">
+                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-4 opacity-60">Stakeholders</p>
                 <div className="space-y-4">
-                  {/* Task-level links */}
+                  <div className="flex items-center gap-3">
+                    <Avatar name={task.creator_name} photoUrl={task.creator_photo_url} size="sm" />
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-semibold text-text-primary">{task.creator_name}</span>
+                      <span className="text-[10px] text-text-secondary opacity-60">Creator</span>
+                    </div>
+                  </div>
+                  
+                  {task.assignees?.map(assignee => (
+                    <div key={assignee.user_id} className="flex items-center justify-between group">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={assignee.name} photoUrl={assignee.photo_url} size="sm" />
+                        <div className="flex flex-col">
+                          <span className="text-[13px] font-semibold text-text-primary">{assignee.name}</span>
+                          <span className="text-[10px] text-text-secondary opacity-60">Member</span>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-bold text-accent bg-accent/5 px-2 py-0.5 rounded-full">{assignee.progress}%</span>
+                    </div>
+                  ))}
+                  
+                  {(!task.assignees || task.assignees.length === 0) && (
+                    <p className="text-[12px] text-text-secondary italic opacity-40 py-2">No members assigned yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Proof of Work Card (if available) */}
+            {(task.status === 'submitted' || task.status === 'completed') && (
+              <div className="bg-bg-card border border-border-subtle rounded-2xl p-6 shadow-sm">
+                <h4 className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-4 opacity-60">Proof of Work</h4>
+                <div className="space-y-3">
                   {task.submission_github && (
-                    <a href={task.submission_github} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-text-primary/3 border border-border-subtle rounded-xl hover:bg-text-primary/5 transition shadow-sm group">
-                      <div className="w-10 h-10 bg-accent text-white rounded-lg flex items-center justify-center shrink-0">
-                        <Code size={20} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-text-primary">GitHub Repository</p>
-                        <p className="text-[11px] text-text-secondary truncate">{task.submission_github}</p>
-                      </div>
-                      <ExternalLink size={14} className="ml-auto text-text-secondary/30 group-hover:text-text-secondary" />
+                    <a href={task.submission_github} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2 bg-text-primary/3 rounded-lg hover:bg-text-primary/5 transition text-[12px] font-medium text-text-primary">
+                      <Code size={14} className="text-accent" /> GitHub Repo
                     </a>
                   )}
                   {task.submission_docs && (
-                    <a href={task.submission_docs} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-accent-soft border border-accent/10 rounded-xl hover:opacity-90 transition shadow-sm group">
-                      <div className="w-10 h-10 bg-accent text-white rounded-lg flex items-center justify-center shrink-0">
-                        <FileText size={20} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-text-primary">Google Docs / PDF</p>
-                        <p className="text-[11px] text-text-secondary truncate">{task.submission_docs}</p>
-                      </div>
-                      <ExternalLink size={14} className="ml-auto text-text-secondary/30 group-hover:text-text-secondary" />
+                    <a href={task.submission_docs} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2 bg-text-primary/3 rounded-lg hover:bg-text-primary/5 transition text-[12px] font-medium text-text-primary">
+                      <FileText size={14} className="text-accent" /> Documentation
                     </a>
                   )}
-
-                  {/* Milestone-level links */}
-                  {task.milestones?.filter(m => m.submission_link).map(m => (
-                    <a key={m.id} href={m.submission_link} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 bg-accent-soft border border-accent/10 rounded-xl hover:opacity-90 transition shadow-sm group">
-                      <div className="w-10 h-10 bg-accent text-white rounded-lg flex items-center justify-center shrink-0">
-                        <ExternalLink size={20} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-text-primary">{m.title}</p>
-                        <p className="text-[11px] text-text-secondary truncate">{m.submission_link}</p>
-                      </div>
-                      <ExternalLink size={14} className="ml-auto text-text-secondary/30 group-hover:text-text-secondary" />
-                    </a>
-                  ))}
-
-                  {(!task.submission_github && !task.submission_docs && !task.milestones?.some(m => m.submission_link)) && (
-                    <p className="text-sm text-text-secondary italic py-4 text-center opacity-60">No submission links provided.</p>
-                  )}
-                </div>
-                
-                <div className="bg-text-primary/3 border border-border-subtle p-5 rounded-2xl">
-                   <p className="text-[13px] font-bold text-text-primary mb-2 flex items-center gap-2">
-                     <FileText size={16} className="text-accent" /> Additional Notes
-                   </p>
-                   <p className="text-sm text-text-secondary/80 leading-relaxed whitespace-pre-wrap">
-                      {task.submission_notes || 'The assignee did not provide any additional notes with this submission.'}
-                   </p>
+                  <div className="mt-4 p-3 bg-text-primary/3 rounded-lg">
+                    <p className="text-[11px] text-text-secondary italic leading-relaxed">
+                      {task.submission_notes || 'No additional notes provided.'}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
+          </aside>
+        </div>
+
+        {/* Timeline (Optional, can be removed or made more compact) */}
+        {/* I'll keep it but move it below or make it a secondary detail if needed */}
+
       </div>
     </main>
 
@@ -1107,7 +1140,7 @@ export default function TaskDetail() {
           <div className="bg-bg-card rounded-xl w-full max-w-lg shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">
             <div className="p-8">
               <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-semibold text-text-primary tracking-tight">Edit Assignment</h3>
+                <h3 className="text-2xl font-semibold text-text-primary tracking-tight">Edit Task</h3>
                 <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-text-primary/5 rounded-full transition-colors text-text-secondary"><X size={20} /></button>
               </div>
               
@@ -1122,7 +1155,7 @@ export default function TaskDetail() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2 opacity-60">Subject</label>
+                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-2 opacity-60">Category</label>
                   <input 
                     type="text" 
                     value={editForm.subject} 
@@ -1167,11 +1200,11 @@ export default function TaskDetail() {
           <div className="bg-bg-card rounded-xl w-full max-w-sm shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">
             <div className="p-8">
               <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-semibold text-text-primary tracking-tight">Assign Task</h3>
+                <h3 className="text-2xl font-semibold text-text-primary tracking-tight">Assign Member</h3>
                 <button onClick={() => setIsInviting(false)} className="p-2 hover:bg-text-primary/5 rounded-full transition-colors text-text-secondary"><X size={20} /></button>
               </div>
               
-              <p className="text-sm text-text-secondary mb-6">Enter the email of the person you want to invite to this assignment.</p>
+              <p className="text-sm text-text-secondary mb-6">Enter the email of the person you want to invite to this task.</p>
 
               <div className="space-y-6">
                 <div className="space-y-2">
@@ -1196,7 +1229,7 @@ export default function TaskDetail() {
                     className="w-full flex items-center justify-center gap-2 py-3 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-xl text-[13px] font-bold hover:bg-purple-500/20 transition-all mb-4"
                   >
                     {isRecommendingUsers ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
-                    Smart Suggest Candidates
+                    Smart Suggest Members
                   </button>
                   {aiRecommendation && (
                     <div className="p-4 bg-purple-500/5 border border-purple-500/10 rounded-xl text-[12px] text-purple-300/80 leading-relaxed animate-fade-in italic">

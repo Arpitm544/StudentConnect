@@ -196,6 +196,20 @@ func ConnectDatabase() {
 	if _, err := DB.Exec(taskInvitationsTableQuery); err != nil {
 		log.Fatal("Failed to create task_invitations table:", err)
 	}
+
+	activitiesTableQuery := `
+	CREATE TABLE IF NOT EXISTS activities (
+		id BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+		task_id BIGINT REFERENCES tasks(id) ON DELETE CASCADE,
+		user_id BIGINT REFERENCES users(id),
+		action TEXT NOT NULL,
+		details TEXT,
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	if _, err := DB.Exec(activitiesTableQuery); err != nil {
+		log.Fatal("Failed to create activities table:", err)
+	}
 }
 
 func retry(attempts int, sleep time.Duration, fn func() error) error {

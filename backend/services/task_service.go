@@ -4,6 +4,7 @@ import (
 	"backend/config"
 	"backend/models"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"github.com/lib/pq"
@@ -175,4 +176,35 @@ func SyncTaskStatusWithMilestones(taskID int64) error {
 		}
 	}
 	return err
+}
+
+func LogActivity(taskID int64, userID int64, action string, details string) {
+	_, err := config.DB.Exec(`INSERT INTO activities (task_id, user_id, action, details) VALUES ($1, $2, $3, $4)`, taskID, userID, action, details)
+	if err != nil {
+		fmt.Printf("❌ Failed to log activity: %v\n", err)
+	} else {
+		fmt.Printf("✅ Activity logged: %s for task %d\n", action, taskID)
+	}
+}
+
+func FetchActivities(taskID int64) ([]models.Activity, error) {
+	rows, err := config.DB.Query(`
+		SELECT a.id, a.task_id, a.user_id, a.action, a.details, a.created_at, u.name
+		FROM activities a
+		JOIN users u ON a.user_id = u.id
+		WHERE a.task_id = $1
+		ORDER BY a.created_at DESC`, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var activities []models.Activity
+	for rows.Next() {
+		var a models.Activity
+		if err := rows.Scan(&a.ID, &a.TaskID, &a.UserID, &a.Action, &a.Details, &a.CreatedAt, &a.UserName); err == nil {
+			activities = append(activities, a)
+		}
+	}
+	return activities, nil
 }

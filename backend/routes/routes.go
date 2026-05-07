@@ -70,6 +70,7 @@ func SetupRoutes(r *gin.Engine) {
 		tasks.POST("/:id/milestones/:mid/status", controllers.UpdateMilestoneStatus)
 		tasks.POST("/:id/milestones/:mid/submit", controllers.SubmitMilestoneForReview)
 		tasks.DELETE("/:id/milestones/:mid", controllers.DeleteMilestone)
+		tasks.POST("/:id/comments", controllers.AddComment)
 	}
 
 	user := r.Group("/api/user")
@@ -77,6 +78,10 @@ func SetupRoutes(r *gin.Engine) {
 	{
 		user.GET("/profile", controllers.GetProfile)
 		user.PUT("/profile", controllers.UpdateProfile)
+		user.POST("/request-password-otp", controllers.RequestPasswordOTP)
+		user.POST("/change-password", controllers.ChangePassword)
+		user.POST("/request-delete-otp", controllers.RequestDeleteOTP)
+		user.POST("/delete-account", controllers.DeleteAccount)
 	}
 
 	r.POST("/api/upload", requireAuth, controllers.UploadHandler)

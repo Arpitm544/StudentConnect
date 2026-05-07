@@ -19,6 +19,7 @@ import KanbanBoard from './components/KanbanBoard.jsx';
 import ActivityChart from './components/ActivityChart.jsx';
 import PriorityTasks from './components/SmartFocus.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
+import api from './api/axios.js';
 import { StatCardSkeleton, TaskRowSkeleton, TaskMarketCardSkeleton } from './components/Skeleton.jsx';
 import {
   LineChart,
@@ -91,9 +92,8 @@ export default function Profile({ onLogout }) {
 
     setTasksLoading(true);
     try {
-      const res = await fetch(`${API_BASE}${endpoint}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to load tasks');
-      const data = await res.json();
+      const res = await api.get(endpoint);
+      const data = res.data;
       setTasks(data);
       if (currentPath === 'invitations') {
         setInvitations(data);
@@ -111,10 +111,8 @@ export default function Profile({ onLogout }) {
   const fetchInvitations = useCallback(async () => {
     setInvitationsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/tasks/invitations`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to load invitations');
-      const data = await res.json();
-      setInvitations(data);
+      const res = await api.get('/tasks/invitations');
+      setInvitations(res.data);
     } catch (err) {
       console.error(err);
       setInvitations([]);
@@ -126,10 +124,8 @@ export default function Profile({ onLogout }) {
   const loadProfile = useCallback(async () => {
     setProfileLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/user/profile`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to load profile');
-      const data = await res.json();
-      setUserProfile(data);
+      const res = await api.get('/api/user/profile');
+      setUserProfile(res.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -144,11 +140,8 @@ export default function Profile({ onLogout }) {
   useEffect(() => {
     const fetchGlobalActivity = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/public/stats`);
-        if (res.ok) {
-          const data = await res.json();
-          setGlobalActivity(data.daily_activity || []);
-        }
+        const res = await api.get('/api/public/stats');
+        setGlobalActivity(res.data.daily_activity || []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -342,11 +335,7 @@ export default function Profile({ onLogout }) {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${API_BASE}/api/auth/logout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
+      await api.post('/api/auth/logout');
       onLogout();
     } catch (err) {
       console.error('Logout failed', err);
@@ -355,14 +344,11 @@ export default function Profile({ onLogout }) {
 
   const handleAccept = useCallback(async (id) => {
     try {
-      const res = await fetch(`${API_BASE}/tasks/${id}/accept`, { method: 'POST', credentials: 'include' });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to accept task');
-      }
+      await api.post(`/tasks/${id}/accept`);
       navigate(`/dashboard/task/${id}`);
     } catch (err) {
-      setError(err.message);
+      const errData = err.response?.data || {};
+      setError(errData.error || 'Failed to accept task');
     }
   }, [navigate]);
 
@@ -378,38 +364,22 @@ export default function Profile({ onLogout }) {
     try {
       const body = { status };
       if (progress !== null) body.progress = parseInt(progress, 10);
-      const res = await fetch(`${API_BASE}/tasks/${id}/status`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Status update failed');
-      }
+      await api.post(`/tasks/${id}/status`, body);
       fetchTasks();
     } catch (err) {
-      setError(err.message);
+      const errData = err.response?.data || {};
+      setError(errData.error || 'Status update failed');
     }
   }, [fetchTasks]);
 
   const handleRespondInvitation = async (id, action) => {
     try {
-      const res = await fetch(`${API_BASE}/tasks/invitations/${id}/respond`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Response failed');
-      }
+      await api.post(`/tasks/invitations/${id}/respond`, { action });
       fetchInvitations();
       fetchTasks();
     } catch (err) {
-      setError(err.message);
+      const data = err.response?.data || {};
+      setError(data.error || 'Response failed');
     }
   };
 
@@ -420,15 +390,11 @@ export default function Profile({ onLogout }) {
     }
     setIsPredictingPriority(true);
     try {
-      const res = await fetch(`${API_BASE}/tasks/ai/predict-priority`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ title: newTask.title, description: newTask.description }),
+      const res = await api.post('/tasks/ai/predict-priority', { 
+        title: newTask.title, 
+        description: newTask.description 
       });
-      if (!res.ok) throw new Error('Failed to predict priority');
-      const data = await res.json();
-      setNewTask(prev => ({ ...prev, priority: data.priority }));
+      setNewTask(prev => ({ ...prev, priority: res.data.priority }));
     } catch (err) {
       console.error(err);
     } finally {
@@ -450,24 +416,16 @@ export default function Profile({ onLogout }) {
         formData.append('photo', profileFormData.photo);
       }
 
-      const res = await fetch(`${API_BASE}/api/user/profile`, {
-        method: 'PUT',
-        credentials: 'include',
-        body: formData
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to update profile');
-      }
+      await api.put('/api/user/profile', formData);
 
       await fetchTasks();
-      const profileRes = await fetch(`${API_BASE}/api/user/profile`, { credentials: 'include' });
-      if (profileRes.ok) setUserProfile(await profileRes.json());
+      const profileRes = await api.get('/api/user/profile');
+      setUserProfile(profileRes.data);
       
       setIsSettingsModalOpen(false);
     } catch (err) {
-      setError(err.message);
+      const data = err.response?.data || {};
+      setError(data.error || 'Failed to update profile');
     } finally {
       setProfileLoading(false);
     }
@@ -482,38 +440,27 @@ export default function Profile({ onLogout }) {
       if (newTask.attachment) {
         const formData = new FormData();
         formData.append('attachment', newTask.attachment);
-        const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-          method: 'POST',
-          credentials: 'include',
-          body: formData
-        });
-        if (!uploadRes.ok) throw new Error('File upload failed');
-        const uploadData = await uploadRes.json();
-        attachmentUrl = uploadData.url;
+        const uploadRes = await api.post('/api/upload', formData);
+        attachmentUrl = uploadRes.data.url;
       }
 
-      const res = await fetch(`${API_BASE}/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          title: newTask.title,
-          description: newTask.description,
-          subject: newTask.subject,
-          deadline: newTask.deadline ? new Date(newTask.deadline).toISOString() : null,
-          max_assignees: parseInt(newTask.max_assignees, 10),
-          priority: newTask.priority,
-          attachment_url: attachmentUrl,
-          assignee_email: newTask.assignee_email
-        }),
+      await api.post('/tasks', {
+        title: newTask.title,
+        description: newTask.description,
+        subject: newTask.subject,
+        deadline: newTask.deadline ? new Date(newTask.deadline).toISOString() : null,
+        max_assignees: parseInt(newTask.max_assignees, 10),
+        priority: newTask.priority,
+        attachment_url: attachmentUrl,
+        assignee_email: newTask.assignee_email
       });
-      if (!res.ok) throw new Error('Failed to post task');
       
       setNewTask({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium', assignee_email: '' });
       setShowPostForm(false);
       fetchTasks();
     } catch (err) {
-      setError(err.message);
+      const errData = err.response?.data || {};
+      setError(errData.error || 'Failed to post task');
     } finally {
       setPostLoading(false);
     }
@@ -529,12 +476,12 @@ export default function Profile({ onLogout }) {
     if (!taskToDelete) return;
     setPostLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/tasks/${taskToDelete}`, { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) throw new Error('Delete failed');
+      await api.delete(`/tasks/${taskToDelete}`);
       setTaskToDelete(null);
       fetchTasks();
     } catch (err) {
-      setError(err.message);
+      const errData = err.response?.data || {};
+      setError(errData.error || 'Delete failed');
     } finally {
       setPostLoading(false);
     }

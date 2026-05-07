@@ -31,7 +31,6 @@ const Avatar = memo(function Avatar({ name, photoUrl, size = 'md', className = '
           ${sizeClass}
           rounded-full overflow-hidden
           ring-1 ring-text-primary/10
-          hover:scale-105 transition-transform duration-150 ease-out
           flex items-center justify-center select-none
           ${!showPhoto ? 'bg-accent-soft text-accent font-medium' : ''}
         `}

@@ -37,6 +37,16 @@ type TaskAssignee struct {
 	PhotoURL string `json:"photo_url"`
 }
 
+type Activity struct {
+	ID        int64     `json:"id,string"`
+	TaskID    int64     `json:"task_id,string"`
+	UserID    int64     `json:"user_id,string"`
+	Action    string    `json:"action"`
+	Details   string    `json:"details"`
+	CreatedAt time.Time `json:"created_at"`
+	UserName  string    `json:"user_name"` // Join field
+}
+
 type Task struct {
 	ID            int64      `json:"id,string"`
 	Title         string     `json:"title"`
@@ -58,6 +68,7 @@ type Task struct {
 	Assignees   []TaskAssignee `json:"assignees"`
 
 	Milestones []Milestone `json:"milestones"`
+	Activities []Activity  `json:"activities"`
 	Priority          string      `json:"priority"`
 	AiOptimized       bool        `json:"ai_optimized"`
 	AiMilestoneCount int         `json:"ai_milestone_count"`

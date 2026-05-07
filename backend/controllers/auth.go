@@ -267,3 +267,135 @@ func ResendVerification(c *gin.Context) {
 	services.SendVerificationEmail(input.Email, name, otp)
 	c.JSON(http.StatusOK, gin.H{"message": "Verification OTP sent"})
 }
+
+func RequestPasswordOTP(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var email, name string
+	err := config.DB.QueryRow("SELECT email, name FROM users WHERE id = $1", userID).Scan(&email, &name)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	otp, _ := generateVerificationOTP()
+	expiry := time.Now().Add(10 * time.Minute)
+	_, err = config.DB.Exec("UPDATE users SET verification_token = $1, verification_token_expires = $2 WHERE id = $3", otp, expiry, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate security code"})
+		return
+	}
+
+	services.SendPasswordChangeOTP(email, name, otp)
+	c.JSON(http.StatusOK, gin.H{"message": "A 6-digit verification code has been sent to your email"})
+}
+
+func ChangePassword(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var input struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+		OTP             string `json:"otp"`
+	}
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	var storedHash string
+	var storedOTP sql.NullString
+	var expiry time.Time
+	err := config.DB.QueryRow("SELECT password, verification_token, verification_token_expires FROM users WHERE id = $1", userID).Scan(&storedHash, &storedOTP, &expiry)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// 1. Verify current password
+	if !utils.CheckPasswordHash(input.CurrentPassword, storedHash) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect current password"})
+		return
+	}
+
+	// 2. Verify OTP
+	if !storedOTP.Valid || input.OTP != storedOTP.String || time.Now().After(expiry) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired verification code"})
+		return
+	}
+
+	// 3. Update password
+	newHash, _ := utils.HashPassword(input.NewPassword)
+	_, err = config.DB.Exec("UPDATE users SET password = $1, verification_token = NULL WHERE id = $2", newHash, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
+}
+
+func RequestDeleteOTP(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var email, name string
+	err := config.DB.QueryRow("SELECT email, name FROM users WHERE id = $1", userID).Scan(&email, &name)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	otp, _ := generateVerificationOTP()
+	expiry := time.Now().Add(10 * time.Minute)
+	config.DB.Exec("UPDATE users SET verification_token = $1, verification_token_expires = $2 WHERE id = $3", otp, expiry, userID)
+
+	services.SendDeleteAccountOTP(email, name, otp)
+	c.JSON(http.StatusOK, gin.H{"message": "A 6-digit deletion code has been sent to your email"})
+}
+
+func DeleteAccount(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var input struct {
+		OTP string `json:"otp"`
+	}
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Verification code required"})
+		return
+	}
+
+	var storedOTP sql.NullString
+	var expiry time.Time
+	err := config.DB.QueryRow("SELECT verification_token, verification_token_expires FROM users WHERE id = $1", userID).Scan(&storedOTP, &expiry)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	if !storedOTP.Valid || input.OTP != storedOTP.String || time.Now().After(expiry) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired verification code"})
+		return
+	}
+
+	// Start a transaction to delete user and all associated data
+	tx, err := config.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	// 1. Delete task assignees
+	tx.Exec("DELETE FROM task_assignees WHERE user_id = $1", userID)
+	// 2. Delete invitations
+	tx.Exec("DELETE FROM invitations WHERE creator_id = $1 OR assignee_email IN (SELECT email FROM users WHERE id = $2)", userID, userID)
+	// 3. Delete tasks created by user
+	tx.Exec("DELETE FROM tasks WHERE creator_id = $1", userID)
+	// 4. Finally delete user
+	_, err = tx.Exec("DELETE FROM users WHERE id = $1", userID)
+
+	if err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete account"})
+		return
+	}
+
+	tx.Commit()
+	setAuthCookie(c, "")
+	c.JSON(http.StatusOK, gin.H{"message": "Account deleted successfully"})
+}
