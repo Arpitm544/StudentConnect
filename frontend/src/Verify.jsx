@@ -17,6 +17,10 @@ export default function Verify({ onVerified }) {
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
+    document.title = "Verify Email | TaskNest";
+  }, []);
+
+  useEffect(() => {
     if (cooldown <= 0) return;
     const timer = setInterval(() => {
       setCooldown((v) => (v > 0 ? v - 1 : 0));

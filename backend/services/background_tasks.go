@@ -7,7 +7,6 @@ import (
 )
 
 func StartBackgroundTaskRunner() {
-	// Task 1: Unverified user cleanup
 	go func() {
 		ticker := time.NewTicker(10 * time.Minute)
 		for range ticker.C {
@@ -29,18 +28,10 @@ func StartBackgroundTaskRunner() {
 		}
 	}()
 	
-	// Task 2: Deadline extension notifications and task cleanup
 	go func() {
-		ticker := time.NewTicker(1 * time.Hour) // Check every hour
+		ticker := time.NewTicker(1 * time.Hour) 
 		for range ticker.C {
 			log.Println("⏰ Running background task: Deadline checks...")
-			
-			// 1. Send extension emails for tasks approaching deadline (within next 24 hours)
-			// Conditions: 
-			// - Deadline is within next 24 hours
-			// - extension_email_sent is false
-			// - status is NOT 'completed'
-			// - (not accepted OR progress < 100)
 			rows, err := config.DB.Query(`
 				SELECT t.id, t.title, u.email, u.name 
 				FROM tasks t
@@ -59,7 +50,6 @@ func StartBackgroundTaskRunner() {
 						log.Printf("📧 Sending extension email for task %d to %s\n", id, email)
 						SendDeadlineExtensionEmail(email, name, title)
 						
-						// Mark as sent
 						_, _ = config.DB.Exec("UPDATE tasks SET extension_email_sent = TRUE WHERE id = $1", id)
 					}
 				}
@@ -68,11 +58,6 @@ func StartBackgroundTaskRunner() {
 				log.Println("❌ Error fetching tasks for extension emails:", err)
 			}
 
-			// 2. Delete tasks where deadline has passed and they are not completed
-			// Conditions:
-			// - Deadline is in the past
-			// - status is NOT 'completed'
-			// - (not accepted OR progress < 100)
 			result, err := config.DB.Exec(`
 				DELETE FROM tasks 
 				WHERE deadline < CURRENT_TIMESTAMP 

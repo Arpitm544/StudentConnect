@@ -1,6 +1,5 @@
 import React from 'react';
 
-/** Single animated shimmer block */
 export function SkeletonBlock({ className = '' }) {
   return (
     <div
@@ -8,8 +7,7 @@ export function SkeletonBlock({ className = '' }) {
     />
   );
 }
-
-/** Skeleton for a stat card (the 4-up grid on Dashboard) */
+  
 export function StatCardSkeleton() {
   return (
     <div className="premium-card space-y-4">
@@ -24,7 +22,6 @@ export function StatCardSkeleton() {
   );
 }
 
-/** Skeleton for a TaskRow list item */
 export function TaskRowSkeleton() {
   return (
     <div className="flex items-center justify-between px-6 py-4 rounded-xl border border-border-subtle gap-4">
@@ -43,7 +40,6 @@ export function TaskRowSkeleton() {
   );
 }
 
-/** Skeleton for a TaskMarketCard */
 export function TaskMarketCardSkeleton() {
   return (
     <div className="premium-card flex flex-col h-full space-y-4">
@@ -68,14 +64,12 @@ export function TaskMarketCardSkeleton() {
   );
 }
 
-/** Skeleton for the full TaskDetail page content (inside the layout) */
 export function TaskDetailSkeleton() {
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-10 animate-pulse">
-      {/* Back link */}
+
       <SkeletonBlock className="h-4 w-32 rounded" />
 
-      {/* Title + badges */}
       <div className="space-y-4">
         <SkeletonBlock className="h-9 w-2/3 rounded-xl" />
         <div className="flex gap-2">
@@ -85,7 +79,6 @@ export function TaskDetailSkeleton() {
         </div>
       </div>
 
-      {/* Glass panel */}
       <div className="premium-card">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {[...Array(4)].map((_, i) => (
@@ -97,7 +90,6 @@ export function TaskDetailSkeleton() {
         </div>
       </div>
 
-      {/* Timeline */}
       <div className="space-y-4">
         <SkeletonBlock className="h-5 w-36 rounded" />
         <div className="flex justify-between gap-4">

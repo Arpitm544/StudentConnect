@@ -282,6 +282,9 @@ export default function TaskDetail() {
       const res = await api.get(`/tasks/detail/${id}`);
       const data = res.data;
       setTask(data);
+      if (data.title) {
+        document.title = `${data.title} | TaskNest`;
+      }
       setEditForm({
         title: data.title || '',
         description: data.description || '',
@@ -752,10 +755,8 @@ export default function TaskDetail() {
         theme={theme}
         toggleTheme={toggleTheme}
         onLogout={handleLogout}
-        // TaskDetail doesn't have the profile modal logic yet, but we can redirect or ignore
       />
 
-      {/* ── Main Content ── */}
       <main className="flex-1 h-screen overflow-y-auto bg-bg-main transition-colors duration-300">
         
         <Header 
@@ -766,8 +767,6 @@ export default function TaskDetail() {
         />
 
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
-
-        {/* Breadcrumb */}
         <div className="mb-8">
           <Link 
             to={fromPath === 'dashboard' ? '/dashboard' : `/dashboard/${fromPath}`} 
@@ -780,7 +779,6 @@ export default function TaskDetail() {
           </Link>
         </div>
 
-        {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-10 border-b border-border-subtle">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-4">
@@ -840,8 +838,6 @@ export default function TaskDetail() {
             </div>
           </div>
         </div>
-
-        {/* Workflow / Timeline */}
         <div className="mb-16 animate-fade-in" style={{ animationDelay: '100ms' }}>
           <div className="flex items-center gap-2 mb-8 opacity-60">
              <GitMerge size={16} className="text-accent" />
@@ -864,13 +860,10 @@ export default function TaskDetail() {
           </div>
         </div>
 
-        {/* Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-10">
           
-          {/* Main Content Area */}
           <div className="space-y-12">
             
-            {/* Description Section */}
             <section className="animate-fade-in">
               <div className="flex items-center gap-2 mb-6 text-text-primary">
                 <FileText size={18} className="text-accent" />
@@ -894,8 +887,6 @@ export default function TaskDetail() {
                 )}
               </div>
             </section>
-
-            {/* Milestones / Sub-tasks */}
             <section className="animate-fade-in" style={{ animationDelay: '100ms' }}>
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2 text-text-primary">
@@ -925,8 +916,6 @@ export default function TaskDetail() {
                   </div>
                 )}
               </div>
-              
-              {/* Existing Milestones UI Logic stays but wrapped in this new section */}
               {isAddingMilestone && (
                  <form onSubmit={handleAddMilestone} className="mb-6 p-4 bg-bg-card border border-border-subtle rounded-xl">
                     <div className="flex items-center gap-3">
@@ -987,7 +976,6 @@ export default function TaskDetail() {
               </div>
             </section>
 
-            {/* Task Activity / Comments Section */}
             <section className="animate-fade-in" style={{ animationDelay: '200ms' }}>
               <div className="flex items-center gap-2 mb-6 text-text-primary">
                 <Activity size={18} className="text-accent" />
@@ -1031,7 +1019,6 @@ export default function TaskDetail() {
                   )}
                 </div>
 
-                {/* Comment Input */}
                 <div className="p-6 bg-text-primary/2 border-t border-border-subtle">
                   <form onSubmit={handleAddComment} className="flex gap-3">
                     <Avatar name={userProfile?.name} photoUrl={userProfile?.photo_url} size="sm" />
@@ -1059,10 +1046,8 @@ export default function TaskDetail() {
 
           </div>
 
-          {/* Sidebar / Info Panel */}
           <aside className="space-y-8 animate-fade-in" style={{ animationDelay: '200ms' }}>
             
-            {/* Status & Actions Card */}
             <div className="bg-bg-card border border-border-subtle rounded-2xl p-6 shadow-sm">
                <h4 className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-6 opacity-60">Status & Lifecycle</h4>
                <CTAStrip
@@ -1079,7 +1064,6 @@ export default function TaskDetail() {
                />
             </div>
 
-            {/* Properties Card */}
             <div className="bg-bg-card border border-border-subtle rounded-2xl p-6 shadow-sm space-y-6">
               <h4 className="text-[10px] font-bold text-text-secondary uppercase tracking-widest opacity-60">Task Details</h4>
               
@@ -1139,7 +1123,6 @@ export default function TaskDetail() {
               </div>
             </div>
 
-            {/* Proof of Work Card (if available) */}
             {(task.status === 'submitted' || task.status === 'completed') && (
               <div className="bg-bg-card border border-border-subtle rounded-2xl p-6 shadow-sm">
                 <h4 className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-4 opacity-60">Proof of Work</h4>
@@ -1164,14 +1147,9 @@ export default function TaskDetail() {
             )}
           </aside>
         </div>
-
-        {/* Timeline (Optional, can be removed or made more compact) */}
-        {/* I'll keep it but move it below or make it a secondary detail if needed */}
-
       </div>
     </main>
 
-      {/* Proof of Work Submission Modal */}
       {showSubmitModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-bg-card rounded-xl w-full max-w-lg shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">
@@ -1213,7 +1191,6 @@ export default function TaskDetail() {
         </div>
       )}
 
-      {/* Milestone Submission Modal */}
       {submittingMilestone && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-bg-card rounded-xl w-full max-w-md shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">
@@ -1246,7 +1223,6 @@ export default function TaskDetail() {
         </div>
       )}
 
-      {/* Edit Task Modal */}
       {isEditing && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-bg-card rounded-xl w-full max-w-lg shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">
@@ -1373,8 +1349,6 @@ export default function TaskDetail() {
           </div>
         </div>
       )}
-
-      {/* Invite User Modal */}
       {isInviting && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-bg-card rounded-xl w-full max-w-sm shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">
@@ -1429,7 +1403,6 @@ export default function TaskDetail() {
         </div>
       )}
 
-      {/* Milestone Deletion Confirmation Modal */}
       {milestoneToDelete && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-bg-card rounded-xl w-full max-w-sm shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">

@@ -14,7 +14,6 @@ function getInitials(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// ✅ memo — only re-renders when name, photoUrl, or size change
 const Avatar = memo(function Avatar({ name, photoUrl, size = 'md', className = '', tooltip = false }) {
   const [imgError, setImgError] = useState(false);
   const sizeClass = SIZE_MAP[size] || SIZE_MAP.md;
@@ -49,7 +48,6 @@ const Avatar = memo(function Avatar({ name, photoUrl, size = 'md', className = '
         )}
       </div>
 
-      {/* Tooltip — rendered only when prop is passed */}
       {tooltip && name && (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-bg-card text-text-primary border border-border-subtle text-[10px] font-medium rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50 shadow-xl">
           {name}

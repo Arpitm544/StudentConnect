@@ -34,6 +34,10 @@ export default function LandingPage() {
   const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [waitlistSuccess, setWaitlistSuccess] = useState(false);
 
+  useEffect(() => {
+    document.title = "TaskNest – Master Your Productivity";
+  }, []);
+
   const handleWaitlistSubmit = async (e) => {
     e.preventDefault();
     if (!waitlistEmail) return;
@@ -234,10 +238,8 @@ export default function LandingPage() {
 
         </section>
 
-        {/* CORE FEATURES SHOWCASE */}
         <section className="px-6 max-w-6xl mx-auto mb-28">
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Feature 1: AI */}
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 rounded-2xl shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-all group">
               <div className="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-zinc-950 transition-all">
                 <Zap size={20} fill="currentColor" />
@@ -248,7 +250,6 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* Feature 2: Marketplace */}
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 rounded-2xl shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-all group">
               <div className="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-zinc-950 transition-all">
                 <LayoutDashboard size={20} />
@@ -259,7 +260,6 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* Feature 3: Team */}
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 rounded-2xl shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-all group">
               <div className="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-zinc-950 transition-all">
                 <Users size={20} />
@@ -270,7 +270,6 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* Feature 4: Deadlines */}
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 rounded-2xl shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-all group">
               <div className="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-zinc-950 transition-all">
                 <CheckCircle2 size={20} />
@@ -283,7 +282,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Live Stats Row */}
         <section className="px-6 max-w-6xl mx-auto mb-28">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto border-y border-zinc-200 dark:border-zinc-800 py-12 transition-colors">
             <div className="text-center">
@@ -329,7 +327,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* 4. FEATURES SECTION */}
         <section id="features" className="max-w-6xl mx-auto px-6 mb-32">
           <div className="mb-16 md:text-center">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white mb-4 transition-colors">
@@ -369,7 +366,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* 5. HOW IT WORKS */}
         <section id="how-it-works" className="max-w-5xl mx-auto px-6 mb-32">
           <div className="bg-zinc-900 dark:bg-zinc-900/50 dark:border dark:border-zinc-800 rounded-[32px] text-zinc-50 p-10 md:p-16 relative overflow-hidden transition-colors">
 
@@ -403,7 +399,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* 7. TESTIMONIALS */}
         <section className="max-w-6xl mx-auto px-6 mb-32 text-center">
           <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white mb-12 transition-colors">Built for high-performing teams.</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
@@ -438,7 +433,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* 8. PRICING SECTION */}
         <section id="pricing" className="max-w-4xl mx-auto px-6 py-24 mb-16">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-zinc-900 dark:text-white mb-4 transition-colors">
@@ -448,7 +442,6 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6 items-start">
-             {/* Free Tier */}
              <div className="bg-white dark:bg-zinc-900 border text-center md:text-left border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 hover:shadow-lg transition-all duration-300">
                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2 transition-colors">Basic</h3>
                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6 transition-colors">Perfect for individuals.</p>
@@ -466,7 +459,6 @@ export default function LandingPage() {
                </ul>
              </div>
 
-             {/* Pro Tier */}
              <div className="bg-zinc-50/50 dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 text-center md:text-left rounded-3xl p-8 relative shadow-2xl shadow-zinc-200/60 dark:shadow-none transform md:-translate-y-4 hover:scale-[1.02] transition-all duration-300">
                <div className="absolute -top-3 right-8 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[9px] font-black px-3 py-1 rounded-full tracking-widest uppercase">
                  COMING SOON
@@ -497,7 +489,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* 9. CTA SECTION */}
         <section className="max-w-5xl mx-auto px-6 mt-24 mb-10">
           <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-12 md:p-20 text-center relative overflow-hidden transition-colors">
              <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-zinc-900 dark:text-white mb-6 relative z-10 transition-colors">
@@ -513,7 +504,6 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* 10. FOOTER */}
       <footer className="border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 pt-16 pb-8 transition-colors">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-8 mb-12 border-b border-zinc-200 dark:border-zinc-800 pb-12 transition-colors">
@@ -554,7 +544,6 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {/* Waitlist Modal */}
       {showWaitlistModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-zinc-950/20 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[32px] p-8 md:p-12 max-w-md w-full shadow-2xl relative animate-scale-in">

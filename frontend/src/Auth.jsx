@@ -61,6 +61,10 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
     handleRedirectResult();
   }, [onLoginSuccess]);
 
+  useEffect(() => {
+    document.title = isLogin ? "Login | TaskNest" : "Sign Up | TaskNest";
+  }, [isLogin]);
+
   const handleGoogleSignIn = async () => {
     setError('');
     setGoogleLoading(true);
@@ -216,7 +220,6 @@ const DEMO_PASSWORD = 'task@123';
 
         <form onSubmit={handleSubmit} className="space-y-6">
 
-          {/* Demo Fill Button — login only */}
           {isLogin && (
             <button
               type="button"

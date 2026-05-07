@@ -68,7 +68,6 @@ func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 		taskMap[tasks[i].ID] = &tasks[i]
 	}
 
-	// Bulk fetch milestones
 	mRows, err := config.DB.Query(`SELECT id, task_id, title, status, submission_link, submission_note, created_at, updated_at FROM milestones WHERE task_id = ANY($1) ORDER BY id ASC`, pq.Array(taskIDs))
 	if err == nil {
 		defer mRows.Close()
@@ -82,7 +81,6 @@ func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 		}
 	}
 
-	// Bulk fetch assignees
 	aRows, aErr := config.DB.Query(`
 		SELECT ta.task_id, ta.user_id, ta.status, ta.progress, ta.submission_link, ta.accepted_at,
 		       u.name, u.email, u.photo_url
@@ -177,11 +175,9 @@ func SyncTaskStatusWithMilestones(taskID int64) error {
 
 	_, err = config.DB.Exec(`UPDATE tasks SET status = $1, progress = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, newStatus, progress, taskID)
 	if err == nil {
-		// Sync all assignees' progress with the global milestone state
 		_, _ = config.DB.Exec(`UPDATE task_assignees SET status = $1, progress = $2 WHERE task_id = $3`, newStatus, progress, taskID)
 		
 		if newStatus == "completed" && oldStatus != "completed" {
-			// Gamification removed
 		}
 	}
 	return err

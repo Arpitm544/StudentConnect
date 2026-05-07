@@ -14,7 +14,6 @@ import (
 )
 
 func main() {
-	// 1. Load Environment
 	workDir, _ := os.Getwd()
 	envPath := filepath.Join(workDir, "..", "..", ".env")
 	if err := godotenv.Load(envPath); err != nil {
@@ -25,8 +24,6 @@ func main() {
 	if dsn == "" {
 		log.Fatal("DATABASE_URL not set")
 	}
-
-	// 2. Connect to Database
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatal("Failed to open DB:", err)
@@ -38,15 +35,6 @@ func main() {
 	}
 	fmt.Println("✅ Connected to Database for Seeding")
 
-	// 3. Clear existing data (Optional - Be careful!)
-	// fmt.Println("Cleaning existing data...")
-	// db.Exec("DELETE FROM task_assignees")
-	// db.Exec("DELETE FROM milestones")
-	// db.Exec("DELETE FROM activities")
-	// db.Exec("DELETE FROM tasks")
-	// db.Exec("DELETE FROM users")
-
-	// 4. Seed Users
 	fmt.Println("Seeding Users...")
 	users := []struct {
 		Name    string
@@ -75,7 +63,6 @@ func main() {
 		userIDs = append(userIDs, id)
 	}
 
-	// 5. Seed Tasks
 	fmt.Println("Seeding Tasks...")
 	subjects := []string{"Programming", "UI/UX Design", "Economics", "Constitutional Law", "Networking"}
 	priorities := []string{"Low", "Medium", "High", "Critical"}
@@ -109,7 +96,6 @@ func main() {
 			continue
 		}
 
-		// 6. Seed Milestones for some tasks
 		if rand.Float32() > 0.5 {
 			for j := 1; j <= 3; j++ {
 				db.Exec("INSERT INTO milestones (task_id, title, status) VALUES ($1, $2, 'pending')", taskID, fmt.Sprintf("Milestone %d for Task %d", j, taskID))

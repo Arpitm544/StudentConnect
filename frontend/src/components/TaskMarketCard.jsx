@@ -81,7 +81,6 @@ const TaskMarketCard = React.memo(({ task, onAccept, onView, formatDate }) => {
         )}
       </div>
 
-      {/* Assignee avatars row for multi-slot tasks */}
       {isMultiSlot && slotsFilled > 0 && task.assignees?.length > 0 && (
         <div className="flex items-center gap-1.5 mb-4">
           <div className="flex -space-x-2">

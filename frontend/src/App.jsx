@@ -5,7 +5,6 @@ import { ThemeProvider } from './context/ThemeContext.jsx';
 
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 
-// ✅ Route-level code splitting — each page is its own JS chunk
 const Auth        = lazy(() => import('./Auth'));
 const Verify      = lazy(() => import('./Verify'));
 const Profile     = lazy(() => import('./Profile'));
@@ -13,7 +12,6 @@ const TaskDetail  = lazy(() => import('./TaskDetail'));
 const LandingPage = lazy(() => import('./LandingPage'));
 import CommandPalette from './components/CommandPalette.jsx';
 
-// Minimal full-screen skeleton shown while a lazy chunk loads
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-bg-main">
@@ -46,10 +44,9 @@ function App() {
       <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* Landing Page */}
-          <Route path="/" element={<LandingPage />} />
 
-          {/* Login Route */}
+          <Route path="/" element={<LandingPage />} />
+  
           <Route
             path="/login"
             element={
@@ -60,8 +57,6 @@ function App() {
               )
             }
           />
-
-          {/* Signup Route */}
           <Route
             path="/signup"
             element={
@@ -84,7 +79,6 @@ function App() {
             }
           />
 
-          {/* Dashboard & Profile Route */}
           <Route
             path="/dashboard/*"
             element={

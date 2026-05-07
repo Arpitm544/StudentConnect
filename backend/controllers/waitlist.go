@@ -25,14 +25,12 @@ func JoinWaitlist(c *gin.Context) {
 		return
 	}
 
-	// 1. Save to DB
 	_, err := config.DB.Exec("INSERT INTO waitlist (email) VALUES ($1) ON CONFLICT (email) DO NOTHING", input.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to join waitlist"})
 		return
 	}
 
-	// 2. Send email notification to Admin
 	adminEmail := os.Getenv("ADMIN_EMAIL")
 	if adminEmail != "" {
 		go func() {

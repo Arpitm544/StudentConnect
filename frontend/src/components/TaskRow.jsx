@@ -68,7 +68,6 @@ const TaskRow = memo(function TaskRow({
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between p-4 md:px-6 md:py-4 rounded-xl bg-bg-card/50 hover:bg-text-primary/2 transition-all duration-200 group border border-border-subtle gap-4 md:gap-0">
       
-      {/* Left Section: Info */}
       <div className="flex items-start gap-3 md:items-center md:gap-4 min-w-0">
         <div className="shrink-0 mt-1 md:mt-0">
           {currentPath === 'market' ? (
@@ -119,7 +118,6 @@ const TaskRow = memo(function TaskRow({
         </div>
       </div>
 
-      {/* Right Section: Badges & Actions */}
       <div className="flex items-center justify-between md:justify-end gap-3 md:gap-6 w-full md:w-auto mt-2 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0 border-border-subtle/30">
         <div className="flex items-center gap-2 md:gap-3">
           {task.priority && (

@@ -69,11 +69,8 @@ export default function KanbanBoard({ tasks, onStatusChange, onView, formatDate 
     if (taskId) {
       const task = tasks.find(t => String(t.id) === String(taskId));
       
-      // Validation: Strict Workflow Transitions (No skipping steps)
       if (task) {
         const currentStatus = task.status || 'pending';
-        
-        // 1. Prevent moving backward or skipping forward
         const workflow = ['pending', 'in_progress', 'submitted', 'completed'];
         const currentIndex = workflow.indexOf(currentStatus);
         const nextIndex = workflow.indexOf(status);
@@ -97,7 +94,6 @@ export default function KanbanBoard({ tasks, onStatusChange, onView, formatDate 
         }
       }
 
-      // Validation: If moving to "In Review" (submitted), check milestones
       if (status === 'submitted' && task) {
         const incompleteMilestones = task.milestones?.filter(m => 
           m.status.toLowerCase() !== 'done' && m.status.toLowerCase() !== 'completed'
@@ -137,7 +133,6 @@ export default function KanbanBoard({ tasks, onStatusChange, onView, formatDate 
             </button>
           </div>
 
-          {/* Column Body */}
           <div 
             className="flex-1 space-y-4 min-h-[150px] bg-zinc-50/50 dark:bg-zinc-900/30 p-2 rounded-2xl border border-zinc-100/50 dark:border-zinc-800/50 transition-colors"
             onDragOver={handleDragOver}
@@ -153,7 +148,6 @@ export default function KanbanBoard({ tasks, onStatusChange, onView, formatDate 
                 className="group bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-accent/30 transition-all cursor-grab active:cursor-grabbing"
                 onClick={() => onView(task.id)}
               >
-                {/* Task Header */}
                 <div className="flex items-center justify-between mb-3 pointer-events-none">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getPriorityColor(task.priority)}`}>
                     {task.priority}
@@ -175,7 +169,6 @@ export default function KanbanBoard({ tasks, onStatusChange, onView, formatDate 
                   {task.description || "No description provided."}
                 </p>
 
-                {/* Task Footer */}
                 <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-800 pointer-events-none">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-medium">
@@ -201,7 +194,6 @@ export default function KanbanBoard({ tasks, onStatusChange, onView, formatDate 
           </div>
         </div>
       ))}
-      {/* Premium Notification Popup */}
       {notification && (
         <div className="fixed bottom-8 right-8 z-[10000] animate-fade-up">
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-4 w-80 flex gap-4">

@@ -830,7 +830,6 @@ func GenerateMilestones(c *gin.Context) {
 	taskID, _ := strconv.ParseInt(input.TaskID, 10, 64)
 	userID := c.MustGet("user_id").(int64)
 
-	// 1. Check current count and ownership
 	var currentCount int
 	var creatorID int64
 	err := config.DB.QueryRow("SELECT ai_milestone_count, creator_id FROM tasks WHERE id = $1", taskID).Scan(&currentCount, &creatorID)
@@ -849,14 +848,12 @@ func GenerateMilestones(c *gin.Context) {
 		return
 	}
 
-	// 2. Generate milestones via AI
 	milestones, err := services.SuggestMilestones(input.Title, input.Description, input.Subject)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 3. Begin Transaction to Overwrite and Save
 	tx, err := config.DB.Begin()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
@@ -864,14 +861,12 @@ func GenerateMilestones(c *gin.Context) {
 	}
 	defer tx.Rollback()
 
-	// Delete old milestones
 	_, err = tx.Exec("DELETE FROM milestones WHERE task_id = $1", input.TaskID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear old milestones"})
 		return
 	}
 
-	// Insert new milestones
 	for _, mTitle := range milestones {
 		_, err = tx.Exec("INSERT INTO milestones (task_id, title, status) VALUES ($1, $2, 'pending')", input.TaskID, mTitle)
 		if err != nil {
@@ -880,7 +875,6 @@ func GenerateMilestones(c *gin.Context) {
 		}
 	}
 
-	// Increment counter and set ai_optimized to true
 	_, err = tx.Exec("UPDATE tasks SET ai_milestone_count = ai_milestone_count + 1, ai_optimized = TRUE WHERE id = $1", input.TaskID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update AI usage counter"})
@@ -943,7 +937,6 @@ func DeleteMilestone(c *gin.Context) {
 	milestoneID, _ := strconv.Atoi(c.Param("mid"))
 	userID := c.MustGet("user_id").(int64)
 
-	// Verify task ownership
 	var creatorID int64
 	err := config.DB.QueryRow("SELECT creator_id FROM tasks WHERE id = $1", taskID).Scan(&creatorID)
 	if err != nil {

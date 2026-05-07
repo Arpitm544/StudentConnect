@@ -21,7 +21,6 @@ const SettingsModal = ({
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
-  // Security States
   const [securityData, setSecurityData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -31,7 +30,7 @@ const SettingsModal = ({
   const [securityError, setSecurityError] = useState('');
   const [securitySuccess, setSecuritySuccess] = useState('');
   const [isOtpSent, setIsOtpSent] = useState(false);
-  const [securityAction, setSecurityAction] = useState(null); // 'password' or 'delete'
+  const [securityAction, setSecurityAction] = useState(null); 
   const [deleteOtp, setDeleteOtp] = useState('');
 
   if (!isOpen) return null;
@@ -271,7 +270,7 @@ const SettingsModal = ({
     setSecurityError('');
     try {
       await api.post('/api/user/delete-account', { otp: deleteOtp });
-      onLogout(); // This will redirect to landing page
+      onLogout();
     } catch (err) {
       setSecurityError(err.response?.data?.error || 'Failed to delete account');
     } finally {
@@ -281,7 +280,6 @@ const SettingsModal = ({
 
   const renderSecurityTab = () => (
     <div className="space-y-6 animate-fade-in">
-      {/* Feedback Messages */}
       {securityError && (
         <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-500 text-xs font-medium">
           <AlertTriangle size={14} /> {securityError}
@@ -293,7 +291,6 @@ const SettingsModal = ({
         </div>
       )}
 
-      {/* Password Change Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <Key size={16} className="text-text-secondary" />
@@ -360,7 +357,6 @@ const SettingsModal = ({
         )}
       </div>
 
-      {/* Delete Account Section */}
       <div className="pt-6 border-t border-border-subtle">
         <div className="flex items-center gap-2 mb-2 text-red-500">
           <Trash2 size={16} />
@@ -416,7 +412,6 @@ const SettingsModal = ({
     <div className="fixed inset-0 z-[100] flex items-center justify-center md:p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
       <div className="bg-bg-card md:rounded-2xl w-full h-full md:h-[600px] md:max-w-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden md:border border-border-subtle">
         
-        {/* Sidebar / Mobile Tabs */}
         <div className="w-full md:w-64 bg-bg-sidebar border-b md:border-b-0 md:border-r border-border-subtle flex flex-col shrink-0">
           <div className="p-4 md:p-6 pb-2 md:pb-6">
             <div className="flex items-center justify-between mb-2 md:mb-6">
@@ -458,8 +453,6 @@ const SettingsModal = ({
              </button>
           </div>
         </div>
-
-        {/* Content Area */}
         <div className="flex-1 flex flex-col min-w-0 bg-bg-card">
            <div className="hidden md:flex justify-end p-4">
               <button onClick={onClose} className="p-1 hover:bg-bg-main rounded text-text-secondary transition-colors">
@@ -479,7 +472,6 @@ const SettingsModal = ({
               {activeTab === 'preferences' && renderPreferencesTab()}
               {activeTab === 'security' && renderSecurityTab()}
               
-              {/* Mobile Sign Out */}
               <div className="md:hidden mt-12 pt-8 border-t border-border-subtle">
                 <button 
                   onClick={onLogout}

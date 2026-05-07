@@ -9,7 +9,6 @@ import (
 )
 
 func SetupRoutes(r *gin.Engine) {
-	// Public routes
 	r.GET("/api/public/stats", controllers.GetPublicStats)
 	r.POST("/api/waitlist", controllers.JoinWaitlist)
 
@@ -18,7 +17,7 @@ func SetupRoutes(r *gin.Engine) {
 		auth.POST("/signup", controllers.Signup)
 		auth.POST("/login", controllers.Login)
 		auth.POST("/verify-otp", controllers.VerifyEmail)
-		auth.POST("/verify", controllers.VerifyEmail) // Legacy compatibility
+		auth.POST("/verify", controllers.VerifyEmail) 
 		auth.POST("/resend-verification", controllers.ResendVerification)
 		auth.POST("/google", controllers.GoogleAuth)
 		auth.POST("/logout", controllers.Logout)
@@ -44,7 +43,6 @@ func SetupRoutes(r *gin.Engine) {
 		c.Next()
 	}
 
-	// ✅ EMERGENCY FIX: Direct AI Routes
 	r.POST("/api/tasks/ai/predict-priority", requireAuth, controllers.PredictPriority)
 	r.POST("/api/tasks/ai/predict-labels", requireAuth, controllers.PredictLabels)
 	r.POST("/api/tasks/ai/generate-milestones", requireAuth, controllers.GenerateMilestones)

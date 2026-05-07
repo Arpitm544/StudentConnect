@@ -128,8 +128,7 @@ func SuggestLabels(title, description string) ([]string, error) {
 
 func cleanJSONResponse(resp string) string {
 	fmt.Printf("[AI] RAW Response: %s\n", resp)
-	
-	// 1. Try finding brackets or braces
+
 	startIdx := strings.IndexAny(resp, "[{")
 	if startIdx != -1 {
 		char := resp[startIdx]
@@ -143,7 +142,6 @@ func cleanJSONResponse(resp string) string {
 		}
 	}
 
-	// 2. Try finding code blocks
 	if start := strings.Index(resp, "```"); start != -1 {
 		content := resp[start+3:]
 		if nl := strings.Index(content, "\n"); nl != -1 {
@@ -185,20 +183,16 @@ The "description" MUST be a single string (use \n for newlines), NOT a nested ob
 
 	cleanedResp := cleanJSONResponse(resp)
 	
-	// Use map[string]interface{} first to handle cases where AI might still return an object for description
 	var rawResult map[string]interface{}
 	if err := json.Unmarshal([]byte(cleanedResp), &rawResult); err != nil {
 		return nil, fmt.Errorf("failed to parse improved text: %v", err)
 	}
-
-	// Convert everything back to strings for the frontend
 	result := make(map[string]string)
 	for k, v := range rawResult {
 		switch val := v.(type) {
 		case string:
 			result[k] = val
 		default:
-			// If it's an object or array, convert it to a JSON string or a readable string
 			jsonBytes, _ := json.MarshalIndent(val, "", "  ")
 			result[k] = string(jsonBytes)
 		}

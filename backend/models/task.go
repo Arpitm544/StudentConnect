@@ -22,7 +22,6 @@ type Milestone struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
-// TaskAssignee represents one user's slot on a multi-assignee task.
 type TaskAssignee struct {
 	TaskID         int64     `json:"task_id,string"`
 	UserID         int64     `json:"user_id,string"`
@@ -31,7 +30,6 @@ type TaskAssignee struct {
 	SubmissionLink *string   `json:"submission_link"`
 	AcceptedAt     time.Time `json:"accepted_at"`
 
-	// Join fields (from users table)
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	PhotoURL string `json:"photo_url"`
@@ -44,7 +42,7 @@ type Activity struct {
 	Action    string    `json:"action"`
 	Details   string    `json:"details"`
 	CreatedAt time.Time `json:"created_at"`
-	UserName  string    `json:"user_name"` // Join field
+	UserName  string    `json:"user_name"`
 }
 
 type TaskLink struct {
@@ -54,7 +52,6 @@ type TaskLink struct {
 	LinkType     string    `json:"link_type"`
 	CreatedAt    time.Time `json:"created_at"`
 
-	// Join fields
 	TargetTitle  string `json:"target_title"`
 	TargetStatus string `json:"target_status"`
 }
@@ -66,7 +63,7 @@ type Task struct {
 	Status        string     `json:"status"`
 	Accepted      bool       `json:"accepted"`
 	CreatorID     *int64     `json:"creator_id,string"`
-	AssigneeID    *int64     `json:"assignee_id,string"` // kept for backward compat
+	AssigneeID    *int64     `json:"assignee_id,string"`
 	Deadline      *time.Time `json:"deadline"`
 	Progress      int        `json:"progress"`
 	Subject       string     `json:"subject"`
@@ -74,9 +71,8 @@ type Task struct {
 	ExtensionEmailSent bool  `json:"extension_email_sent"`
 	SubmissionLink *string   `json:"submission_link"`
 
-	// Multi-assignee fields
 	Capacity    int            `json:"capacity"`
-	SlotsFilled int            `json:"slots_filled"` // computed: len(Assignees)
+	SlotsFilled int            `json:"slots_filled"`
 	Assignees   []TaskAssignee `json:"assignees"`
 
 	Milestones []Milestone `json:"milestones"`
@@ -88,7 +84,6 @@ type Task struct {
 	AiOptimized       bool        `json:"ai_optimized"`
 	AiMilestoneCount int         `json:"ai_milestone_count"`
 
-	// Backward-compat join fields (used by FetchTasksByQuery)
 	AssigneeName     string    `json:"assignee_name"`
 	AssigneeEmail    string    `json:"assignee_email"`
 	AssigneePhotoURL string    `json:"assignee_photo_url"`
@@ -107,7 +102,6 @@ type TaskInvitation struct {
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	
-	// Join fields
 	TaskTitle       string     `json:"task_title"`
 	TaskDescription string     `json:"task_description"`
 	TaskSubject     string     `json:"task_subject"`

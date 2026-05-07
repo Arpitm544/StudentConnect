@@ -20,17 +20,10 @@ func GetPublicStats(c *gin.Context) {
 	var completedTasks int64
 	var activeTasks int64
 
-	// Count total tasks
 	config.DB.QueryRow("SELECT COUNT(*) FROM tasks").Scan(&totalTasks)
-
-	// Count completed tasks
 	config.DB.QueryRow("SELECT COUNT(*) FROM tasks WHERE status = 'completed'").Scan(&completedTasks)
-
-	// Count active tasks
 	config.DB.QueryRow("SELECT COUNT(*) FROM tasks WHERE status IN ('accepted', 'in_progress', 'submitted')").Scan(&activeTasks)
-
-	// Calculate 7-day activity
-	days := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
+    days := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
 	var dailyStats []DailyActivity
 
 	for i := 6; i >= 0; i-- {

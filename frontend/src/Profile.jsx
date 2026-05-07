@@ -68,14 +68,12 @@ export default function Profile({ onLogout }) {
 
   const [userProfile, setUserProfile] = useState(null);
   const [globalActivity, setGlobalActivity] = useState([]);
-  const [activityView, setActivityView] = useState('platform'); // 'platform' or 'personal'
+  const [activityView, setActivityView] = useState('platform');
   const [globalStatsLoading, setGlobalStatsLoading] = useState(true);
 
-  // Auto-open settings if ?settings=true in URL
   useEffect(() => {
     if (searchParams.get('settings') === 'true') {
       setIsSettingsModalOpen(true);
-      // Clean up the URL without triggering a full navigation
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('settings');
       setSearchParams(newParams, { replace: true });
@@ -152,6 +150,19 @@ export default function Profile({ onLogout }) {
   }, []);
 
   useEffect(() => {
+    const pageTitles = {
+      'dashboard': 'Dashboard | TaskNest',
+      'board': 'Kanban Board | TaskNest',
+      'market': 'Task Market | TaskNest',
+      'my-tasks': 'My Tasks | TaskNest',
+      'invitations': 'Task Requests | TaskNest',
+      'posted-requests': 'Post Task | TaskNest',
+      'profile': 'Profile | TaskNest'
+    };
+    document.title = pageTitles[currentPath] || 'Dashboard | TaskNest';
+  }, [currentPath]);
+
+  useEffect(() => {
     if (userProfile) {
       setProfileFormData({
         name: userProfile.name || '',
@@ -173,15 +184,12 @@ export default function Profile({ onLogout }) {
     }
     if (currentPath === 'invitations') fetchInvitations();
     
-    // Auto-open post form if redirected from dashboard with state
     if (currentPath === 'posted-requests' && location.state?.openForm) {
       setShowPostForm(true);
-      // Clear state so it doesn't stay open on refresh
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [currentPath, searchTerm, location.state?.openForm, fetchTasks, fetchInvitations, navigate, location.pathname]);
 
-  // ── Derived Data: Stats ──
   const { total, completed, inProgress, inReview, pending, dueSoonCount, completionRate, networkCount } = useMemo(() => {
     const total = tasks.length;
     const completed = tasks.filter((t) => t.status === 'completed').length;
@@ -192,7 +200,6 @@ export default function Profile({ onLogout }) {
     const dueSoonCount = tasks.filter(t => t.deadline && new Date(t.deadline) > now && new Date(t.deadline) < new Date(now.getTime() + 48 * 60 * 60 * 1000)).length;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
     
-    // Calculate unique network connections
     const connections = new Set();
     tasks.forEach(t => {
       if (t.creator_id && String(t.creator_id) !== String(userProfile?.id)) connections.add(String(t.creator_id));
@@ -203,12 +210,9 @@ export default function Profile({ onLogout }) {
     return { total, completed, inProgress, inReview, pending, dueSoonCount, completionRate, networkCount };
   }, [tasks, userProfile]);
 
-  // ── Derived Data: Chart ──
   const chartData = useMemo(() => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const last7Days = [];
-    
-    // Initialize last 7 days with keys like "2026-05-06"
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -222,7 +226,6 @@ export default function Profile({ onLogout }) {
       });
     }
 
-    // For each day in the 7-day window, calculate which tasks were "In-Progress" on THAT specific day
     last7Days.forEach(dayInfo => {
       const currentDayTimestamp = new Date(dayInfo.key).getTime();
 
@@ -231,18 +234,13 @@ export default function Profile({ onLogout }) {
         const taskCreatedTime = new Date(task.created_at).getTime();
         const taskUpdatedTime = task.updated_at ? new Date(task.updated_at).getTime() : Infinity;
         
-        // Postings: only count on the day it was created
         if (new Date(task.created_at).toISOString().split('T')[0] === dayInfo.key) {
           dayInfo.postings += 1;
         }
-
-        // Completions: only count on the day it was finished
         if (task.status === 'completed' && task.updated_at && new Date(task.updated_at).toISOString().split('T')[0] === dayInfo.key) {
           dayInfo.completions += 1;
         }
 
-        // In-Progress: was the task accepted/active on this specific day?
-        // Logic: Created <= day AND Not Pending AND (Not Completed OR Completed After day) AND (No Deadline OR Deadline >= day)
         const isCreatedBeforeOrOnDay = taskCreatedTime <= (currentDayTimestamp + 86400000);
         const isNotPending = task.status !== 'pending';
         const isNotCompletedYet = task.status !== 'completed' || taskUpdatedTime > currentDayTimestamp;
@@ -563,7 +561,6 @@ export default function Profile({ onLogout }) {
         tasks={tasks}
       />
 
-      {/* ── Main Content ── */}
       <main className="flex-1 h-screen overflow-y-auto bg-bg-main transition-colors duration-300">
         
         <Header 
@@ -581,7 +578,6 @@ export default function Profile({ onLogout }) {
             <Route path="/" element={
               <div className="space-y-8 animate-fade-up">
                 
-                {/* Welcome & Stats Row */}
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 md:gap-8">
                     <div className="space-y-2">
                        <h2 className="text-2xl md:text-3xl font-semibold text-text-primary tracking-tight">Welcome back, {userProfile?.name?.split(' ')[0]}</h2>
@@ -596,7 +592,6 @@ export default function Profile({ onLogout }) {
                    </div>
                 </div>
 
-                {/* Stat Cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                   {tasksLoading
                     ? [...Array(4)].map((_, i) => <StatCardSkeleton key={i} />)
@@ -621,9 +616,7 @@ export default function Profile({ onLogout }) {
                 </div>
 
 
-                {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
-                   {/* Activity Chart */}
                     <div className="lg:col-span-2 premium-card">
                        <div className="flex items-center justify-between mb-10">
                           <div>
@@ -654,8 +647,6 @@ export default function Profile({ onLogout }) {
                           />
                        </div>
                     </div>
-
-                   {/* Professional Minimalist Engagement Card */}
                    <div className="bg-bg-card border border-border-subtle rounded-3xl p-8 relative overflow-hidden group hover:border-accent/30 transition-all duration-300 shadow-premium animate-fade-in">
                       <div className="relative z-10 h-full flex flex-col">
                          <div className="w-12 h-12 bg-accent-soft rounded-2xl flex items-center justify-center mb-8 border border-accent/10 group-hover:bg-accent group-hover:text-white transition-all duration-300">
@@ -676,7 +667,6 @@ export default function Profile({ onLogout }) {
                    </div>
                 </div>
 
-                {/* Priority Tasks Engine */}
                 <div className="space-y-8 pt-4">
                    <PriorityTasks 
                       tasks={focusTasks} 
@@ -1112,8 +1102,6 @@ export default function Profile({ onLogout }) {
           </Routes>
         </div>
       </main>
-
-      {/* Mobile Menu Button */}
       {!mobileMenuOpen && (
         <button 
           onClick={() => setMobileMenuOpen(true)}
@@ -1130,7 +1118,6 @@ export default function Profile({ onLogout }) {
           <X size={20} />
         </button>
       )}
-      {/* Settings Modal (Unified Profile/Prefs) */}
       <SettingsModal 
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
@@ -1143,8 +1130,6 @@ export default function Profile({ onLogout }) {
         toggleTheme={toggleTheme}
         onLogout={onLogout}
       />
-
-      {/* Deletion Confirmation Modal */}
       {taskToDelete && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-bg-card rounded-xl w-full max-w-sm shadow-2xl overflow-hidden border border-border-subtle animate-scale-up">

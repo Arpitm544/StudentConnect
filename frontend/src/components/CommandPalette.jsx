@@ -102,15 +102,11 @@ export default function CommandPalette({ onLogout }) {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh] px-4">
-      {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-zinc-950/40 backdrop-blur-sm animate-fade-in"
         onClick={() => setIsOpen(false)}
       />
-
-      {/* Palette Container */}
       <div className="relative w-full max-w-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-scale-up">
-        {/* Search Input Area */}
         <div className="flex items-center gap-3 px-4 py-4 border-b border-zinc-100 dark:border-zinc-800">
           <Search size={20} className="text-zinc-400" />
           <input
@@ -125,8 +121,6 @@ export default function CommandPalette({ onLogout }) {
             <span className="text-[10px] font-bold text-zinc-500">ESC</span>
           </div>
         </div>
-
-        {/* Results Area */}
         <div className="max-h-[60vh] overflow-y-auto py-2">
           {filteredActions.length > 0 ? (
             <div className="px-2">
@@ -174,7 +168,6 @@ export default function CommandPalette({ onLogout }) {
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-4 py-3 bg-zinc-50/50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[11px] text-zinc-400 font-medium">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1"><ArrowRight size={10} className="rotate-90" /> Navigate</span>

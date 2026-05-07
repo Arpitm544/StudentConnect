@@ -51,7 +51,7 @@ func Signup(c *gin.Context) {
 	expiry := time.Now().Add(10 * time.Minute)
 
 	id, isVerified, provider, err := services.CheckUserExists(input.Email)
-	if err == nil { // User exists
+	if err == nil {
 		if isVerified {
 			c.JSON(http.StatusConflict, gin.H{"error": "A user with this email already exists"})
 			return
@@ -60,9 +60,8 @@ func Signup(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "This email is associated with a social login. Please use Google."})
 			return
 		}
-		// Update existing unverified user
 		config.DB.Exec("UPDATE users SET password = $1, verification_token = $2, verification_token_expires = $3, verification_sent_at = $4 WHERE id = $5", hashedPassword, otp, expiry, time.Now(), id)
-	} else { // New user
+	} else { 
 		query := `INSERT INTO users (name, email, password, provider, email_verified, is_verified, verification_token, verification_token_expires, verification_sent_at) VALUES ($1, $2, $3, 'password', FALSE, FALSE, $4, $5, $6)`
 		if _, err := config.DB.Exec(query, input.Name, input.Email, hashedPassword, otp, expiry, time.Now()); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
@@ -126,9 +125,9 @@ func GoogleAuth(c *gin.Context) {
 	err = config.DB.QueryRow("SELECT id FROM users WHERE uid = $1", uid).Scan(&userID)
 	if err != nil {
 		err = config.DB.QueryRow("SELECT id FROM users WHERE email = $1", email).Scan(&userID)
-		if err == nil { // Link existing email to UID
+		if err == nil { 
 			config.DB.Exec("UPDATE users SET uid = $1, provider = 'google', is_verified = TRUE WHERE id = $2", uid, userID)
-		} else { // Create new
+		} else { 
 			config.DB.QueryRow("INSERT INTO users (uid, name, email, photo_url, provider, is_verified) VALUES ($1, $2, $3, $4, 'google', TRUE) RETURNING id", uid, name, email, services.NullableString(picture)).Scan(&userID)
 			services.SendWelcomeEmail(email, name)
 		}
@@ -206,7 +205,6 @@ func UpdateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Profile updated successfully"})
 }
 
-// Internal Helper for Cookies
 func setAuthCookie(c *gin.Context, token string) {
 	maxAge := 86400
 	if token == "" {
@@ -310,19 +308,14 @@ func ChangePassword(c *gin.Context) {
 		return
 	}
 
-	// 1. Verify current password
 	if !utils.CheckPasswordHash(input.CurrentPassword, storedHash) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect current password"})
 		return
 	}
-
-	// 2. Verify OTP
 	if !storedOTP.Valid || input.OTP != storedOTP.String || time.Now().After(expiry) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired verification code"})
 		return
 	}
-
-	// 3. Update password
 	newHash, _ := utils.HashPassword(input.NewPassword)
 	_, err = config.DB.Exec("UPDATE users SET password = $1, verification_token = NULL WHERE id = $2", newHash, userID)
 	if err != nil {
@@ -373,20 +366,15 @@ func DeleteAccount(c *gin.Context) {
 		return
 	}
 
-	// Start a transaction to delete user and all associated data
 	tx, err := config.DB.Begin()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
-	// 1. Delete task assignees
 	tx.Exec("DELETE FROM task_assignees WHERE user_id = $1", userID)
-	// 2. Delete invitations
 	tx.Exec("DELETE FROM invitations WHERE creator_id = $1 OR assignee_email IN (SELECT email FROM users WHERE id = $2)", userID, userID)
-	// 3. Delete tasks created by user
 	tx.Exec("DELETE FROM tasks WHERE creator_id = $1", userID)
-	// 4. Finally delete user
 	_, err = tx.Exec("DELETE FROM users WHERE id = $1", userID)
 
 	if err != nil {

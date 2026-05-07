@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /dashboard/
+Disallow: /profile/
+Disallow: /api/
 
 Sitemap: https://web.tasknest.tech/sitemap.xml
