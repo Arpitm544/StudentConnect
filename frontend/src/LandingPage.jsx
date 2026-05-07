@@ -210,10 +210,6 @@ export default function LandingPage() {
       <main className="pt-24 md:pt-32 pb-20">
         {/* 2. HERO SECTION */}
         <section className="px-6 max-w-6xl mx-auto text-center mb-24">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 mb-8 mt-4 transition-colors">
-            <span className="flex h-2 w-2 rounded-full bg-zinc-400"></span>
-            <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 tracking-wide uppercase">Version 2.0 now live</span>
-          </div>
           
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-zinc-900 dark:text-white mb-6 leading-[1.05] transition-colors">
             TaskNest – Smart <br className="hidden md:block" />
