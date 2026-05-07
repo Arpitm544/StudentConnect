@@ -413,27 +413,27 @@ const SettingsModal = ({
   );
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-      <div className="bg-bg-card rounded-2xl w-full max-w-3xl h-[600px] md:h-[600px] max-h-[90vh] md:max-h-none shadow-2xl flex flex-col md:flex-row overflow-hidden border border-border-subtle">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center md:p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+      <div className="bg-bg-card md:rounded-2xl w-full h-full md:h-[600px] md:max-w-3xl shadow-2xl flex flex-col md:flex-row overflow-hidden md:border border-border-subtle">
         
         {/* Sidebar / Mobile Tabs */}
         <div className="w-full md:w-64 bg-bg-sidebar border-b md:border-b-0 md:border-r border-border-subtle flex flex-col shrink-0">
-          <div className="p-5 md:p-6 pb-0 md:pb-6">
-            <div className="flex items-center justify-between mb-4 md:mb-6">
-              <h3 className="text-lg font-semibold text-text-primary">Settings</h3>
-              <button onClick={onClose} className="md:hidden p-1 hover:bg-bg-main rounded text-text-secondary transition-colors">
+          <div className="p-4 md:p-6 pb-2 md:pb-6">
+            <div className="flex items-center justify-between mb-2 md:mb-6">
+              <h3 className="text-lg font-bold text-text-primary tracking-tight">Settings</h3>
+              <button onClick={onClose} className="p-2 hover:bg-bg-main rounded-full text-text-secondary transition-colors">
                 <X size={20} />
               </button>
             </div>
 
-            <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible no-scrollbar pb-4 md:pb-0">
+            <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible no-scrollbar pb-2 md:pb-0">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                  className={`flex items-center gap-2.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
                     activeTab === tab.id
-                      ? 'bg-text-primary text-bg-sidebar'
+                      ? 'bg-text-primary text-bg-sidebar shadow-lg shadow-text-primary/10'
                       : 'text-text-secondary hover:bg-text-primary/5 hover:text-text-primary'
                   }`}
                 >
@@ -467,12 +467,12 @@ const SettingsModal = ({
               </button>
            </div>
 
-           <div className="flex-1 overflow-y-auto px-5 md:px-10 pb-10 pt-4 md:pt-0">
-              <div className="md:hidden flex items-center gap-2 mb-6 pb-2 border-b border-border-subtle">
-                <span className="p-1.5 bg-text-primary/5 rounded-lg text-text-primary">
+           <div className="flex-1 overflow-y-auto px-4 md:px-10 pb-10 pt-2 md:pt-0">
+              <div className="md:hidden flex items-center gap-2 mb-6 pb-2 border-b border-border-subtle/50">
+                <span className="p-1.5 bg-accent/10 rounded-lg text-accent">
                   {tabs.find(t => t.id === activeTab)?.icon}
                 </span>
-                <h4 className="font-semibold text-text-primary">{tabs.find(t => t.id === activeTab)?.label}</h4>
+                <h4 className="font-bold text-text-primary">{tabs.find(t => t.id === activeTab)?.label}</h4>
               </div>
 
               {activeTab === 'profile' && renderProfileTab()}
