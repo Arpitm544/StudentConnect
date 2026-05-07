@@ -414,30 +414,37 @@ const SettingsModal = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-      <div className="bg-bg-card rounded-xl w-full max-w-3xl h-[600px] shadow-2xl flex flex-col md:flex-row overflow-hidden border border-border-subtle">
+      <div className="bg-bg-card rounded-2xl w-full max-w-3xl h-[600px] md:h-[600px] max-h-[90vh] md:max-h-none shadow-2xl flex flex-col md:flex-row overflow-hidden border border-border-subtle">
         
-        {/* Sidebar */}
-        <div className="w-full md:w-56 bg-bg-sidebar border-r border-border-subtle flex flex-col p-6 shrink-0">
-          <h3 className="text-lg font-semibold text-text-primary mb-6">Settings</h3>
-
-          <nav className="space-y-1 flex-1">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-text-primary text-bg-sidebar'
-                    : 'text-text-secondary hover:bg-text-primary/5 hover:text-text-primary'
-                }`}
-              >
-                {tab.icon}
-                {tab.label}
+        {/* Sidebar / Mobile Tabs */}
+        <div className="w-full md:w-64 bg-bg-sidebar border-b md:border-b-0 md:border-r border-border-subtle flex flex-col shrink-0">
+          <div className="p-5 md:p-6 pb-0 md:pb-6">
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <h3 className="text-lg font-semibold text-text-primary">Settings</h3>
+              <button onClick={onClose} className="md:hidden p-1 hover:bg-bg-main rounded text-text-secondary transition-colors">
+                <X size={20} />
               </button>
-            ))}
-          </nav>
+            </div>
 
-          <div className="pt-6 border-t border-border-subtle space-y-4">
+            <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible no-scrollbar pb-4 md:pb-0">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-text-primary text-bg-sidebar'
+                      : 'text-text-secondary hover:bg-text-primary/5 hover:text-text-primary'
+                  }`}
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          <div className="hidden md:flex mt-auto p-6 border-t border-border-subtle flex-col gap-4">
              <div className="flex items-center gap-2">
                 <Avatar name={userProfile?.name} photoUrl={userProfile?.photo_url} size="xs" />
                 <p className="text-xs font-medium text-text-primary truncate">{userProfile?.name}</p>
@@ -453,22 +460,35 @@ const SettingsModal = ({
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 flex flex-col min-w-0">
-           <div className="p-4 border-b border-border-subtle flex items-center justify-between md:hidden">
-              <h4 className="font-semibold text-text-primary">{tabs.find(t => t.id === activeTab)?.label}</h4>
-              <button onClick={onClose} className="text-text-secondary"><X size={18} /></button>
-           </div>
-           
+        <div className="flex-1 flex flex-col min-w-0 bg-bg-card">
            <div className="hidden md:flex justify-end p-4">
               <button onClick={onClose} className="p-1 hover:bg-bg-main rounded text-text-secondary transition-colors">
-                 <X size={18} />
+                 <X size={20} />
               </button>
            </div>
 
-           <div className="flex-1 overflow-y-auto px-6 md:px-10 pb-10 pt-0">
+           <div className="flex-1 overflow-y-auto px-5 md:px-10 pb-10 pt-4 md:pt-0">
+              <div className="md:hidden flex items-center gap-2 mb-6 pb-2 border-b border-border-subtle">
+                <span className="p-1.5 bg-text-primary/5 rounded-lg text-text-primary">
+                  {tabs.find(t => t.id === activeTab)?.icon}
+                </span>
+                <h4 className="font-semibold text-text-primary">{tabs.find(t => t.id === activeTab)?.label}</h4>
+              </div>
+
               {activeTab === 'profile' && renderProfileTab()}
               {activeTab === 'preferences' && renderPreferencesTab()}
               {activeTab === 'security' && renderSecurityTab()}
+              
+              {/* Mobile Sign Out */}
+              <div className="md:hidden mt-12 pt-8 border-t border-border-subtle">
+                <button 
+                  onClick={onLogout}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 text-red-500 text-sm font-bold rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                >
+                  <LogOut size={16} />
+                  Sign Out
+                </button>
+              </div>
            </div>
         </div>
       </div>
