@@ -333,14 +333,7 @@ export default function Profile({ onLogout }) {
       });
   }, [tasks, searchTerm, statusFilter]);
 
-  const handleLogout = async () => {
-    try {
-      await api.post('/api/auth/logout');
-      onLogout();
-    } catch (err) {
-      console.error('Logout failed', err);
-    }
-  };
+
 
   const handleAccept = useCallback(async (id) => {
     try {

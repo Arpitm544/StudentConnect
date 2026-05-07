@@ -31,12 +31,12 @@ function RequireAuth({ children }) {
 
 function App() {
   const navigate = useNavigate();
-  const { user, loading, refreshAuth, clearUser } = useAuth();
+  const { user, loading, refreshAuth, logout } = useAuth();
 
-  const handleLogout = useCallback(() => {
-    clearUser();
+  const handleLogout = useCallback(async () => {
+    await logout();
     navigate('/', { replace: true });
-  }, [clearUser, navigate]);
+  }, [logout, navigate]);
 
   if (loading) return <PageLoader />;
 

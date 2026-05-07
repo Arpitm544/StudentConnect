@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.authenticated) {
-        setUser({ userId: data.user_id, emailVerified: !!data.email_verified });
+        setUser({ userId: data.user_id, emailVerified: !!data.is_verified });
       } else {
         setUser(null);
       }
@@ -40,15 +40,29 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const logout = useCallback(async () => {
+    try {
+      await fetch(`${API_BASE}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
       loading,
       refreshAuth,
       clearUser,
+      logout,
       setUser,
     }),
-    [user, loading, refreshAuth, clearUser]
+    [user, loading, refreshAuth, clearUser, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
