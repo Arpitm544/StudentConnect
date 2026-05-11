@@ -108,9 +108,20 @@ func FetchTasksByQuery(query string, args ...any) ([]models.Task, error) {
 
 func SyncTaskStatusWithMilestones(taskID int64) error {
 	var isAccepted bool
+	var inTasksTable bool = true
 	err := config.DB.QueryRow(`SELECT accepted FROM tasks WHERE id = $1`, taskID).Scan(&isAccepted)
 	if err != nil {
-		return err
+		if err == sql.ErrNoRows {
+			var exists bool
+			errW := config.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM workspace_tasks WHERE id = $1)`, taskID).Scan(&exists)
+			if errW != nil || !exists {
+				return fmt.Errorf("task not found in any table")
+			}
+			isAccepted = true
+			inTasksTable = false
+		} else {
+			return err
+		}
 	}
 
 	rows, err := config.DB.Query(`SELECT status FROM milestones WHERE task_id = $1`, taskID)
@@ -170,16 +181,15 @@ func SyncTaskStatusWithMilestones(taskID int64) error {
 		newStatus = "pending"
 	}
 
-	var oldStatus string
-	config.DB.QueryRow(`SELECT status FROM tasks WHERE id = $1`, taskID).Scan(&oldStatus)
-
-	_, err = config.DB.Exec(`UPDATE tasks SET status = $1, progress = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, newStatus, progress, taskID)
-	if err == nil {
-		_, _ = config.DB.Exec(`UPDATE task_assignees SET status = $1, progress = $2 WHERE task_id = $3`, newStatus, progress, taskID)
-		
-		if newStatus == "completed" && oldStatus != "completed" {
+	if inTasksTable {
+		_, err = config.DB.Exec(`UPDATE tasks SET status = $1, progress = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, newStatus, progress, taskID)
+		if err == nil {
+			_, _ = config.DB.Exec(`UPDATE task_assignees SET status = $1, progress = $2 WHERE task_id = $3`, newStatus, progress, taskID)
 		}
+	} else {
+		_, err = config.DB.Exec(`UPDATE workspace_tasks SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, newStatus, taskID)
 	}
+	
 	return err
 }
 

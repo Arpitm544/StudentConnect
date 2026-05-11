@@ -16,10 +16,15 @@ type Milestone struct {
 	TaskID         int64     `json:"task_id,string"`
 	Title          string    `json:"title"`
 	Status         string    `json:"status"`
+	AssigneeID     *int64    `json:"assignee_id,string"`
 	SubmissionLink *string   `json:"submission_link"`
 	SubmissionNote *string   `json:"submission_note"`
+	Position       int       `json:"position"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+
+	AssigneeName     string `json:"assignee_name"`
+	AssigneePhotoURL string `json:"assignee_photo_url"`
 }
 
 type TaskAssignee struct {
@@ -93,6 +98,8 @@ type Task struct {
 
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
+	WorkspaceID      *int64    `json:"workspace_id,string"`
+	UserRole         string    `json:"user_role"`
 }
 
 type TaskInvitation struct {

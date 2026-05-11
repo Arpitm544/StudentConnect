@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
+import { WorkspaceProvider } from './context/WorkspaceContext.jsx';
 
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 
@@ -40,68 +41,70 @@ function App() {
 
   return (
     <ThemeProvider>
-      <CommandPalette onLogout={handleLogout} />
-      <ErrorBoundary>
-        <Suspense fallback={<PageLoader />}>
-        <Routes>
+      <WorkspaceProvider>
+        <CommandPalette onLogout={handleLogout} />
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>
+          <Routes>
 
-          <Route path="/" element={<LandingPage />} />
-  
-          <Route
-            path="/login"
-            element={
-              user ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Auth onLoginSuccess={refreshAuth} initialIsLogin={true} />
-              )
-            }
-          />
-          <Route
-            path="/signup"
-            element={
-              user ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Auth onLoginSuccess={refreshAuth} initialIsLogin={false} />
-              )
-            }
-          />
+            <Route path="/" element={<LandingPage />} />
+    
+            <Route
+              path="/login"
+              element={
+                user ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Auth onLoginSuccess={refreshAuth} initialIsLogin={true} />
+                )
+              }
+            />
+            <Route
+              path="/signup"
+              element={
+                user ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Auth onLoginSuccess={refreshAuth} initialIsLogin={false} />
+                )
+              }
+            />
 
-          <Route
-            path="/verify"
-            element={
-              user ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Verify onVerified={refreshAuth} />
-              )
-            }
-          />
+            <Route
+              path="/verify"
+              element={
+                user ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Verify onVerified={refreshAuth} />
+                )
+              }
+            />
 
-          <Route
-            path="/dashboard/*"
-            element={
-              <RequireAuth>
-                <Routes>
-                  <Route path="task/:id" element={<TaskDetail />} />
-                  <Route
-                    path="/*"
-                    element={
-                      <Profile
-                        onLogout={handleLogout}
-                      />
-                    }
-                  />
-                </Routes>
-              </RequireAuth>
-            }
-          />
+            <Route
+              path="/dashboard/*"
+              element={
+                <RequireAuth>
+                  <Routes>
+                    <Route path="task/:id" element={<TaskDetail />} />
+                    <Route
+                      path="/*"
+                      element={
+                        <Profile
+                          onLogout={handleLogout}
+                        />
+                      }
+                    />
+                  </Routes>
+                </RequireAuth>
+              }
+            />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
-      </ErrorBoundary>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+        </ErrorBoundary>
+      </WorkspaceProvider>
     </ThemeProvider>
   );
 }

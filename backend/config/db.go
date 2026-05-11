@@ -236,6 +236,108 @@ func ConnectDatabase() {
 	if _, err := DB.Exec(waitlistTableQuery); err != nil {
 		log.Fatal("Failed to create waitlist table:", err)
 	}
+
+	workspacesTable := `
+	CREATE TABLE IF NOT EXISTS workspaces (
+		id           BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+		name         VARCHAR(255) NOT NULL,
+		description  TEXT DEFAULT '',
+		type         VARCHAR(20) NOT NULL DEFAULT 'team',
+		category     VARCHAR(50) DEFAULT 'team',
+		owner_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		invite_code  VARCHAR(32) UNIQUE NOT NULL,
+		created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+	if _, err := DB.Exec(workspacesTable); err != nil {
+		log.Fatal("Failed to create workspaces table:", err)
+	}
+
+	DB.Exec("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''")
+	DB.Exec("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'team'")
+	DB.Exec("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS category VARCHAR(50) DEFAULT 'team'")
+	DB.Exec("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS invite_code VARCHAR(32) UNIQUE")
+	DB.Exec("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+
+	DB.Exec("ALTER TABLE workspaces ALTER COLUMN slug DROP NOT NULL")
+
+	workspaceMembersTable := `
+	CREATE TABLE IF NOT EXISTS workspace_members (
+		workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		role         VARCHAR(20) NOT NULL DEFAULT 'member',
+		joined_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (workspace_id, user_id)
+	);`
+	if _, err := DB.Exec(workspaceMembersTable); err != nil {
+		log.Fatal("Failed to create workspace_members table:", err)
+	}
+	DB.Exec("ALTER TABLE workspace_members ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'member'")
+
+	workspaceInvitationsTable := `
+	CREATE TABLE IF NOT EXISTS workspace_invitations (
+		id           BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+		workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		inviter_id   BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		email        VARCHAR(255) NOT NULL,
+		role         VARCHAR(20) NOT NULL DEFAULT 'member',
+		status       VARCHAR(20) NOT NULL DEFAULT 'pending',
+		token        VARCHAR(64) UNIQUE NOT NULL,
+		expires_at   TIMESTAMP NOT NULL,
+		created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(workspace_id, email)
+	);`
+	if _, err := DB.Exec(workspaceInvitationsTable); err != nil {
+		log.Fatal("Failed to create workspace_invitations table:", err)
+	}
+
+	workspaceMilestonesTable := `
+	CREATE TABLE IF NOT EXISTS workspace_milestones (
+		id           BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+		workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		title        TEXT NOT NULL,
+		description  TEXT DEFAULT '',
+		due_date     TIMESTAMP,
+		created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+	if _, err := DB.Exec(workspaceMilestonesTable); err != nil {
+		log.Fatal("Failed to create workspace_milestones table:", err)
+	}
+
+	workspaceTasksTable := `
+	CREATE TABLE IF NOT EXISTS workspace_tasks (
+		id           BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+		workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		title        TEXT NOT NULL,
+		description  TEXT DEFAULT '',
+		status       VARCHAR(50) NOT NULL DEFAULT 'todo',
+		priority     VARCHAR(20) DEFAULT 'Medium',
+		creator_id   BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		assignee_id  BIGINT REFERENCES users(id) ON DELETE SET NULL,
+		milestone_id BIGINT REFERENCES workspace_milestones(id) ON DELETE SET NULL,
+		due_date     TIMESTAMP,
+		created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+	if _, err := DB.Exec(workspaceTasksTable); err != nil {
+		log.Fatal("Failed to create workspace_tasks table:", err)
+	}
+
+	workspaceActivitiesTable := `
+	CREATE TABLE IF NOT EXISTS workspace_activities (
+		id           BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+		workspace_id BIGINT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		user_id      BIGINT REFERENCES users(id) ON DELETE SET NULL,
+		action       TEXT NOT NULL,
+		details      TEXT DEFAULT '',
+		entity_type  VARCHAR(50) DEFAULT '',
+		entity_id    BIGINT,
+		created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+	if _, err := DB.Exec(workspaceActivitiesTable); err != nil {
+		log.Fatal("Failed to create workspace_activities table:", err)
+	}
 }
 
 func retry(attempts int, sleep time.Duration, fn func() error) error {

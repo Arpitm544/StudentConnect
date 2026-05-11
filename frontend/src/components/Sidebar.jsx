@@ -1,19 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Briefcase, 
   PieChart, FileText, X, UserCircle, 
-  Sun, Moon, LogOut, CheckSquare, GitMerge, Users, Kanban, Layers, Settings
+  Sun, Moon, LogOut, CheckSquare, GitMerge, Users, Kanban, Layers, Settings, ChevronDown, Plus, Globe, Target
 } from 'lucide-react';
 import Avatar from './Avatar.jsx';
+import { useWorkspace } from '../context/WorkspaceContext.jsx';
 
-const navItems = [
+const globalNavItems = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, end: true },
   { to: '/dashboard/board', label: 'Kanban Board', icon: <Kanban size={18} /> },
   { to: '/dashboard/market', label: 'Task Market', icon: <Briefcase size={18} /> },
   { to: '/dashboard/my-tasks', label: 'My Tasks', icon: <CheckSquare size={18} /> },
   { to: '/dashboard/invitations', label: 'Task Requests', icon: <Users size={18} /> },
   { to: '/dashboard/posted-requests', label: 'Post Task', icon: <FileText size={18} /> },
+];
+
+const teamNavItems = [
+  { to: '/dashboard', label: 'Team Dashboard', icon: <LayoutDashboard size={18} />, end: true },
+
+  { to: '/dashboard/team-tasks', label: 'Tasks', icon: <CheckSquare size={18} /> },
+  { to: '/dashboard/board', label: 'Sprint Board', icon: <Kanban size={18} /> },
+  { to: '/dashboard/members', label: 'Members', icon: <Users size={18} /> },
+  { to: '/dashboard/activity', label: 'Activity Feed', icon: <PieChart size={18} /> },
+  { to: '/dashboard/files', label: 'Files & Resources', icon: <FileText size={18} /> },
 ];
 
 const Sidebar = React.memo(({ 
@@ -27,63 +38,122 @@ const Sidebar = React.memo(({
   tasks = [] 
 }) => {
   const navigate = useNavigate();
-  const projectColors = ['bg-indigo-500', 'bg-purple-500', 'bg-amber-500', 'bg-emerald-500', 'bg-pink-500'];
+  const { workspaces, currentWorkspace, selectWorkspace } = useWorkspace();
+  const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
 
   return (
     <aside className={`w-[280px] bg-bg-sidebar text-text-secondary flex flex-col shrink-0 z-50 py-8 h-screen border-r border-border-subtle transition-transform duration-300 ease-out ${mobileMenuOpen ? 'translate-x-0 fixed inset-y-0 left-0 shadow-2xl' : '-translate-x-full fixed inset-y-0 left-0 md:relative md:translate-x-0 md:left-auto'}`}>
-      <div className="p-6 flex items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white">
-            <Layers size={18} />
+      <div className="px-6 mb-6 relative">
+        <button 
+          onClick={() => setShowWorkspaceMenu(!showWorkspaceMenu)}
+          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-text-primary/5 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white ${currentWorkspace ? 'bg-indigo-500' : 'bg-accent'}`}>
+              {currentWorkspace ? <Briefcase size={16} /> : <Globe size={16} />}
+            </div>
+            <div className="text-left flex-1 min-w-0">
+              <h1 className="text-sm font-semibold text-text-primary truncate">
+                {currentWorkspace ? currentWorkspace.name : 'Global Workspace'}
+              </h1>
+              <p className="text-[10px] text-text-secondary">
+                {currentWorkspace ? 'Team Workspace' : 'Personal'}
+              </p>
+            </div>
           </div>
-          <h1 className="text-lg font-semibold text-text-primary tracking-tight">TaskNest</h1>
-        </div>
-        <button className="md:hidden p-2 text-text-secondary hover:text-text-primary" onClick={closeMobileMenu}>
+          <ChevronDown size={14} className="text-text-secondary" />
+        </button>
+
+        {showWorkspaceMenu && (
+          <div className="absolute top-full left-6 right-6 mt-1 bg-bg-card border border-border-subtle rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in">
+            <div className="p-1">
+              <button
+                onClick={() => { 
+                  selectWorkspace(null); 
+                  setShowWorkspaceMenu(false); 
+                  navigate('/dashboard');
+                }}
+                className={`w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-colors ${!currentWorkspace ? 'bg-accent/10 text-accent font-semibold' : 'hover:bg-bg-subtle text-text-secondary hover:text-text-primary'}`}
+              >
+                <Globe size={14} /> Global Workspace
+              </button>
+              
+              {workspaces.length > 0 && <div className="h-px bg-border-subtle my-1 mx-2" />}
+              
+              {workspaces.map(ws => (
+                <button
+                  key={ws.id}
+                  onClick={() => { 
+                    selectWorkspace(ws.id); 
+                    setShowWorkspaceMenu(false); 
+                    navigate('/dashboard');
+                  }}
+                  className={`w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-colors truncate ${currentWorkspace?.id === ws.id ? 'bg-accent/10 text-accent font-semibold' : 'hover:bg-bg-subtle text-text-secondary hover:text-text-primary'}`}
+                >
+                  <Briefcase size={14} /> <span className="truncate">{ws.name}</span>
+                </button>
+              ))}
+              
+              {currentWorkspace?.user_role && (currentWorkspace.user_role === 'owner' || currentWorkspace.user_role === 'admin') && (
+                <button
+                  onClick={() => { 
+                    setShowWorkspaceMenu(false);
+                    if (window.dispatchEvent) {
+                      window.dispatchEvent(new CustomEvent('openWorkspaceSettings'));
+                    }
+                  }}
+                  className="w-full flex items-center gap-2 p-2 rounded-lg text-sm hover:bg-bg-subtle text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  <Settings size={14} /> Manage Team
+                </button>
+              )}
+              
+              <div className="h-px bg-border-subtle my-1 mx-2" />
+              
+              <button
+                onClick={() => { 
+                  setShowWorkspaceMenu(false);
+                  navigate('/dashboard/workspaces/new');
+                }}
+                className="w-full flex items-center gap-2 p-2 rounded-lg text-sm hover:bg-bg-subtle text-text-secondary hover:text-text-primary transition-colors"
+              >
+                <Plus size={14} /> Create Team
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="px-6 flex items-center justify-between mb-2 md:hidden">
+        <button className="p-2 text-text-secondary hover:text-text-primary" onClick={closeMobileMenu}>
           <X size={18} />
         </button>
       </div>
 
-      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => (
+      <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
+        {(currentWorkspace ? teamNavItems : globalNavItems).map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.end}
             onClick={closeMobileMenu}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
                 isActive 
-                  ? 'bg-accent-soft text-accent' 
-                  : 'hover:bg-text-primary/5 hover:text-text-primary'
+                  ? 'bg-accent/10 text-accent font-semibold shadow-sm' 
+                  : 'text-text-secondary hover:bg-bg-subtle hover:text-text-primary'
               }`
             }
           >
-            {item.icon}
+            <div className="transition-transform duration-200 group-hover:scale-110">
+              {item.icon}
+            </div>
             {item.label}
           </NavLink>
         ))}
-        
-        {tasks.length > 0 && (
-          <div className="pt-8 pb-4">
-            <p className="px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-text-secondary/50 mb-4">Projects</p>
-            <ul className="space-y-1">
-               {tasks.slice(0, 5).map((t, i) => (
-                 <li 
-                    key={t.id} 
-                    onClick={() => {
-                      navigate(`/dashboard/task/${t.id}`);
-                      closeMobileMenu();
-                    }}
-                    className="px-4 py-2 flex items-center gap-3 text-sm hover:text-text-primary cursor-pointer transition-colors group"
-                 >
-                    <div className="w-1.5 h-1.5 rounded-full bg-accent/40 group-hover:bg-accent transition-colors" />
-                    <span className="truncate">{t.title}</span>
-                 </li>
-               ))}
-            </ul>
-          </div>
-        )}
       </nav>
+        
+
 
       <div className="px-4 mt-auto space-y-1">
          {toggleTheme && (

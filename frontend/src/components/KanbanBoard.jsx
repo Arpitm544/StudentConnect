@@ -28,10 +28,23 @@ export default function KanbanBoard({ tasks, onStatusChange, onView, formatDate 
   ];
 
   const boardData = useMemo(() => {
-    return columns.map(col => ({
-      ...col,
-      tasks: tasks.filter(t => (t.status || 'pending') === col.id)
-    }));
+    return columns.map(col => {
+      let filteredTasks = [];
+      if (col.id === 'pending') {
+        filteredTasks = tasks.filter(t => t.status === 'pending' || t.status === 'todo');
+      } else if (col.id === 'submitted') {
+        filteredTasks = tasks.filter(t => t.status === 'submitted' || t.status === 'in_review' || t.status === 'in review');
+      } else if (col.id === 'in_progress') {
+        filteredTasks = tasks.filter(t => t.status === 'in_progress' || t.status === 'in progress');
+      } else {
+        filteredTasks = tasks.filter(t => t.status === col.id);
+      }
+
+      return {
+        ...col,
+        tasks: filteredTasks
+      };
+    });
   }, [tasks, columns]);
 
   const getPriorityColor = (priority) => {
@@ -153,11 +166,21 @@ export default function KanbanBoard({ tasks, onStatusChange, onView, formatDate 
                     {task.priority}
                   </span>
                   <div className="flex -space-x-2">
-                    <img 
-                      src={`https://ui-avatars.com/api/?name=${task.creator_name || 'U'}&background=random`} 
-                      className="w-5 h-5 rounded-full border-2 border-white dark:border-zinc-900 shadow-sm" 
-                      alt="" 
-                    />
+                    {task.assignee_name ? (
+                      <img 
+                        src={`https://ui-avatars.com/api/?name=${task.assignee_name}&background=random`} 
+                        className="w-5 h-5 rounded-full border-2 border-white dark:border-zinc-900 shadow-sm" 
+                        title={`Assigned to ${task.assignee_name}`}
+                        alt="" 
+                      />
+                    ) : (
+                      <img 
+                        src={`https://ui-avatars.com/api/?name=${task.creator_name || 'U'}&background=random`} 
+                        className="w-5 h-5 rounded-full border-2 border-white dark:border-zinc-900 shadow-sm" 
+                        title={`Created by ${task.creator_name}`}
+                        alt="" 
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -173,8 +196,13 @@ export default function KanbanBoard({ tasks, onStatusChange, onView, formatDate 
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-medium">
                       <Clock size={12} />
-                      {formatDate(task.deadline)}
+                      {formatDate(task.deadline || task.due_date)}
                     </div>
+                    {task.milestone_title && (
+                      <div className="flex items-center gap-1 text-[10px] text-accent font-medium px-1.5 py-0.5 bg-accent/10 rounded-md truncate max-w-[100px]">
+                        {task.milestone_title}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {task.attachment_url && <Paperclip size={12} className="text-zinc-300" />}

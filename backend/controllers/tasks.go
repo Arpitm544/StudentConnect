@@ -123,7 +123,12 @@ func UpdateTask(c *gin.Context) {
 	err := config.DB.QueryRow("SELECT creator_id FROM tasks WHERE id = $1", taskID).Scan(&creatorID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
-		return
+		// Try workspace_tasks if not in tasks table
+		err = config.DB.QueryRow("SELECT creator_id FROM workspace_tasks WHERE id = $1", taskID).Scan(&creatorID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+			return
+		}
 	}
 
 	if creatorID != userID {
@@ -158,7 +163,7 @@ func UpdateTask(c *gin.Context) {
 		cap = 1
 	}
 
-	_, err = config.DB.Exec(
+	res, err := config.DB.Exec(
 		`UPDATE tasks 
 		 SET title = $1, description = $2, subject = $3, deadline = $4, attachment_url = $5, 
 		     capacity = $6, priority = $7, ai_optimized = $8, issue_type = $9, labels = $10, extension_email_sent = FALSE, updated_at = CURRENT_TIMESTAMP 
@@ -166,7 +171,28 @@ func UpdateTask(c *gin.Context) {
 		input.Title, input.Description, input.Subject, input.Deadline, input.AttachmentURL, cap, input.Priority, input.AiOptimized, input.IssueType, pq.Array(input.Labels), taskID,
 	)
 
-	if err != nil {
+	if err == nil {
+		rows, _ := res.RowsAffected()
+		if rows == 0 {
+			// Try workspace_tasks
+			resW, errW := config.DB.Exec(
+				`UPDATE workspace_tasks 
+				 SET title = $1, description = $2, subject = $3, due_date = $4, attachment_url = $5, 
+				     priority = $6, issue_type = $7, labels = $8, updated_at = CURRENT_TIMESTAMP 
+				 WHERE id = $9`,
+				input.Title, input.Description, input.Subject, input.Deadline, input.AttachmentURL, input.Priority, input.IssueType, pq.Array(input.Labels), taskID,
+			)
+			if errW != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update workspace task"})
+				return
+			}
+			rowsW, _ := resW.RowsAffected()
+			if rowsW == 0 {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+				return
+			}
+		}
+	} else {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task"})
 		return
 	}
@@ -300,21 +326,21 @@ func GetTask(c *gin.Context) {
 	fmt.Printf("Fetching details for Task ID: %d (parsed from %s)\n", id, idStr)
 	userID := c.MustGet("user_id").(int64)
 
-	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, 
-	          t.submission_github as submission_link, COALESCE(t.capacity, 1), t.created_at, t.updated_at,
-	          u_c.name, u_c.email, u_c.photo_url, u_a.name, u_a.email, u_a.photo_url, t.priority, t.ai_optimized, t.ai_milestone_count,
-	          t.issue_type, t.labels
-	          FROM tasks t LEFT JOIN users u_c ON t.creator_id = u_c.id LEFT JOIN users u_a ON t.assignee_id = u_a.id WHERE t.id = $1`
-
 	var t models.Task
 	var desc, subj, attach, subL sql.NullString
 	var cn, ce, cp, an, ae, ap, priority sql.NullString
 	var cid, aid sql.NullInt64
 	var aiOptimized sql.NullBool
 	var aiMilestoneCount sql.NullInt64
-
 	var issueType sql.NullString
 	var labels []string
+
+	// Try regular tasks first
+	query := `SELECT t.id, t.title, t.description, t.status, t.accepted, t.creator_id, t.assignee_id, t.deadline, t.progress, t.subject, t.attachment_url, 
+	          t.submission_github as submission_link, COALESCE(t.capacity, 1), t.created_at, t.updated_at,
+	          u_c.name, u_c.email, u_c.photo_url, u_a.name, u_a.email, u_a.photo_url, t.priority, t.ai_optimized, t.ai_milestone_count,
+	          t.issue_type, t.labels
+	          FROM tasks t LEFT JOIN users u_c ON t.creator_id = u_c.id LEFT JOIN users u_a ON t.assignee_id = u_a.id WHERE t.id = $1`
 
 	err = config.DB.QueryRow(query, id).Scan(
 		&t.ID, &t.Title, &desc, &t.Status, &t.Accepted, &cid, &aid, &t.Deadline, &t.Progress, &subj, &attach,
@@ -324,23 +350,42 @@ func GetTask(c *gin.Context) {
 	)
 
 	if err != nil {
-		fmt.Printf("GetTask error for ID %d: %v\n", id, err)
+		// If not found in tasks, try workspace_tasks
+		fmt.Printf("Task %d not found in tasks table, trying workspace_tasks...\n", id)
 		
-		// DIAGNOSTIC: List recent tasks to see what IDs actually exist
-		var recentIDs []int64
-		rows, _ := config.DB.Query("SELECT id FROM tasks ORDER BY id DESC LIMIT 5")
-		if rows != nil {
-			for rows.Next() {
-				var rid int64
-				rows.Scan(&rid)
-				recentIDs = append(recentIDs, rid)
-			}
-			rows.Close()
+		workspaceQuery := `SELECT t.id, t.title, t.description, t.status, t.creator_id, t.assignee_id, t.due_date as deadline, t.priority, t.created_at, t.updated_at,
+		                  u_c.name, u_c.email, u_c.photo_url, u_a.name, u_a.email, u_a.photo_url, t.subject, t.attachment_url, t.issue_type, t.labels, t.workspace_id
+		                  FROM workspace_tasks t LEFT JOIN users u_c ON t.creator_id = u_c.id LEFT JOIN users u_a ON t.assignee_id = u_a.id WHERE t.id = $1`
+		
+		var wid sql.NullInt64
+		err = config.DB.QueryRow(workspaceQuery, id).Scan(
+			&t.ID, &t.Title, &desc, &t.Status, &cid, &aid, &t.Deadline, &priority, &t.CreatedAt, &t.UpdatedAt,
+			&cn, &ce, &cp, &an, &ae, &ap, &subj, &attach, &issueType, pq.Array(&labels), &wid,
+		)
+
+		if err != nil {
+			fmt.Printf("GetTask error for ID %d (workspace_tasks check): %v\n", id, err)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+			return
 		}
-		fmt.Printf("DIAGNOSTIC: Recent task IDs in DB: %v\n", recentIDs)
 		
-		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
-		return
+		if wid.Valid {
+			t.WorkspaceID = &wid.Int64
+			// Fetch user role in workspace
+			var role string
+			errR := config.DB.QueryRow(`SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`, wid.Int64, userID).Scan(&role)
+			if errR == nil {
+				t.UserRole = role
+			}
+		}
+		
+		// Map workspace specific logic
+		t.Accepted = true // Workspace tasks are considered accepted by default if they exist
+		t.Capacity = 1
+		t.Progress = 0
+		if t.Status == "done" || t.Status == "completed" {
+			t.Progress = 100
+		}
 	}
 
 	if aiMilestoneCount.Valid {
@@ -375,55 +420,62 @@ func GetTask(c *gin.Context) {
 	if aid.Valid {
 		t.AssigneeID = &aid.Int64
 	}
+	
 	t.Assignees = make([]models.TaskAssignee, 0)
-	aRows, _ := config.DB.Query(`
-		SELECT ta.task_id, ta.user_id, ta.status, ta.progress, ta.submission_link, ta.accepted_at,
-		       u.name, u.email, u.photo_url
-		FROM task_assignees ta JOIN users u ON ta.user_id = u.id
-		WHERE ta.task_id = $1
-	`, id)
-	if aRows != nil {
-		defer aRows.Close()
-		for aRows.Next() {
-			var a models.TaskAssignee
-			var sl sql.NullString
-			aRows.Scan(&a.TaskID, &a.UserID, &a.Status, &a.Progress, &sl, &a.AcceptedAt, &a.Name, &a.Email, &a.PhotoURL)
-			if sl.Valid {
-				a.SubmissionLink = &sl.String
-			}
-			t.Assignees = append(t.Assignees, a)
-		}
+	// If it was a workspace task, the creator and assignee are essentially the "assignees" list for TaskDetail
+	if aid.Valid {
+		t.Assignees = append(t.Assignees, models.TaskAssignee{
+			TaskID: t.ID,
+			UserID: aid.Int64,
+			Status: t.Status,
+			Name: an.String,
+			Email: ae.String,
+			PhotoURL: ap.String,
+		})
 	}
+
 	t.SlotsFilled = len(t.Assignees)
 
-	if t.Status != "pending" && t.Accepted {
-		isCreator := cid.Valid && cid.Int64 == userID
-		isAssignee := false
-		for _, a := range t.Assignees {
-			if a.UserID == userID {
-				isAssignee = true
-				break
-			}
-		}
-		if !isCreator && !isAssignee && t.SlotsFilled >= t.Capacity {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access (Task is full)"})
-			return
+	isCreator := cid.Valid && cid.Int64 == userID
+	isAssignee := false
+	for _, a := range t.Assignees {
+		if a.UserID == userID {
+			isAssignee = true
+			break
 		}
 	}
 
-	mRows, _ := config.DB.Query(`SELECT id, title, status, submission_link, submission_note, created_at, updated_at FROM milestones WHERE task_id = $1 ORDER BY id ASC`, id)
-	defer mRows.Close()
-	for mRows.Next() {
-		var m models.Milestone
-		var sl, sn sql.NullString
-		mRows.Scan(&m.ID, &m.Title, &m.Status, &sl, &sn, &m.CreatedAt, &m.UpdatedAt)
-		if sl.Valid {
-			m.SubmissionLink = &sl.String
+	if !isCreator && !isAssignee {
+		fmt.Printf("User %d is viewing Task %d as a guest/manager\n", userID, id)
+	}
+	mRows, _ := config.DB.Query(`
+		SELECT m.id, m.title, m.status, m.submission_link, m.submission_note, m.assignee_id, m.position, m.created_at, m.updated_at,
+		       u.name as assignee_name, u.photo_url as assignee_photo_url
+		FROM milestones m
+		LEFT JOIN users u ON m.assignee_id = u.id
+		WHERE m.task_id = $1 
+		ORDER BY m.position ASC, m.id ASC`, id)
+	if mRows != nil {
+		defer mRows.Close()
+		for mRows.Next() {
+			var m models.Milestone
+			var sl, sn sql.NullString
+			var aid sql.NullInt64
+			var an, ap sql.NullString
+			mRows.Scan(&m.ID, &m.Title, &m.Status, &sl, &sn, &aid, &m.Position, &m.CreatedAt, &m.UpdatedAt, &an, &ap)
+			if sl.Valid {
+				m.SubmissionLink = &sl.String
+			}
+			if sn.Valid {
+				m.SubmissionNote = &sn.String
+			}
+			if aid.Valid {
+				m.AssigneeID = &aid.Int64
+			}
+			m.AssigneeName = an.String
+			m.AssigneePhotoURL = ap.String
+			t.Milestones = append(t.Milestones, m)
 		}
-		if sn.Valid {
-			m.SubmissionNote = &sn.String
-		}
-		t.Milestones = append(t.Milestones, m)
 	}
 
 	t.Activities, _ = services.FetchActivities(id)
@@ -437,7 +489,6 @@ func GetTask(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, t)
-
 }
 
 func InviteUser(c *gin.Context) {
@@ -528,7 +579,6 @@ func ListInvitations(c *gin.Context) {
 	c.JSON(http.StatusOK, invitations)
 }
 
-// RespondToInvitation - Accept or Reject
 func RespondToInvitation(c *gin.Context) {
 	invitationID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	userID := c.MustGet("user_id").(int64)
@@ -542,7 +592,7 @@ func RespondToInvitation(c *gin.Context) {
 	}
 
 	var input struct {
-		Action string `json:"action"` // "accept" or "reject"
+		Action string `json:"action"`
 	}
 	c.BindJSON(&input)
 
@@ -586,7 +636,10 @@ func AddMilestone(c *gin.Context) {
 	}
 	c.BindJSON(&input)
 
-	config.DB.Exec(`INSERT INTO milestones (task_id, title, status) VALUES ($1, $2, 'pending')`, taskID, input.Title)
+	var maxPos int
+	config.DB.QueryRow("SELECT COALESCE(MAX(position), 0) FROM milestones WHERE task_id = $1", taskID).Scan(&maxPos)
+
+	config.DB.Exec(`INSERT INTO milestones (task_id, title, status, position) VALUES ($1, $2, 'pending', $3)`, taskID, input.Title, maxPos+1)
 	services.SyncTaskStatusWithMilestones(int64(taskID))
 	services.LogActivity(int64(taskID), userID, "milestone_added", fmt.Sprintf("Added milestone: %s", input.Title))
 	c.JSON(http.StatusCreated, gin.H{"message": "Milestone added"})
@@ -607,7 +660,6 @@ func UpdateMilestoneStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Milestone updated"})
 }
 
-// SubmitMilestoneForReview handles the submission of a specific milestone
 func SubmitMilestoneForReview(c *gin.Context) {
 	taskID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	userID := c.MustGet("user_id").(int64)
@@ -624,6 +676,108 @@ func SubmitMilestoneForReview(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Milestone submitted"})
 }
 
+func AssignMilestone(c *gin.Context) {
+	taskID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	mid, _ := strconv.ParseInt(c.Param("mid"), 10, 64)
+	userID := c.MustGet("user_id").(int64)
+
+	var input struct {
+		AssigneeID int64 `json:"assignee_id,string"`
+	}
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	var creatorID int64
+	var workspaceID sql.NullInt64
+	err := config.DB.QueryRow("SELECT creator_id FROM tasks WHERE id = $1", taskID).Scan(&creatorID)
+	if err != nil {
+		err = config.DB.QueryRow("SELECT creator_id, workspace_id FROM workspace_tasks WHERE id = $1", taskID).Scan(&creatorID, &workspaceID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+			return
+		}
+	}
+
+	isAuthorized := creatorID == userID
+	if !isAuthorized && workspaceID.Valid {
+		var role string
+		err = config.DB.QueryRow(`SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`, workspaceID.Int64, userID).Scan(&role)
+		if err == nil && (role == "owner" || role == "admin") {
+			isAuthorized = true
+		}
+	}
+
+	if !isAuthorized {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins, owners, or creators can assign milestones"})
+		return
+	}
+
+	_, err = config.DB.Exec(`UPDATE milestones SET assignee_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND task_id = $3`, input.AssigneeID, mid, taskID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign milestone"})
+		return
+	}
+
+	var assigneeName string
+	config.DB.QueryRow("SELECT name FROM users WHERE id = $1", input.AssigneeID).Scan(&assigneeName)
+
+	services.LogActivity(taskID, userID, "milestone_assigned", fmt.Sprintf("Assigned milestone to %s", assigneeName))
+	c.JSON(http.StatusOK, gin.H{"message": "Milestone assigned successfully"})
+}
+
+func ReorderMilestones(c *gin.Context) {
+	taskID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	userID := c.MustGet("user_id").(int64)
+
+	var input struct {
+		MilestoneIDs []int64 `json:"milestone_ids"`
+	}
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	var creatorID int64
+	var workspaceID sql.NullInt64
+	err := config.DB.QueryRow("SELECT creator_id FROM tasks WHERE id = $1", taskID).Scan(&creatorID)
+	if err != nil {
+		err = config.DB.QueryRow("SELECT creator_id, workspace_id FROM workspace_tasks WHERE id = $1", taskID).Scan(&creatorID, &workspaceID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+			return
+		}
+	}
+
+	isAuthorized := creatorID == userID
+	if !isAuthorized && workspaceID.Valid {
+		var role string
+		err = config.DB.QueryRow(`SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`, workspaceID.Int64, userID).Scan(&role)
+		if err == nil && (role == "owner" || role == "admin") {
+			isAuthorized = true
+		}
+	}
+
+	if !isAuthorized {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins, owners, or creators can reorder milestones"})
+		return
+	}
+
+	tx, _ := config.DB.Begin()
+	for i, mid := range input.MilestoneIDs {
+		_, err := tx.Exec("UPDATE milestones SET position = $1 WHERE id = $2 AND task_id = $3", i, mid, taskID)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update position"})
+			return
+		}
+	}
+	tx.Commit()
+
+	c.JSON(http.StatusOK, gin.H{"message": "Milestones reordered"})
+}
+
 func UpdateTaskStatus(c *gin.Context) {
 	taskID, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	userID := c.MustGet("user_id").(int64)
@@ -638,15 +792,39 @@ func UpdateTaskStatus(c *gin.Context) {
 	}
 
 	var creatorID int64
+	inTasksTable := true
 	err := config.DB.QueryRow("SELECT creator_id FROM tasks WHERE id = $1", taskID).Scan(&creatorID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
-		return
+		if err == sql.ErrNoRows {
+			var workspaceID int64
+			errW := config.DB.QueryRow("SELECT creator_id, workspace_id FROM workspace_tasks WHERE id = $1", taskID).Scan(&creatorID, &workspaceID)
+			if errW != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+				return
+			}
+			inTasksTable = false
+			var isMember bool
+			config.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2)`, workspaceID, userID).Scan(&isMember)
+			if !isMember {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to update status"})
+				return
+			}
+		} else {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+			return
+		}
 	}
 
-	if creatorID == userID {
-		config.DB.Exec(`UPDATE tasks SET status = $1, progress = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, 
-			strings.ToLower(input.Status), input.Progress, taskID)
+	if creatorID == userID || !inTasksTable {
+		if inTasksTable {
+			config.DB.Exec(`UPDATE tasks SET status = $1, progress = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, 
+				strings.ToLower(input.Status), input.Progress, taskID)
+		} else {
+			config.DB.Exec(`UPDATE workspace_tasks SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, 
+				strings.ToLower(input.Status), taskID)
+		}
+		
+		services.LogActivity(taskID, userID, "status_updated", fmt.Sprintf("Task status updated to %s", input.Status))
 		c.JSON(http.StatusOK, gin.H{"message": "Global status updated"})
 		return
 	}
@@ -657,9 +835,8 @@ func UpdateTaskStatus(c *gin.Context) {
 		config.DB.Exec(`UPDATE task_assignees SET status = $1, progress = $2 WHERE task_id = $3 AND user_id = $4`, 
 			strings.ToLower(input.Status), input.Progress, taskID, userID)
 		
-
-	services.LogActivity(taskID, userID, "status_updated", fmt.Sprintf("Task status updated to %s", input.Status))
-	c.JSON(http.StatusOK, gin.H{"message": "Your progress updated"})
+		services.LogActivity(taskID, userID, "status_updated", fmt.Sprintf("Task status updated to %s", input.Status))
+		c.JSON(http.StatusOK, gin.H{"message": "Your progress updated"})
 		return
 	}
 
@@ -832,10 +1009,21 @@ func GenerateMilestones(c *gin.Context) {
 
 	var currentCount int
 	var creatorID int64
+	inTasksTable := true
+	
 	err := config.DB.QueryRow("SELECT ai_milestone_count, creator_id FROM tasks WHERE id = $1", taskID).Scan(&currentCount, &creatorID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
-		return
+		if err == sql.ErrNoRows {
+			errW := config.DB.QueryRow("SELECT ai_milestone_count, creator_id FROM workspace_tasks WHERE id = $1", taskID).Scan(&currentCount, &creatorID)
+			if errW != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+				return
+			}
+			inTasksTable = false
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
 	}
 
 	if creatorID != userID {
@@ -843,8 +1031,8 @@ func GenerateMilestones(c *gin.Context) {
 		return
 	}
 
-	if currentCount >= 2 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "AI milestone generation limit reached (max 2 times per task)"})
+	if currentCount >= 3 {	
+		c.JSON(http.StatusBadRequest, gin.H{"error": "AI milestone generation limit reached (max 3 times per task)"})
 		return
 	}
 
@@ -861,21 +1049,26 @@ func GenerateMilestones(c *gin.Context) {
 	}
 	defer tx.Rollback()
 
-	_, err = tx.Exec("DELETE FROM milestones WHERE task_id = $1", input.TaskID)
+	_, err = tx.Exec("DELETE FROM milestones WHERE task_id = $1", taskID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear old milestones"})
 		return
 	}
 
 	for _, mTitle := range milestones {
-		_, err = tx.Exec("INSERT INTO milestones (task_id, title, status) VALUES ($1, $2, 'pending')", input.TaskID, mTitle)
+		_, err = tx.Exec("INSERT INTO milestones (task_id, title, status) VALUES ($1, $2, 'pending')", taskID, mTitle)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save new milestones"})
 			return
 		}
 	}
 
-	_, err = tx.Exec("UPDATE tasks SET ai_milestone_count = ai_milestone_count + 1, ai_optimized = TRUE WHERE id = $1", input.TaskID)
+	if inTasksTable {
+		_, err = tx.Exec("UPDATE tasks SET ai_milestone_count = ai_milestone_count + 1, ai_optimized = TRUE WHERE id = $1", taskID)
+	} else {
+		_, err = tx.Exec("UPDATE workspace_tasks SET ai_milestone_count = ai_milestone_count + 1, ai_optimized = TRUE WHERE id = $1", taskID)
+	}
+	
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update AI usage counter"})
 		return
@@ -886,7 +1079,7 @@ func GenerateMilestones(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Milestones generated and saved successfully", "milestones": milestones})
+	c.JSON(http.StatusOK, gin.H{"message": "Milestones generated successfully", "milestones": milestones})
 }
 
 func RecommendUsers(c *gin.Context) {
@@ -938,14 +1131,29 @@ func DeleteMilestone(c *gin.Context) {
 	userID := c.MustGet("user_id").(int64)
 
 	var creatorID int64
+	var workspaceID sql.NullInt64
 	err := config.DB.QueryRow("SELECT creator_id FROM tasks WHERE id = $1", taskID).Scan(&creatorID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
-		return
+		// Try workspace_tasks
+		err = config.DB.QueryRow("SELECT creator_id, workspace_id FROM workspace_tasks WHERE id = $1", taskID).Scan(&creatorID, &workspaceID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+			return
+		}
 	}
 
-	if creatorID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only the task creator can delete milestones"})
+	isAuthorized := creatorID == userID
+	if !isAuthorized && workspaceID.Valid {
+		// Check workspace role
+		var role string
+		err = config.DB.QueryRow(`SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`, workspaceID.Int64, userID).Scan(&role)
+		if err == nil && (role == "owner" || role == "admin") {
+			isAuthorized = true
+		}
+	}
+
+	if !isAuthorized {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins, owners, or creators can delete milestones"})
 		return
 	}
 
@@ -955,7 +1163,8 @@ func DeleteMilestone(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Milestone deleted successfully"})
+	services.LogActivity(taskID, userID, "milestone_deleted", "Deleted a milestone")
+	c.JSON(http.StatusOK, gin.H{"message": "Milestone deleted"})
 }
 
 func AddComment(c *gin.Context) {

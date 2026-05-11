@@ -72,8 +72,31 @@ func SetupRoutes(r *gin.Engine) {
 		tasks.POST("/:id/milestones", controllers.AddMilestone)
 		tasks.POST("/:id/milestones/:mid/status", controllers.UpdateMilestoneStatus)
 		tasks.POST("/:id/milestones/:mid/submit", controllers.SubmitMilestoneForReview)
+		tasks.POST("/:id/milestones/:mid/assign", controllers.AssignMilestone)
+		tasks.POST("/:id/milestones/reorder", controllers.ReorderMilestones)
 		tasks.DELETE("/:id/milestones/:mid", controllers.DeleteMilestone)
 		tasks.POST("/:id/comments", controllers.AddComment)
+	}
+
+	workspaces := r.Group("/api/workspaces")
+	workspaces.Use(requireAuth)
+	{
+		workspaces.POST("", controllers.CreateWorkspace)
+		workspaces.GET("", controllers.ListWorkspaces)
+		workspaces.GET("/:id", controllers.GetWorkspace)
+		workspaces.DELETE("/:id", controllers.DeleteWorkspace)
+
+		workspaces.POST("/:id/members", controllers.InviteWorkspaceMember)
+		workspaces.GET("/:id/members", controllers.ListWorkspaceMembers)
+
+		workspaces.POST("/:id/tasks", controllers.CreateWorkspaceTask)
+		workspaces.GET("/:id/tasks", controllers.ListWorkspaceTasks)
+		workspaces.PUT("/:id/tasks/:taskId/status", controllers.UpdateWorkspaceTaskStatus)
+
+		workspaces.POST("/:id/milestones", controllers.CreateWorkspaceMilestone)
+		workspaces.GET("/:id/milestones", controllers.ListWorkspaceMilestones)
+
+		workspaces.GET("/:id/activities", controllers.ListWorkspaceActivities)
 	}
 
 	user := r.Group("/api/user")

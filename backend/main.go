@@ -30,6 +30,21 @@ func main() {
 	}
 
 	config.ConnectDatabase()
+	
+	// Run migrations
+	fmt.Println("Running database migrations...")
+	config.DB.Exec("ALTER TABLE workspace_tasks ADD COLUMN IF NOT EXISTS ai_milestone_count INT DEFAULT 0")
+	config.DB.Exec("ALTER TABLE workspace_tasks ADD COLUMN IF NOT EXISTS ai_optimized BOOLEAN DEFAULT FALSE")
+	config.DB.Exec("ALTER TABLE milestones DROP CONSTRAINT IF EXISTS milestones_task_id_fkey")
+	config.DB.Exec("ALTER TABLE milestones ADD COLUMN IF NOT EXISTS assignee_id BIGINT")
+	config.DB.Exec("ALTER TABLE milestones ADD COLUMN IF NOT EXISTS position INT DEFAULT 0")
+	
+	// Unify statuses
+	config.DB.Exec("UPDATE workspace_tasks SET status = 'pending' WHERE status = 'todo'")
+	config.DB.Exec("UPDATE workspace_tasks SET status = 'in_review' WHERE status = 'submitted'")
+	config.DB.Exec("UPDATE workspace_tasks SET status = 'completed' WHERE status = 'done'")
+	
+	fmt.Println("Migrations completed.")
 	config.InitFirebase()
 
 	if os.Getenv("GIN_MODE") == "release" {

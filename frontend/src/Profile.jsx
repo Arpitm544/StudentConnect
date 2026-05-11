@@ -1,4 +1,3 @@
-// Profile component - Main dashboard and user profile view
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Users, LayoutDashboard, CheckSquare, FileText, GitMerge,
@@ -10,6 +9,7 @@ import {
 import { Routes, Route, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 import { useTheme } from './context/ThemeContext.jsx';
+import { useWorkspace } from './context/WorkspaceContext.jsx';
 import Avatar from './components/Avatar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
@@ -19,6 +19,12 @@ import KanbanBoard from './components/KanbanBoard.jsx';
 import ActivityChart from './components/ActivityChart.jsx';
 import PriorityTasks from './components/SmartFocus.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
+import WorkspaceSettingsModal from './components/WorkspaceSettingsModal.jsx';
+import CreateWorkspace from './components/CreateWorkspace.jsx';
+import WorkspaceActivityFeed from './components/WorkspaceActivityFeed.jsx';
+import TeamDashboard from './components/TeamDashboard.jsx';
+import WorkspaceMembers from './components/WorkspaceMembers.jsx';
+import WorkspaceTasks from './components/WorkspaceTasks.jsx';
 import api from './api/axios.js';
 import { StatCardSkeleton, TaskRowSkeleton, TaskMarketCardSkeleton } from './components/Skeleton.jsx';
 import {
@@ -40,10 +46,15 @@ import {
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_URL_SECONDARY || '';
 
 export default function Profile({ onLogout }) {
+  const { currentWorkspace } = useWorkspace();
   const [tasks, setTasks] = useState([]);
+  const [workspaceMilestones, setWorkspaceMilestones] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
-  const [newTask, setNewTask] = useState({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium', issue_type: 'Task', labels: '', assignee_email: '' });
+  const [newTask, setNewTask] = useState({ 
+    title: '', description: '', subject: '', deadline: '', max_assignees: 1, 
+    attachment: null, priority: 'Medium', issue_type: 'Task', labels: '', assignee_email: '', milestone_id: '' 
+  });
   const [isPredictingPriority, setIsPredictingPriority] = useState(false);
   const [postLoading, setPostLoading] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
@@ -62,6 +73,14 @@ export default function Profile({ onLogout }) {
     photoPreview: ''
   });
   const [profileLoading, setProfileLoading] = useState(false);
+
+  const [isWorkspaceSettingsModalOpen, setIsWorkspaceSettingsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpenWorkspaceSettings = () => setIsWorkspaceSettingsModalOpen(true);
+    window.addEventListener('openWorkspaceSettings', handleOpenWorkspaceSettings);
+    return () => window.removeEventListener('openWorkspaceSettings', handleOpenWorkspaceSettings);
+  }, []);
 
   const { theme, toggleTheme } = useTheme();
 
@@ -86,19 +105,32 @@ export default function Profile({ onLogout }) {
 
   const fetchTasks = useCallback(async (search = '') => {
     let endpoint = '/tasks/dashboard';
-    if (currentPath === 'my-tasks') endpoint = `/tasks/mine${search ? `?search=${encodeURIComponent(search)}` : ''}`;
-    if (currentPath === 'posted-requests') endpoint = `/tasks/posted${search ? `?search=${encodeURIComponent(search)}` : ''}`;
-    if (currentPath === 'invitations') endpoint = '/tasks/invitations';
-    if (currentPath === 'market') endpoint = `/tasks${search ? `?search=${encodeURIComponent(search)}` : ''}`;
-    if (currentPath === 'active-tasks') endpoint = `/tasks/active${search ? `?search=${encodeURIComponent(search)}` : ''}`;
+    
+    if (currentWorkspace) {
+      endpoint = `/api/workspaces/${currentWorkspace.id}/tasks${search ? `?search=${encodeURIComponent(search)}` : ''}`;
+      if (currentPath === 'invitations') endpoint = ''; // Ignore for team workspaces
+    } else {
+      if (currentPath === 'my-tasks') endpoint = `/tasks/mine${search ? `?search=${encodeURIComponent(search)}` : ''}`;
+      if (currentPath === 'posted-requests') endpoint = `/tasks/posted${search ? `?search=${encodeURIComponent(search)}` : ''}`;
+      if (currentPath === 'invitations') endpoint = '/tasks/invitations';
+      if (currentPath === 'market') endpoint = `/tasks${search ? `?search=${encodeURIComponent(search)}` : ''}`;
+      if (currentPath === 'active-tasks') endpoint = `/tasks/active${search ? `?search=${encodeURIComponent(search)}` : ''}`;
+    }
+
+    if (!endpoint) {
+      setTasks([]);
+      setTasksLoading(false);
+      return;
+    }
 
     setTasksLoading(true);
+    setTasks([]); // Clear old tasks to prevent stale view when switching workspaces
     try {
       const res = await api.get(endpoint);
       const data = res.data;
-      setTasks(data);
-      if (currentPath === 'invitations') {
-        setInvitations(data);
+      setTasks(res.data || []);
+      if (currentPath === 'invitations' && !currentWorkspace) {
+        setInvitations(res.data || []);
       }
     } catch (err) {
       console.error('Fetch tasks error:', err);
@@ -108,7 +140,7 @@ export default function Profile({ onLogout }) {
     } finally {
       setTasksLoading(false);
     }
-  }, [currentPath]);
+  }, [currentPath, currentWorkspace]);
 
   const fetchInvitations = useCallback(async () => {
     setInvitationsLoading(true);
@@ -140,10 +172,20 @@ export default function Profile({ onLogout }) {
   }, [userProfile, loadProfile]);
 
   useEffect(() => {
+    if (currentWorkspace) {
+      api.get(`/api/workspaces/${currentWorkspace.id}/milestones`)
+        .then(res => setWorkspaceMilestones(res.data || []))
+        .catch(err => console.error('Failed to load milestones', err));
+    } else {
+      setWorkspaceMilestones([]);
+    }
+  }, [currentWorkspace]);
+
+  useEffect(() => {
     const fetchGlobalActivity = async () => {
       try {
         const res = await api.get('/api/public/stats');
-        setGlobalActivity(res.data.daily_activity || []);
+        setGlobalActivity(res.data.daily_activity || res.data || []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -496,7 +538,12 @@ export default function Profile({ onLogout }) {
         attachmentUrl = uploadRes.data.url;
       }
 
-      await api.post('/tasks', {
+      let endpoint = '/tasks';
+      if (currentWorkspace) {
+        endpoint = `/api/workspaces/${currentWorkspace.id}/tasks`;
+      }
+
+      await api.post(endpoint, {
         title: newTask.title,
         description: newTask.description,
         subject: newTask.subject,
@@ -506,10 +553,11 @@ export default function Profile({ onLogout }) {
         issue_type: newTask.issue_type,
         labels: newTask.labels.split(',').map(s => s.trim()).filter(s => s !== ''),
         attachment_url: attachmentUrl,
-        assignee_email: newTask.assignee_email
+        assignee_email: newTask.assignee_email,
+        milestone_id: newTask.milestone_id ? parseInt(newTask.milestone_id, 10) : null
       });
       
-      setNewTask({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium', issue_type: 'Task', labels: '', assignee_email: '' });
+      setNewTask({ title: '', description: '', subject: '', deadline: '', max_assignees: 1, attachment: null, priority: 'Medium', issue_type: 'Task', labels: '', assignee_email: '', milestone_id: '' });
       setShowPostForm(false);
       fetchTasks();
     } catch (err) {
@@ -552,7 +600,7 @@ export default function Profile({ onLogout }) {
 
   return (
     <div className="flex bg-bg-main h-screen overflow-hidden text-text-primary font-inter">
-      
+      <WorkspaceSettingsModal isOpen={isWorkspaceSettingsModalOpen} onClose={() => setIsWorkspaceSettingsModalOpen(false)} />
       <Sidebar 
         mobileMenuOpen={mobileMenuOpen}
         closeMobileMenu={closeMobileMenu}
@@ -577,24 +625,30 @@ export default function Profile({ onLogout }) {
 
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
           
-          <Routes>
-            <Route path="/" element={
-              <div className="space-y-8 animate-fade-up">
-                
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 md:gap-8">
-                    <div className="space-y-2">
-                       <h2 className="text-2xl md:text-3xl font-semibold text-text-primary tracking-tight">Welcome back, {userProfile?.name?.split(' ')[0]}</h2>
-                       <p className="text-text-secondary font-medium">You have <span className="text-accent font-semibold">{active + pending} tasks</span> to focus on this week.</p>
-                       
+          <Routes key={currentWorkspace?.id || 'global'}>
+            <Route path="workspaces/new" element={<CreateWorkspace />} />
+            <Route path="members" element={<WorkspaceMembers />} />
+            <Route path="files" element={<div className="flex flex-col items-center justify-center h-64 text-center text-text-secondary"><FileText size={48} className="mb-4 text-text-muted" /><h2 className="text-xl font-bold text-text-primary">Files & Resources</h2><p>Coming soon to Team Workspaces</p></div>} />
 
-                    </div>
-                   <div className="flex gap-4 flex-shrink-0">
-                      <button onClick={() => navigate('/dashboard/posted-requests', { state: { openForm: true } })} className="px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-all flex items-center gap-2">
+            <Route path="team-tasks" element={<WorkspaceTasks tasks={tasks} onTaskCreated={() => fetchTasks(searchTerm)} onView={handleView} workspaceMilestones={workspaceMilestones} />} />
+            <Route path="activity" element={<WorkspaceActivityFeed />} />
+            <Route path="/" element={
+              currentWorkspace ? (
+                <TeamDashboard tasks={tasks} />
+              ) : (
+                <div className="space-y-8 animate-fade-up">
+                  
+                  <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 md:gap-8">
+                      <div className="space-y-2">
+                         <h2 className="text-2xl md:text-3xl font-semibold text-text-primary tracking-tight">Welcome back, {userProfile?.name?.split(' ')[0]}</h2>
+                         <p className="text-text-secondary font-medium">You have <span className="text-accent font-semibold">{active + pending} tasks</span> to focus on this week.</p>
+                      </div>
+                     <div className="flex gap-4 flex-shrink-0">
+                        <button onClick={() => navigate('/dashboard/posted-requests', { state: { openForm: true } })} className="px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-all flex items-center gap-2">
                          <Plus size={13} /> Post Task
                       </button>
                    </div>
                 </div>
-
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
                     <div className="lg:col-span-2 space-y-8">
                        <div className="premium-card p-6 min-h-[450px] animate-fade-in">
@@ -626,87 +680,7 @@ export default function Profile({ onLogout }) {
                     </div>
 
                     <div className="space-y-8">
-                       <div className="bg-bg-card border border-border-subtle rounded-3xl p-6 relative overflow-hidden group hover:border-accent/30 transition-all duration-300 shadow-premium animate-fade-in flex flex-col">
-                          <div className="flex items-center justify-between mb-4">
-                             <h3 className="text-lg font-bold text-text-primary tracking-tight">Project Progress</h3>
-                             <button className="text-text-secondary hover:text-text-primary p-1">
-                                <MoreVertical size={16} />
-                             </button>
-                          </div>
 
-                          <div className="flex-1 flex flex-col items-center justify-center relative min-h-[180px]">
-                             <ResponsiveContainer width="100%" height={200}>
-                                <PieChart>
-                                   <Pie
-                                      data={[
-                                         { name: 'Completed', value: completed || 0, color: '#3b82f6' },
-                                         { name: 'In-Progress', value: active || 0, color: '#f59e0b' },
-                                         { name: 'Pending', value: pending || 0, color: '#8b5cf6' }
-                                      ]}
-                                      cx="50%"
-                                      cy="50%"
-                                      innerRadius={60}
-                                      outerRadius={80}
-                                      paddingAngle={5}
-                                      dataKey="value"
-                                      stroke="none"
-                                   >
-                                      <Cell fill="#3b82f6" />
-                                      <Cell fill="#f59e0b" />
-                                      <Cell fill="#8b5cf6" />
-                                      <Label 
-                                         content={({ viewBox }) => {
-                                            const { cx, cy } = viewBox;
-                                            return (
-                                               <g>
-                                                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" className="fill-text-primary text-2xl font-bold">
-                                                     {completionRate}%
-                                                  </text>
-                                                  <text x={cx} y={cy + 20} textAnchor="middle" dominantBaseline="middle" className="fill-text-secondary text-[10px] font-medium uppercase tracking-widest">
-                                                     Total
-                                                  </text>
-                                               </g>
-                                            );
-                                         }}
-                                      />
-                                   </Pie>
-                                   <Tooltip 
-                                      contentStyle={{ 
-                                         backgroundColor: theme === 'dark' ? '#18181b' : '#ffffff', 
-                                         borderColor: theme === 'dark' ? '#27272a' : '#e4e4e7',
-                                         borderRadius: '12px',
-                                         fontSize: '12px',
-                                         color: theme === 'dark' ? '#f4f4f5' : '#18181b'
-                                      }}
-                                   />
-                                </PieChart>
-                             </ResponsiveContainer>
-                       </div>
-
-                       <div className="grid grid-cols-3 gap-2 mt-4">
-                          <div className="flex flex-col gap-1">
-                             <div className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                <span className="text-[10px] font-semibold text-text-secondary">Completed</span>
-                             </div>
-                             <span className="text-sm font-bold text-text-primary ml-3.5">{total > 0 ? Math.round((completed / total) * 100) : 0}%</span>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                             <div className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                                <span className="text-[10px] font-semibold text-text-secondary">In-Progress</span>
-                             </div>
-                             <span className="text-sm font-bold text-text-primary ml-3.5">{total > 0 ? Math.round((active / total) * 100) : 0}%</span>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                             <div className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                                <span className="text-[10px] font-semibold text-text-secondary">Pending</span>
-                             </div>
-                             <span className="text-sm font-bold text-text-primary ml-3.5">{total > 0 ? Math.round((pending / total) * 100) : 0}%</span>
-                          </div>
-                       </div>
-                    </div>
 
                     <div className="premium-card overflow-hidden">
                           <div className="flex items-center justify-between mb-8">
@@ -790,6 +764,7 @@ export default function Profile({ onLogout }) {
                     </div>
                  </div>
               </div>
+              )
             } />
 
             <Route path="invitations" element={
@@ -1001,7 +976,23 @@ export default function Profile({ onLogout }) {
                             />
                          </div>
                          
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                         {currentWorkspace && workspaceMilestones.length > 0 && (
+                            <div className="space-y-2">
+                               <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Milestone</label>
+                               <select 
+                                  value={newTask.milestone_id}
+                                  onChange={(e) => setNewTask({...newTask, milestone_id: e.target.value})}
+                                  className="w-full bg-bg-main border border-border-subtle rounded-xl p-4 text-sm focus:border-accent/30 outline-none text-text-primary" 
+                               >
+                                  <option value="">None</option>
+                                  {workspaceMilestones.map(m => (
+                                    <option key={m.id} value={m.id}>{m.title}</option>
+                                  ))}
+                                </select>
+                            </div>
+                         )}
+                         
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 col-span-1 md:col-span-2">
                              <div className="space-y-2">
                                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Assign to (Email) - Optional</label>
                                <input 
