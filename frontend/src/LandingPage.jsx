@@ -15,7 +15,9 @@ import {
   PlayCircle,
   Moon,
   Sun,
-  Zap
+  Zap,
+  Check,
+  Grid
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
@@ -217,7 +219,7 @@ export default function LandingPage() {
           </h1>
           
           <h2 className="text-lg md:text-xl text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Organize projects and collaborate efficiently with absolute clarity. TaskNest is the sophisticated workspace where ideas turn into achievements.
+            Organize tasks and collaborate efficiently with absolute clarity. TaskNest is the sophisticated workspace where ideas turn into achievements.
           </h2>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-20">
@@ -242,7 +244,7 @@ export default function LandingPage() {
               </div>
               <h3 className="font-bold text-zinc-900 dark:text-white mb-2">AI Roadmap</h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Automatically generate subject-specific milestones using Llama-3 AI for project clarity.
+                Automatically generate subject-specific milestones using Llama-3 AI for task clarity.
               </p>
             </div>
 
@@ -258,11 +260,11 @@ export default function LandingPage() {
 
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-6 rounded-2xl shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-all group">
               <div className="w-10 h-10 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-lg flex items-center justify-center mb-4 group-hover:bg-zinc-900 dark:group-hover:bg-white group-hover:text-white dark:group-hover:text-zinc-950 transition-all">
-                <Users size={20} />
+                <Grid size={20} />
               </div>
-              <h3 className="font-bold text-zinc-900 dark:text-white mb-2">Team Sync</h3>
+              <h3 className="font-bold text-zinc-900 dark:text-white mb-2">Team Workspaces</h3>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Invite peers to your tasks and manage team capacity with built-in permission controls.
+                Create dedicated environments for your teams with member management and role-based permissions.
               </p>
             </div>
 
@@ -337,7 +339,7 @@ export default function LandingPage() {
             {[
               {
                 icon: <FileText size={20} />,
-                title: 'Clean Projects',
+                title: 'Clean Tasks',
                 desc: 'Create detailed task requests with rich text, strict deadlines, and clear requirements without the clutter.'
               },
               {
@@ -348,7 +350,7 @@ export default function LandingPage() {
               {
                 icon: <LayoutDashboard size={20} />,
                 title: 'Centralized Dashboard',
-                desc: 'Track every project from a single, unified view. Know exactly what needs attention and when.'
+                desc: 'Track every task from a single, unified view. Know exactly what needs attention and when.'
               }
             ].map((feat, i) => (
               <div key={i} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 hover:shadow-lg dark:hover:shadow-none hover:-translate-y-1 transition-all duration-300 group">
@@ -362,6 +364,8 @@ export default function LandingPage() {
           </div>
         </section>
 
+
+
         <section id="how-it-works" className="max-w-5xl mx-auto px-6 mb-32">
           <div className="bg-zinc-900 dark:bg-zinc-900/50 dark:border dark:border-zinc-800 rounded-[32px] text-zinc-50 p-10 md:p-16 relative overflow-hidden transition-colors">
 
@@ -372,7 +376,7 @@ export default function LandingPage() {
                   Simple, linear <br /> workflow.
                 </h2>
                 <p className="text-zinc-400 text-lg mb-8 max-w-md">
-                  Stop juggling emails and messy group chats. Move from project creation to completion in three clear steps.
+                  Stop juggling emails and messy group chats. Move from task creation to completion in three clear steps.
                 </p>
               </div>
               
@@ -405,14 +409,14 @@ export default function LandingPage() {
                 role: "Senior Product Designer"
               },
               {
-                quote: "I use this to manage all collaborative engineering projects. The interface just makes sense. Very Stripe-esque.",
+                quote: "I use this to manage all collaborative engineering tasks. The interface just makes sense. Very Stripe-esque.",
                 author: "Sarah Chen",
                 role: "Software Engineer"
               },
               {
                 quote: "Instead of chasing 5 different people for updates and deliverables, I just track it here. The unified view is a lifesaver.",
                 author: "Michael T.",
-                role: "Project Manager"
+                role: "Task Manager"
               }
             ].map((t, i) => (
                <div key={i} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm transition-colors">
@@ -474,7 +478,7 @@ export default function LandingPage() {
                  </p>
                </div>
                <ul className="space-y-4 text-sm text-zinc-600 dark:text-zinc-400 text-left transition-colors">
-                 <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-900 dark:text-white" /> Unlimited projects</li>
+                 <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-900 dark:text-white" /> Unlimited tasks</li>
                  <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-900 dark:text-white" /> AI prioritization</li>
                  <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-900 dark:text-white" /> GitHub sync</li>
                  <li className="flex items-center gap-3"><CheckCircle2 size={14} className="text-zinc-900 dark:text-white" /> Sprint analytics</li>
@@ -509,7 +513,7 @@ export default function LandingPage() {
                  <span className="font-bold tracking-tight dark:text-white">TaskNest</span>
               </div>
               <p className="text-zinc-500 dark:text-zinc-400 text-sm max-w-sm transition-colors">
-                A modern platform to streamline collaboration, project tracking, and productivity.
+                A modern platform to streamline collaboration, task tracking, and productivity.
               </p>
             </div>
             <div>
