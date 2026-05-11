@@ -660,3 +660,64 @@ func JoinWorkspaceByCode(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Joined workspace successfully", "workspace_id": strconv.FormatInt(workspaceID, 10)})
 }
+func RemoveWorkspaceMember(c *gin.Context) {
+	workspaceIDStr := c.Param("id")
+	workspaceID, err := strconv.ParseInt(workspaceIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid workspace ID"})
+		return
+	}
+
+	targetUserIDStr := c.Param("userId")
+	targetUserID, err := strconv.ParseInt(targetUserIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	currentUserID := c.MustGet("user_id").(int64)
+
+	var currentUserRole string
+	err = config.DB.QueryRow(`SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`, workspaceID, currentUserID).Scan(&currentUserRole)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	var targetUserRole string
+	err = config.DB.QueryRow(`SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`, workspaceID, targetUserID).Scan(&targetUserRole)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Member not found in this workspace"})
+		return
+	}
+
+	canRemove := false
+	if currentUserRole == "owner" {
+		if currentUserID != targetUserID {
+			canRemove = true
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Owner cannot remove themselves"})
+			return
+		}
+	} else if currentUserRole == "admin" {
+		if targetUserRole == "member" || targetUserRole == "viewer" {
+			canRemove = true
+		} else {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Admins can only remove members and viewers"})
+			return
+		}
+	}
+
+	if !canRemove {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to remove this member"})
+		return
+	}
+
+	_, err = config.DB.Exec(`DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2`, workspaceID, targetUserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove member"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Member removed successfully"})
+}

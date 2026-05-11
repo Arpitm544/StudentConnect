@@ -10,14 +10,13 @@ export default function JoinWorkspace() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { refreshWorkspaces, selectWorkspace } = useWorkspace();
-  const [status, setStatus] = useState('processing'); // processing, success, error
+  const [status, setStatus] = useState('processing');
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (authLoading) return;
 
     if (!user) {
-      // Store the join code in session so we can return here after login
       sessionStorage.setItem('joinWorkspaceCode', code);
       navigate('/login?redirect=join');
       return;
@@ -28,8 +27,6 @@ export default function JoinWorkspace() {
         const res = await api.post(`/api/workspaces/join/${code}`);
         setStatus('success');
         await refreshWorkspaces();
-        
-        // Auto-select the new workspace and go to dashboard
         if (res.data.workspace_id) {
           setTimeout(() => {
             selectWorkspace(res.data.workspace_id);

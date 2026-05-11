@@ -87,6 +87,7 @@ func SetupRoutes(r *gin.Engine) {
 		workspaces.DELETE("/:id", controllers.DeleteWorkspace)
 
 		workspaces.POST("/:id/members", controllers.InviteWorkspaceMember)
+		workspaces.DELETE("/:id/members/:userId", controllers.RemoveWorkspaceMember)
 		workspaces.GET("/:id/members", controllers.ListWorkspaceMembers)
 
 		workspaces.POST("/:id/tasks", controllers.CreateWorkspaceTask)

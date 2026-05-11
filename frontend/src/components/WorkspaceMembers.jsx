@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useWorkspace } from '../context/WorkspaceContext';
+import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
-import { Users, Mail, Link as LinkIcon, MoreVertical, Shield, User, Copy, Check } from 'lucide-react';
+import { Users, Mail, Link as LinkIcon, MoreVertical, Shield, User, Copy, Check, Trash2 } from 'lucide-react';
 
 export default function WorkspaceMembers() {
   const { currentWorkspace } = useWorkspace();
+  const { user } = useAuth();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [actionLoading, setActionLoading] = useState(null);
 
   useEffect(() => {
     if (currentWorkspace) {
@@ -32,6 +35,32 @@ export default function WorkspaceMembers() {
     if (window.dispatchEvent) {
       window.dispatchEvent(new CustomEvent('openWorkspaceSettings'));
     }
+  };
+
+  const handleRemove = async (targetUserId) => {
+    if (!window.confirm('Are you sure you want to remove this member?')) return;
+    
+    setActionLoading(targetUserId);
+    try {
+      await api.delete(`/api/workspaces/${currentWorkspace.id}/members/${targetUserId}`);
+      setMembers(members.filter(m => m.user_id !== targetUserId));
+    } catch (err) {
+      console.error('Failed to remove member', err);
+      alert(err.response?.data?.error || 'Failed to remove member');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const canRemoveMember = (member) => {
+    if (!currentWorkspace || !user) return false;
+    if (member.user_id === user.id) return false; // Cannot remove self here
+    
+    if (currentWorkspace.user_role === 'owner') return true;
+    if (currentWorkspace.user_role === 'admin') {
+      return member.role === 'member' || member.role === 'viewer';
+    }
+    return false;
   };
 
   if (!currentWorkspace) return null;
@@ -113,6 +142,16 @@ export default function WorkspaceMembers() {
                       </p>
                     </td>
                     <td className="py-4 px-6 text-right">
+                      {canRemoveMember(member) && (
+                        <button 
+                          onClick={() => handleRemove(member.user_id)}
+                          disabled={actionLoading === member.user_id}
+                          className="text-text-secondary hover:text-red-500 p-2 rounded-lg hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                          title="Remove Member"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                       <button className="text-text-secondary hover:text-text-primary p-2 rounded-lg hover:bg-bg-sidebar transition-colors opacity-0 group-hover:opacity-100">
                         <MoreVertical size={16} />
                       </button>

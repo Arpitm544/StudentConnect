@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, Mail, Link as LinkIcon, Trash2, Crown, Shield, User } from 'lucide-react';
 import api from '../api/axios';
 import { useWorkspace } from '../context/WorkspaceContext';
+import { useAuth } from '../context/AuthContext';
+import { X, Users, Mail, Link as LinkIcon, Trash2, Crown, Shield, User } from 'lucide-react';
 
 export default function WorkspaceSettingsModal({ isOpen, onClose }) {
   const { currentWorkspace, refreshWorkspaces, selectWorkspace } = useWorkspace();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('members');
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(null);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('member');
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -63,6 +66,33 @@ export default function WorkspaceSettingsModal({ isOpen, onClose }) {
     navigator.clipboard.writeText(link);
     setSuccess('Invite link copied to clipboard');
     setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const handleRemoveMember = async (targetUserId) => {
+    if (!window.confirm('Are you sure you want to remove this member?')) return;
+    
+    setActionLoading(targetUserId);
+    setError('');
+    try {
+      await api.delete(`/api/workspaces/${currentWorkspace.id}/members/${targetUserId}`);
+      setMembers(members.filter(m => m.user_id !== targetUserId));
+      setSuccess('Member removed successfully');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to remove member');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const canRemoveMember = (member) => {
+    if (!currentWorkspace || !user) return false;
+    if (member.user_id === user.id) return false;
+    
+    if (currentWorkspace.user_role === 'owner') return true;
+    if (currentWorkspace.user_role === 'admin') {
+      return member.role === 'member' || member.role === 'viewer';
+    }
+    return false;
   };
 
   const handleDelete = async () => {
@@ -188,6 +218,17 @@ export default function WorkspaceSettingsModal({ isOpen, onClose }) {
                             {member.role === 'member' && <User size={12} />}
                             {member.role}
                           </span>
+                          
+                          {canRemoveMember(member) && (
+                            <button
+                              onClick={() => handleRemoveMember(member.user_id)}
+                              disabled={actionLoading === member.user_id}
+                              className="p-1.5 text-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all disabled:opacity-50"
+                              title="Remove Member"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
