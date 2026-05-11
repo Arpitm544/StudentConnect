@@ -631,3 +631,32 @@ func ListWorkspaceActivities(c *gin.Context) {
 
 	c.JSON(http.StatusOK, activities)
 }
+func JoinWorkspaceByCode(c *gin.Context) {
+	inviteCode := c.Param("code")
+	userID := c.MustGet("user_id").(int64)
+
+	var workspaceID int64
+	err := config.DB.QueryRow(`SELECT id FROM workspaces WHERE invite_code = $1`, inviteCode).Scan(&workspaceID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid invite code"})
+		return
+	}
+
+	var exists bool
+	config.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2)`, workspaceID, userID).Scan(&exists)
+	if exists {
+		c.JSON(http.StatusConflict, gin.H{"error": "You are already a member of this workspace"})
+		return
+	}
+
+	_, err = config.DB.Exec(
+		`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'member')`,
+		workspaceID, userID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to join workspace"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Joined workspace successfully", "workspace_id": strconv.FormatInt(workspaceID, 10)})
+}

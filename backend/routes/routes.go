@@ -96,6 +96,7 @@ func SetupRoutes(r *gin.Engine) {
 		workspaces.POST("/:id/milestones", controllers.CreateWorkspaceMilestone)
 		workspaces.GET("/:id/milestones", controllers.ListWorkspaceMilestones)
 
+		workspaces.POST("/join/:code", controllers.JoinWorkspaceByCode)
 		workspaces.GET("/:id/activities", controllers.ListWorkspaceActivities)
 	}
 

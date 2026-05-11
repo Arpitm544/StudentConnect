@@ -43,7 +43,13 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
 
           console.log('🎉 Backend Auth Success');
           await onLoginSuccess();
-          navigate('/dashboard');
+          const joinCode = sessionStorage.getItem('joinWorkspaceCode');
+          if (joinCode) {
+            sessionStorage.removeItem('joinWorkspaceCode');
+            navigate(`/join/${joinCode}`);
+          } else {
+            navigate('/dashboard');
+          }
         } else {
           console.log('ℹ️ No redirect result found (Normal on fresh load)');
         }
@@ -91,7 +97,13 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
 
         console.log('🎉 Backend Auth Success');
         await onLoginSuccess();
-        navigate('/dashboard');
+        const joinCode = sessionStorage.getItem('joinWorkspaceCode');
+        if (joinCode) {
+          sessionStorage.removeItem('joinWorkspaceCode');
+          navigate(`/join/${joinCode}`);
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err) {
       console.error('❌ Google Popup Error:', err.code, err.message);
@@ -128,7 +140,13 @@ export default function Auth({ onLoginSuccess, initialIsLogin = true }) {
           throw new Error(data.error || 'Something went wrong');
         }
         await onLoginSuccess();
-        navigate('/dashboard');
+        const joinCode = sessionStorage.getItem('joinWorkspaceCode');
+        if (joinCode) {
+          sessionStorage.removeItem('joinWorkspaceCode');
+          navigate(`/join/${joinCode}`);
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         const response = await fetch(`${API_BASE}/api/auth/signup`, {
           method: 'POST',

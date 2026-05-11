@@ -11,6 +11,7 @@ const Verify      = lazy(() => import('./Verify'));
 const Profile     = lazy(() => import('./Profile'));
 const TaskDetail  = lazy(() => import('./TaskDetail'));
 const LandingPage = lazy(() => import('./LandingPage'));
+const JoinWorkspace = lazy(() => import('./JoinWorkspace'));
 import CommandPalette from './components/CommandPalette.jsx';
 
 function PageLoader() {
@@ -81,6 +82,9 @@ function App() {
               }
             />
 
+            <Route path="/join/:code" element={<JoinWorkspace />} />
+            <Route path="/invite/:code" element={<JoinWorkspace />} />
+            
             <Route
               path="/dashboard/*"
               element={

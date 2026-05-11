@@ -21,7 +21,7 @@ export default function WorkspaceMembers() {
 
   const copyInviteLink = () => {
     if (currentWorkspace?.invite_code) {
-      const link = `${window.location.origin}/invite/${currentWorkspace.invite_code}`;
+      const link = `${window.location.origin}/join/${currentWorkspace.invite_code}`;
       navigator.clipboard.writeText(link);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
