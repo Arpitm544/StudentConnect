@@ -59,7 +59,19 @@ const TimelineStep = memo(function TimelineStep({ step, isCompleted, isActive })
 });
 
 
-const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateLoading, onAccept, onAction, onLeave, hasMilestones, slotsFilled, capacity }) {
+const CTAStrip = memo(function CTAStrip({ 
+  status, 
+  isCreator, 
+  isAssignee, 
+  updateLoading, 
+  onAccept, 
+  onAction, 
+  onLeave, 
+  hasMilestones, 
+  slotsFilled, 
+  capacity,
+  isWorkspaceTask 
+}) {
   if (status === 'pending') {
     return (
       <div className="bg-accent/5 border border-accent/20 rounded-2xl p-6 flex flex-col gap-5 w-full shadow-sm hover:shadow-md transition-all duration-300">
@@ -67,7 +79,7 @@ const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateL
           <div className="text-[15px] text-text-primary font-bold">Open for Proposals</div>
           <div className="text-[13px] text-text-secondary font-medium">This task is waiting to be accepted.</div>
         </div>
-        {!isCreator && !isAssignee && (
+        {!isCreator && !isAssignee && !isWorkspaceTask && (
           <button
             onClick={onAccept}
             disabled={updateLoading}
@@ -119,7 +131,7 @@ const CTAStrip = memo(function CTAStrip({ status, isCreator, isAssignee, updateL
     );
   }
 
-  if (!isCreator && !isAssignee && slotsFilled < capacity) {
+  if (!isCreator && !isAssignee && !isWorkspaceTask && slotsFilled < capacity) {
     return (
       <div className="bg-accent-soft border border-accent/20 rounded-xl p-5 flex flex-col gap-4 w-full">
         <div className="text-[13px] text-accent font-medium">Slots available! Join this collaboration.</div>
@@ -1062,8 +1074,8 @@ export default function TaskDetail() {
                             </button>
                           )}
                           {isAuthorized && <button onClick={() => setMilestoneToDelete(m.id)} className="p-2 text-text-secondary hover:text-red-400 rounded-lg"><Trash2 size={16} /></button>}
-                          {isAssignee && m.status === 'pending' && <button onClick={() => handleMilestoneStatus(m.id, 'in_progress')} className="px-4 py-1.5 bg-accent text-white text-[11px] font-bold rounded-lg">Start</button>}
-                          {isAssignee && m.status === 'in_progress' && <button onClick={() => { setSubmittingMilestone(m); setMileLink(''); setMileNote(''); }} className="px-4 py-1.5 bg-amber-500 text-white text-[11px] font-bold rounded-lg">Submit</button>}
+                          {(isAssignee || (m.assignee_id && String(m.assignee_id) === String(userProfile?.id))) && m.status === 'pending' && <button onClick={() => handleMilestoneStatus(m.id, 'in_progress')} className="px-4 py-1.5 bg-accent text-white text-[11px] font-bold rounded-lg">Start</button>}
+                          {(isAssignee || (m.assignee_id && String(m.assignee_id) === String(userProfile?.id))) && m.status === 'in_progress' && <button onClick={() => { setSubmittingMilestone(m); setMileLink(''); setMileNote(''); }} className="px-4 py-1.5 bg-amber-500 text-white text-[11px] font-bold rounded-lg">Submit</button>}
                           {(m.status === 'submitted' || m.status === 'done') && m.submission_link && <a href={m.submission_link} target="_blank" rel="noreferrer" className="p-2 text-accent hover:bg-accent/10 rounded-lg"><ExternalLink size={16} /></a>}
                           {isCreator && m.status === 'submitted' && (
                             <div className="flex gap-2">
@@ -1169,6 +1181,7 @@ export default function TaskDetail() {
                   hasMilestones={task.milestones?.length > 0}
                   slotsFilled={task.slots_filled || 0}
                   capacity={task.capacity || 1}
+                  isWorkspaceTask={!!task.workspace_id}
                />
             </div>
 
