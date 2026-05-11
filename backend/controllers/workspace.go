@@ -691,19 +691,14 @@ func RemoveWorkspaceMember(c *gin.Context) {
 		return
 	}
 
-	canRemove := false
 	switch currentUserRole {
 	case "owner":
-		if currentUserID != targetUserID {
-			canRemove = true
-		} else {
+		if currentUserID == targetUserID {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Owner cannot remove themselves"})
 			return
 		}
 	case "admin":
-		if targetUserRole == "member" || targetUserRole == "viewer" {
-			canRemove = true
-		} else {
+		if targetUserRole != "member" && targetUserRole != "viewer" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Admins can only remove members and viewers"})
 			return
 		}
