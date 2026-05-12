@@ -236,22 +236,13 @@ export default function Profile({ onLogout }) {
     }
   }, [currentPath, searchTerm, location.state?.openForm, fetchTasks, fetchInvitations, navigate, location.pathname]);
 
-  const myTasks = useMemo(() => {
-    if (!userProfile || !tasks) return [];
-    return tasks.filter(t => {
-      const isAssignee = t.assignee_id && String(t.assignee_id) === String(userProfile.id);
-      const isInAssignees = t.assignees?.some(a => String(a.user_id) === String(userProfile.id));
-      return isAssignee || isInAssignees;
-    });
-  }, [tasks, userProfile]);
-
   const { total, completed, active, pending, dueSoonCount, completionRate, networkCount } = useMemo(() => {
-    const total = myTasks.length;
-    const completed = myTasks.filter((t) => t.status === 'completed').length;
-    const active = myTasks.filter((t) => t.status === 'in_progress' || t.status === 'submitted').length;
+    const total = tasks.length;
+    const completed = tasks.filter((t) => t.status === 'completed').length;
+    const active = tasks.filter((t) => t.status === 'in_progress' || t.status === 'submitted').length;
     const pending = total - (completed + active);
     const now = new Date();
-    const dueSoonCount = myTasks.filter(t => t.deadline && new Date(t.deadline) > now && new Date(t.deadline) < new Date(now.getTime() + 48 * 60 * 60 * 1000)).length;
+    const dueSoonCount = tasks.filter(t => t.deadline && new Date(t.deadline) > now && new Date(t.deadline) < new Date(now.getTime() + 48 * 60 * 60 * 1000)).length;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
     
     const connections = new Set();
@@ -262,7 +253,7 @@ export default function Profile({ onLogout }) {
     const networkCount = connections.size;
     
     return { total, completed, active, pending, dueSoonCount, completionRate, networkCount };
-  }, [myTasks, tasks, userProfile]);
+  }, [tasks, userProfile]);
 
   const chartData = useMemo(() => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -283,7 +274,7 @@ export default function Profile({ onLogout }) {
     last7Days.forEach(dayInfo => {
       const currentDayTimestamp = new Date(dayInfo.key).getTime();
 
-      myTasks.forEach(task => {
+      tasks.forEach(task => {
         if (!task.created_at) return;
         const taskCreatedTime = new Date(task.created_at).getTime();
         const taskUpdatedTime = task.updated_at ? new Date(task.updated_at).getTime() : Infinity;
@@ -314,7 +305,7 @@ export default function Profile({ onLogout }) {
       completions: d.completions,
       inProgress: d.inProgress || 0
     }));
-  }, [myTasks]);
+  }, [tasks]);
 
   const focusTasks = useMemo(() => {
     if (!userProfile) return [];
@@ -678,7 +669,7 @@ export default function Profile({ onLogout }) {
                           <div className="h-[750px] overflow-y-auto rounded-2xl border border-border-subtle/50 custom-scrollbar">
                              <div className="h-full scale-[0.9] origin-top-left w-[111%] -ml-[0.5%]">
                                 <KanbanBoard 
-                                   tasks={myTasks.slice(0, 5)}
+                                   tasks={tasks.slice(0, 5)}
                                    onStatusChange={handleStatusChange}
                                    onView={handleView}
                                    formatDate={formatDate}
@@ -918,7 +909,7 @@ export default function Profile({ onLogout }) {
                      </div>
                   </div>
                   <KanbanBoard 
-                    tasks={myTasks} 
+                    tasks={tasks} 
                     onStatusChange={handleStatusChange} 
                     onView={handleView}
                     formatDate={formatDate}
