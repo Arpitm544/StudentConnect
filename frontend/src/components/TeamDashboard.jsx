@@ -52,11 +52,15 @@ export default function TeamDashboard({ tasks }) {
   }, [tasks]);
 
   const workflowTasks = useMemo(() => {
-    const todoList = tasks.filter(t => t.status === 'todo' || t.status === 'to do' || t.status === 'pending').slice(0, 3);
-    const progressList = tasks.filter(t => t.status === 'in_progress' || t.status === 'in progress').slice(0, 3);
-    const reviewList = tasks.filter(t => t.status === 'in_review' || t.status === 'submitted').slice(0, 3);
+    const myTasks = tasks.filter(t => 
+      String(t.assignee_id) === String(user?.id) || 
+      t.assignees?.some(a => String(a.user_id) === String(user?.id))
+    );
+    const todoList = myTasks.filter(t => t.status === 'todo' || t.status === 'to do' || t.status === 'pending').slice(0, 3);
+    const progressList = myTasks.filter(t => t.status === 'in_progress' || t.status === 'in progress').slice(0, 3);
+    const reviewList = myTasks.filter(t => t.status === 'in_review' || t.status === 'submitted').slice(0, 3);
     return { todo: todoList, inProgress: progressList, inReview: reviewList };
-  }, [tasks]);
+  }, [tasks, user]);
 
   const activityData = useMemo(() => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
