@@ -680,8 +680,71 @@ export default function Profile({ onLogout }) {
                     </div>
 
                     <div className="space-y-8">
-
-
+                      <div className="premium-card p-8">
+                        <div className="flex items-center justify-between mb-8">
+                          <h3 className="text-lg font-bold text-text-primary tracking-tight">Task Progress</h3>
+                          <div className="w-8 h-8 bg-accent-soft rounded-lg flex items-center justify-center text-accent">
+                            <TrendingUp size={18} />
+                          </div>
+                        </div>
+                        <div className="h-[200px] relative">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Tooltip 
+                                content={({ active, payload }) => {
+                                  if (active && payload && payload.length) {
+                                    const data = payload[0].payload;
+                                    const totalVal = completed + active + pending;
+                                    const pct = totalVal > 0 ? Math.round((data.value / totalVal) * 100) : 0;
+                                    return (
+                                      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-2 rounded-xl shadow-xl">
+                                        <p className="text-[10px] font-medium text-text-secondary uppercase tracking-widest mb-1">{data.name}</p>
+                                        <p className="text-sm font-semibold text-text-primary">{pct}% <span className="text-[10px] font-medium text-text-secondary">({data.value})</span></p>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Pie
+                                data={[
+                                  { name: 'Done', value: completed },
+                                  { name: 'Active', value: active },
+                                  { name: 'Pending', value: pending }
+                                ].filter(d => d.value > 0)}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={8}
+                                dataKey="value"
+                              >
+                                <Cell fill="#10B981" />
+                                <Cell fill="#F59E0B" />
+                                <Cell fill="#6366F1" />
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-3xl font-black text-text-primary">{completionRate}%</span>
+                            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mt-1">Done</span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mt-8">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] font-bold text-text-secondary uppercase">Done</span>
+                            <span className="text-sm font-bold text-text-primary">{completed}</span>
+                          </div>
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] font-bold text-text-secondary uppercase">Active</span>
+                            <span className="text-sm font-bold text-text-primary">{active}</span>
+                          </div>
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] font-bold text-text-secondary uppercase">Pending</span>
+                            <span className="text-sm font-bold text-text-primary">{pending}</span>
+                          </div>
+                        </div>
+                      </div>
                     <div className="premium-card overflow-hidden">
                           <div className="flex items-center justify-between mb-8">
                              <div>

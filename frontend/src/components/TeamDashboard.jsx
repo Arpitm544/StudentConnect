@@ -9,7 +9,7 @@ import {
 import WorkspaceActivityFeed from './WorkspaceActivityFeed';
 import ActivityChart from './ActivityChart';
 import { useNavigate } from 'react-router-dom';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 import { useAuth } from '../context/AuthContext';
 
@@ -254,6 +254,22 @@ export default function TeamDashboard({ tasks }) {
             <div className="h-[240px] relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        const totalVal = tasks.length;
+                        const pct = totalVal > 0 ? Math.round((data.value / totalVal) * 100) : 0;
+                        return (
+                          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-2 rounded-xl shadow-xl">
+                            <p className="text-[10px] font-medium text-text-secondary uppercase tracking-widest mb-1">{data.name}</p>
+                            <p className="text-sm font-semibold text-text-primary">{pct}% <span className="text-[10px] font-medium text-text-secondary">({data.value})</span></p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
                   <Pie
                     data={chartData}
                     cx="50%"
